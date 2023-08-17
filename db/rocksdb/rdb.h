@@ -30,7 +30,7 @@ protected:
 
 public:
     // @override
-    const char* get_dbtype() const override {
+    NODISCARD const char* get_dbtype() const override {
         return "rdb";
     }
 

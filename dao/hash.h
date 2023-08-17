@@ -2,12 +2,11 @@
 #include "db/db.h"
 #include "dao_base.h"
 
-namespace pkv {
-namespace dao {
+namespace pkv::dao {
 
 class hash : public dao_base {
 public:
-    hash();
+    hash() = default;
     ~hash() override = default;
 
     int hdel(shared_db& db, const std::string& key, const std::string& name);
@@ -24,14 +23,10 @@ public:
         return fields_;
     }
 
-public:
-    bool to_string(std::string& out);
-
 private:
     std::map<std::string, std::string> fields_;
 
     const char* build();
 };
 
-} // namespace dao
-} // namespace pkv
+} // namespace pkv::dao

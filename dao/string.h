@@ -2,8 +2,7 @@
 #include "db/db.h"
 #include "dao_base.h"
 
-namespace pkv {
-namespace dao {
+namespace pkv::dao {
 
 class string : public dao_base {
 public:
@@ -24,5 +23,4 @@ private:
     const char* data_;
 };
 
-} // namespace dao
-} // namespace pkv
+} // namespace pkv::dao

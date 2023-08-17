@@ -1,14 +1,7 @@
 #include "stdafx.h"
 #include "dao/hash.h"
 
-namespace pkv {
-namespace dao {
-
-hash::hash() {}
-
-bool hash::to_string(std::string& out) {
-    return true;
-}
+namespace pkv::dao {
 
 const char* hash::build() {
     if (this->finished_) {
@@ -28,7 +21,7 @@ const char* hash::build() {
                 cit.second.c_str());
     }
 
-    this->result_ = yyjson_mut_write(this->w_doc_, 0, NULL);
+    this->result_ = yyjson_mut_write(this->w_doc_, 0, nullptr);
 
     this->finished_ = true;
     return result_;
@@ -46,7 +39,7 @@ bool hash::hset(shared_db& db, const std::string& key, const std::string& name,
         return false;
     }
     //printf(">>>%s<<<\r\n", this->result_);
-    return this->save(db, key, this->result_);
+    return dao_base::save(db, key, this->result_);
 }
 
 int hash::hdel(shared_db& db, const std::string& key, const std::string& name) {
@@ -66,7 +59,7 @@ int hash::hdel(shared_db& db, const std::string& key, const std::string& name) {
         logger_error("build for hset error, key=%s, name=%s",
               key.c_str(), name.c_str());
         return -1;
-    } else if (!this->save(db, key, this->result_)) {
+    } else if (!dao_base::save(db, key, this->result_)) {
         return -1;
     }
 
@@ -134,5 +127,4 @@ bool hash::hgetall(shared_db& db, const std::string& key) {
     return true;
 }
 
-} // namespace dao
 } // namespace pkv

@@ -32,7 +32,7 @@ bool rdb::open(const char* path) {
     options.IncreaseParallelism();
     // options.OptimizeLevelStyleCompaction();
     options.create_if_missing = true;
-    Status s = DB::Open(options, path_.c_str(), &db_);
+    Status s = DB::Open(options, path_, &db_);
     if (!s.ok()) {
         logger_error("open %s db error: %s", path_.c_str(), s.getState());
         return false;

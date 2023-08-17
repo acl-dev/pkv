@@ -1,14 +1,7 @@
 #include "stdafx.h"
 #include "key.h"
 
-namespace pkv {
-namespace dao {
-
-key::key() {}
-
-bool key::to_string(std::string& out) {
-    return true;
-}
+namespace pkv::dao {
 
 bool key::del(shared_db& db, const std::string& keyname) {
     return db->del(keyname);
@@ -23,5 +16,4 @@ bool key::type(shared_db& db, const std::string& keyname, std::string& out) {
     return true;
 }
 
-} // namespace dao
-} // namespace pkv
+} // namespace pkv::dao

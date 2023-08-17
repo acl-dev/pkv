@@ -34,12 +34,12 @@ protected:
 
 public:
     // @override
-    const char* get_dbtype() const override {
+    NODISCARD const char* get_dbtype() const override {
         return "wdb";
     }
 
 public:
-    WT_CONNECTION* get_db() const {
+    NODISCARD WT_CONNECTION* get_db() const {
         return db_;
     }
 

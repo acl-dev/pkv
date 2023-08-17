@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "string.h"
 
-namespace pkv {
-namespace dao {
+namespace pkv::dao {
 
 string::string() : data_(nullptr) {}
 
@@ -30,7 +29,7 @@ const char* string::build() {
     yyjson_mut_obj_add_str(this->w_doc_, this->w_root_, "type", "string");
     yyjson_mut_obj_add_int(this->w_doc_, this->w_root_, "expire", -1);
     yyjson_mut_obj_add_str(this->w_doc_, this->w_root_, "data", data_);
-    this->result_ = yyjson_mut_write(this->w_doc_, 0, NULL);
+    this->result_ = yyjson_mut_write(this->w_doc_, 0, nullptr);
 
     finished_ = true;
     return result_;
@@ -41,7 +40,7 @@ bool string::set(shared_db& db, const std::string& key, const char* data) {
     if (build() == nullptr) {
         return false;
     }
-    return this->save(db, key, this->result_);
+    return dao_base::save(db, key, this->result_);
 }
 
 bool string::get(shared_db& db, const std::string& key, std::string& out) {
@@ -69,5 +68,4 @@ bool string::get(shared_db& db, const std::string& key, std::string& out) {
     return false;
 }
 
-} // namespace dao
-} // namespace pkv
+} // namespace pkv::dao

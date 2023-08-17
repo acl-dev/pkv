@@ -1,8 +1,7 @@
 #include "stdafx.h"
 #include "dao_base.h"
 
-namespace pkv {
-namespace dao {
+namespace pkv::dao {
 
 dao_base::dao_base()
 : finished_(false)
@@ -30,7 +29,7 @@ dao_base::~dao_base() {
 
 void dao_base::create_writer() {
     if (w_doc_ == nullptr) {
-        w_doc_ = yyjson_mut_doc_new(NULL);
+        w_doc_ = yyjson_mut_doc_new(nullptr);
         w_root_ = yyjson_mut_obj(w_doc_);
         yyjson_mut_doc_set_root(w_doc_, w_root_);
     }
@@ -70,5 +69,4 @@ bool dao_base::save(shared_db& db, const std::string& key,
     return db->set(key, data);
 }
 
-} // namespace dao
-} // namespace pkv
+} // namespace pkv::dao
