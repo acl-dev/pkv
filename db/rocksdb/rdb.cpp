@@ -73,6 +73,27 @@ bool rdb::del(const std::string& key) {
     return true;
 }
 
+bool rdb::scan(std::vector<std::string>& keys, size_t max) {
+    rocksdb::Iterator* it = db_->NewIterator(rocksdb::ReadOptions());
+    if (this->scan_key_.empty()) {
+	it->SeekToFirst();
+    } else {
+	it->Seek(this->scan_key_);
+    }
+
+    for (size_t i = 0; i < max && it->Valid(); i++) {
+	auto key = it->key().ToString();
+	keys.emplace_back(key);
+	it->Next();
+    }
+
+    if (!keys.empty()) {
+	this->scan_key_ = keys[keys.size() - 1];
+    }
+
+    return true;
+}
+
 } // namespace pkv
 
 #endif // HAS_ROCKSDB

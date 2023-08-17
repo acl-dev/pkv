@@ -50,4 +50,8 @@ shared_db db::create_wdb() {
 #endif
 }
 
+void db::set_scan_key(const std::string &key) {
+    scan_key_ = key;
+}
+
 } // namespace pkv

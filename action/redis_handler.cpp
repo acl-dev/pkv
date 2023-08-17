@@ -82,8 +82,11 @@ bool redis_handler::handle_one(const redis_object &obj) {
         redis_key redis(*this, obj);
         return redis.del(builder_);
     } else if (EQ(cmd, "TYPE")) {
+	redis_key redis(*this, obj);
+	return redis.type(builder_);
+    } else if (EQ(cmd, "SCAN")) {
         redis_key redis(*this, obj);
-        return redis.type(builder_);
+	return redis.scan(builder_);
     } else if (EQ(cmd, "HSET")) {
         redis_hash redis(*this, obj);
         return redis.hset(builder_);
@@ -105,6 +108,9 @@ bool redis_handler::handle_one(const redis_object &obj) {
     } else if (EQ(cmd, "CONFIG")) {
         redis_server redis(*this, obj);
         return redis.config(builder_);
+    } else if (EQ(cmd, "QUIT")) {
+	(void) conn_.write("+OK\r\n");
+	return false;
     }
 
     std::string err;

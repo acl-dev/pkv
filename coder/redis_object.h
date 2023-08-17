@@ -105,6 +105,7 @@ public:
     const char* parse_strend(const char* data, size_t& len);
     const char* parse_arlen(const char* data, size_t& len);
     const char* parse_array(const char* data, size_t& len);
+    const char* parse_cmdline(const char* data, size_t& len);
 };
 
 } // namespace pkv

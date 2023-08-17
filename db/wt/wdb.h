@@ -32,6 +32,9 @@ protected:
     // @override
     bool del(const std::string& key) override;
 
+    // @override
+    bool scan(std::vector<std::string>& keys, size_t max) override;
+
 public:
     // @override
     NODISCARD const char* get_dbtype() const override {

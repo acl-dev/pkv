@@ -16,6 +16,7 @@ enum {
     redis_s_strend,
     redis_s_arlen,
     redis_s_array,
+    redis_s_cmdline,
     redis_s_null,
     redis_s_finish,
 };

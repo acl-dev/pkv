@@ -117,6 +117,7 @@ static struct status_machine status_tab[] = {
     { redis_s_strend,   &redis_object::parse_strend     },
     { redis_s_arlen,    &redis_object::parse_arlen      },
     { redis_s_array,    &redis_object::parse_array      },
+    { redis_s_cmdline,  &redis_object::parse_cmdline    },
 };
 
 const char* redis_object::update(const char *data, size_t& len) {
@@ -191,9 +192,9 @@ const char* redis_object::parse_begin(const char* data, size_t& len) {
     case '*':	// ARRAY
         status_ = redis_s_arlen;
         break;
-    default:	// INVALID
-        status_ = redis_s_null;
-        break;
+    default:	// CMDLINE
+	status_ = redis_s_cmdline;
+	return data;
     }
 
     len--;
@@ -333,6 +334,29 @@ const char* redis_object::parse_array(const char* data, size_t& len) {
     return parse_object(data, len);
 }
 
+const char* redis_object::parse_cmdline(const char *data, size_t &len) {
+    bool found = false;
+    data = get_line(data, len, buf_, found);
+    if (!found) {
+        assert(len == 0);
+	return data;
+    }
+
+    acl::string buf(buf_.c_str());
+    auto& tokens = buf.split2(" \t", true);
+    for (auto& it : tokens) {
+	auto obj = cache_.get();
+	obj->set_parent(this);
+	obj->buf_ = it.c_str();
+	obj->type_ = REDIS_OBJ_STRING ;
+	CHECK(objs_);
+	objs_->push_back(obj);
+    }
+
+    type_ = REDIS_OBJ_ARRAY;
+    status_ = redis_s_finish;
+    return data;
+}
 const char* redis_object::get_data(const char* data, size_t& len, size_t want) {
     size_t n = buf_.size();
     assert(n < want);

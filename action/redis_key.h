@@ -18,6 +18,7 @@ public:
 
     bool del(redis_coder& result);
     bool type(redis_coder& result);
+    bool scan(redis_coder& result);
 };
 
 } // namespace pkv

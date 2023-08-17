@@ -120,6 +120,10 @@ bool wdb::del(const std::string &key) {
     return ret;
 }
 
+bool wdb::scan(std::vector<std::string> &keys, size_t max) {
+    return false;
+}
+
 } // namespace pkv
 
 #endif // HAS_WT
