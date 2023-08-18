@@ -60,10 +60,15 @@ bool redis_key::type(redis_coder& result) {
     return true;
 }
 
-bool redis_key::scan(redis_coder& result) {
+bool redis_key::scan(std::string& scan_key, redis_coder& result) {
     if (obj_.size() < 2) {
         logger_error("invalid SCAN params' size=%zd", obj_.size());
 	return false;
+    }
+
+    int cursor = std::atoi(obj_[1]);
+    if (cursor <= 0) {
+        scan_key.clear();
     }
 
     std::string pattern;
@@ -88,7 +93,7 @@ bool redis_key::scan(redis_coder& result) {
 
     std::vector<std::string> keys;
     dao::key dao;
-    if (!dao.scan(handler_.get_db(), keys, count)) {
+    if (!dao.scan(handler_.get_db(), scan_key, keys, count)) {
 	logger_error("scan error");
 	return false;
     }
@@ -100,6 +105,7 @@ bool redis_key::scan(redis_coder& result) {
 	return true;
     }
 
+    scan_key = keys[keys.size() - 1]; // Save the last key.
     auto& o = result.create_object();
     o.create_child().set_string(std::to_string(keys.size()));
 

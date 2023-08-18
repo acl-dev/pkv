@@ -2,10 +2,14 @@
 
 #include "db/db.h"
 
+namespace pkv {
+    class redis_service;
+} // namespace pkv
+
 class master_service : public acl::master_fiber {
 public:
-    master_service() = default;
-    ~master_service() override = default;
+    master_service();
+    ~master_service() override;
 
     void close_db();
 
@@ -30,6 +34,7 @@ protected:
 
 private:
     pkv::shared_db db_ = nullptr;
+    pkv::redis_service* service_;
 
     void run(acl::socket_stream& conn, size_t size);
 };

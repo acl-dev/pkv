@@ -16,8 +16,9 @@ bool key::type(shared_db& db, const std::string& keyname, std::string& out) {
     return true;
 }
 
-bool key::scan(shared_db& db, std::vector<std::string>& keys, size_t max) {
-    return db->scan(keys, max);
+bool key::scan(shared_db& db, const std::string& seek_key,
+       std::vector<std::string>& keys, size_t max) {
+    return db->scan(seek_key, keys, max);
 }
 
 } // namespace pkv::dao

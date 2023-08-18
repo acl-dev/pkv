@@ -29,7 +29,8 @@ protected:
     bool del(const std::string& key) override;
 
     // @override
-    bool scan(std::vector<std::string>& keys, size_t max) override;
+    bool scan(const std::string& key, std::vector<std::string>& keys,
+	      size_t max) override;
 
 public:
     // @override

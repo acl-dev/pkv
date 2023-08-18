@@ -5,19 +5,18 @@
 #include "stdafx.h"
 #include "coder/redis_object.h"
 #include "coder/redis_coder.h"
+#include "redis_service.h"
 #include "redis_key.h"
-#include "redis_string.h"
-#include "redis_hash.h"
-#include "redis_server.h"
 #include "redis_handler.h"
 
 namespace pkv {
 
 #define EQ  !strcasecmp
 
-redis_handler::redis_handler(shared_db& db, redis_coder& parser,
-     acl::socket_stream& conn)
-: db_(db)
+redis_handler::redis_handler(redis_service& service, shared_db & db,
+     redis_coder& parser, acl::socket_stream& conn)
+: service_(service)
+, db_(db)
 , parser_(parser)
 , conn_(conn)
 , builder_(parser.get_cache())
@@ -70,44 +69,18 @@ bool redis_handler::handle_one(const redis_object &obj) {
         return false;
     }
 
+    auto handler = service_.get_handler(cmd);
+    if (handler != nullptr) {
+	return (*handler)(*this, obj, builder_);
+    }
+
     //printf(">>>%s(%d): cmd=%s\r\n", __func__, __LINE__, cmd);
 
-    if (EQ(cmd, "SET")) {
-        redis_string redis(*this, obj);
-        return redis.set(builder_);
-    } else if (EQ(cmd, "GET")) {
-        redis_string redis(*this, obj);
-        return redis.get(builder_);
-    } else if (EQ(cmd, "DEL")) {
+    // The other commands left.
+
+    if (EQ(cmd, "SCAN")) {
         redis_key redis(*this, obj);
-        return redis.del(builder_);
-    } else if (EQ(cmd, "TYPE")) {
-	redis_key redis(*this, obj);
-	return redis.type(builder_);
-    } else if (EQ(cmd, "SCAN")) {
-        redis_key redis(*this, obj);
-	return redis.scan(builder_);
-    } else if (EQ(cmd, "HSET")) {
-        redis_hash redis(*this, obj);
-        return redis.hset(builder_);
-    } else if (EQ(cmd, "HGET")) {
-        redis_hash redis(*this, obj);
-        return redis.hget(builder_);
-    } else if (EQ(cmd, "HDEL")) {
-        redis_hash redis(*this, obj);
-        return redis.hdel(builder_);
-    } else if (EQ(cmd, "HMSET")) {
-        redis_hash redis(*this, obj);
-        return redis.hmset(builder_);
-    } else if (EQ(cmd, "HMGET")) {
-        redis_hash redis(*this, obj);
-        return redis.hmget(builder_);
-    } else if (EQ(cmd, "HGETALL")) {
-        redis_hash redis(*this, obj);
-        return redis.hgetall(builder_);
-    } else if (EQ(cmd, "CONFIG")) {
-        redis_server redis(*this, obj);
-        return redis.config(builder_);
+	return redis.scan(scan_key_, builder_);
     } else if (EQ(cmd, "QUIT")) {
 	(void) conn_.write("+OK\r\n");
 	return false;

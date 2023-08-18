@@ -2,6 +2,7 @@
 #include "coder/redis_ocache.h"
 #include "coder/redis_coder.h"
 #include "action/redis_handler.h"
+#include "action/redis_service.h"
 #include "master_service.h"
 
 static char *var_cfg_dbpath;
@@ -43,6 +44,14 @@ acl::master_int64_tbl var_conf_int64_tab[] = {
 
 using namespace pkv;
 
+master_service::master_service() {
+    service_ = new pkv::redis_service;
+}
+
+master_service::~master_service() {
+    delete service_;
+}
+
 void master_service::on_accept(acl::socket_stream& conn) {
     //conn.set_rw_timeout(var_cfg_io_timeout);
     //logger(">>>accept connection: %d", conn.sock_handle());
@@ -64,7 +73,7 @@ void master_service::run(acl::socket_stream& conn, size_t size) {
     }
 
     pkv::redis_coder parser(*__cache);
-    pkv::redis_handler handler(db_, parser, conn);
+    pkv::redis_handler handler(*service_, db_, parser, conn);
     char buf[size];
 
     while(true) {

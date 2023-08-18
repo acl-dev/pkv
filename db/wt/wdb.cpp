@@ -120,7 +120,8 @@ bool wdb::del(const std::string &key) {
     return ret;
 }
 
-bool wdb::scan(std::vector<std::string> &keys, size_t max) {
+bool wdb::scan(const std::string& seek_key, std::vector<std::string> &keys,
+       size_t max) {
     return false;
 }
 
