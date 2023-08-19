@@ -13,6 +13,9 @@ public:
     static bool save(shared_db& db, const std::string& key, const std::string& data);
     yyjson_val* read(shared_db& db, const std::string& key);
 
+public:
+    void reset();
+
 protected:
     bool finished_;
     std::string type_;

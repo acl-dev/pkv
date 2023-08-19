@@ -122,7 +122,8 @@ bool redis_string::get(redis_coder& result) {
     std::string buff;
     dao::string dao;
     if (!dao.get(handler_.get_db(), key, buff)) {
-        return false;
+        result.create_object().set_string("");
+        return true;
     }
     result.create_object().set_string(buff);
 #endif

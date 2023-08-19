@@ -3,6 +3,7 @@
 //
 
 #include "stdafx.h"
+#include "dao/string.h"
 #include "coder/redis_ocache.h"
 #include "coder/redis_coder.h"
 
@@ -158,40 +159,50 @@ bool test_redis_build() {
     return true;
 }
 
-size_t redis_build_bench(size_t max) {
-#if 0
-    redis_ocache cache;
-    size_t i = 0;
+void redis_build_bench(size_t max) {
 
-    for (; i < max; i++) {
-        redis_object obj(cache);
-
-        obj.set_number(-1);
-    }
-#elif 1
     redis_ocache cache;
     redis_coder builder(cache);
     size_t i = 0;
 
+    struct timeval begin, end;
+    printf(">>>Begin building redis benchmark\r\n");
+    gettimeofday(&begin, NULL);
+
     for (; i < max; i++) {
         std::string buff;
 
-        // builder.create_object()
-        //  .create_child().set_string("string", true)
-        //  .create_child().set_number(-1);
-        //builder.create_object().set_status("hello world!");
+#if 1
+        builder.create_object()
+            .create_child().set_string("string", true)
+            .create_child().set_number(-1, true)
+            .create_child().set_string("hello world");
+#else
         //builder.create_object().set_status("hello world!");
         //builder.create_object().set_number(-1);
-        builder.create_object().set_number(-1);
+        builder.create_object().set_string("hello world");
+#endif
+
         builder.to_string(buff);
+        if (i == 0) {
+            printf("%s\r\n", buff.c_str());
+        }
         builder.clear();
     }
-#else
-    size_t i = 0;
 
-    for (; i < max; i++) {
+    gettimeofday(&end, NULL);
+    double cost = acl::stamp_sub(end, begin);
+    double speed = (max * 1000) / (cost > 0 ? cost : 0.00001);
+    printf(">>>Redis builder, count=%zd, cost=%.2f, speed=%.2f\r\n", max, cost, speed);
+
+    printf("\r\n");
+    printf(">>>Begin building yyjson benchmark\r\n");
+
+    gettimeofday(&begin, NULL);
+
+    dao::string dao;
+    for (i = 0; i < max; i++) {
         std::string buff;
-        dao::string dao;
         dao.set_string("hello world");
         if (!dao.to_string(buff)) {
             printf("to_string error\r\n");
@@ -200,22 +211,31 @@ size_t redis_build_bench(size_t max) {
         if (i == 0) {
             printf("%s\r\n", buff.c_str());
         }
+        dao.reset();
     }
-#endif
-        return i;
+
+    gettimeofday(&end, NULL);
+    cost = acl::stamp_sub(end, begin);
+    speed = (max * 1000) / (cost > 0 ? cost : 0.00001);
+    printf(">>>yyjson builder, count=%zd, cost=%.2f, speed=%.2f\r\n", max, cost, speed);
+    printf("\r\n");
 }
 
-size_t redis_parse_bench(const char* filepath, size_t max) {
+void redis_parse_bench(const char* filepath, size_t max) {
     acl::string buff;
     if (!acl::ifstream::load(filepath, buff)) {
         printf("Load from %s error %s\r\n", filepath, acl::last_serror());
-        return 0;
+        return;
     }
 
+    printf(">>>Begin to parse benchmark\r\n");
     printf("Load ok:\r\n%s\r\n", buff.c_str());
 
     redis_ocache cache;
     redis_coder parser(cache);
+
+    struct timeval begin, end;
+    gettimeofday(&begin, NULL);
 
     size_t i = 0;
 
@@ -231,7 +251,10 @@ size_t redis_parse_bench(const char* filepath, size_t max) {
         parser.clear();
     }
 
-    return i;
+    gettimeofday(&end, NULL);
+    double cost = acl::stamp_sub(end, begin);
+    double speed = (i * 1000) / (cost > 0 ? cost : 0.00001);
+    printf(">>>Parse ok, count=%zd, cost=%.2f, speed=%.2f\r\n", i, cost, speed);
 }
 
 } // namespace pkv

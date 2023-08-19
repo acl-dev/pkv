@@ -8,7 +8,7 @@
 
 namespace pkv {
 
-#if 1
+#if 0
 #define EMPTY(x) ((x).size() == 0)
 #else
 #define EMPTY(x) ((x).empty())
@@ -27,7 +27,7 @@ namespace pkv {
 redis_object::redis_object(redis_ocache& cache)
 : parent_(this)
 , cache_(cache)
-, objs_(NULL)
+, objs_(nullptr)
 {
 }
 
@@ -438,16 +438,8 @@ bool redis_object::to_string(std::string& out) const {
 #define CRLF    "\r\n"
 #endif
 
-#define USE_APPEND
-
     if (objs_ && !EMPTY(*objs_)) {
-#ifdef USE_APPEND
         out.append("*").append(std::to_string(objs_->size())).append(CRLF);
-#else
-        out += "*";
-        out += std::to_string(objs_->size());
-        out += CRLF;
-#endif
 
         for (const auto& obj : *objs_) {
             if (!obj->to_string(out)) {
@@ -460,43 +452,21 @@ bool redis_object::to_string(std::string& out) const {
 
     switch (type_) {
     case REDIS_OBJ_STATUS:
-#ifdef USE_APPEND
         out.append("+").append(buf_.c_str(), buf_.size()).append(CRLF);
-#else
-	out += "+";
-	out.append(buf_.c_str(), buf_.size());
-	out += CRLF;
-#endif
         break;
     case REDIS_OBJ_ERROR:
-#ifdef USE_APPEND
         out.append("-").append(buf_.c_str(), buf_.size()).append(CRLF);
-#else
-	out += "-";
-	out.append(buf_.c_str(), buf_.size());
-	out += CRLF;
-#endif
         break;
     case REDIS_OBJ_INTEGER:
-#ifdef USE_APPEND
         out.append(":").append(buf_.c_str(), buf_.size()).append(CRLF);
-#else
-	out += ":";
-	out.append(buf_.c_str(), buf_.size());
-	out += CRLF;
-#endif
         break;
     case REDIS_OBJ_STRING:
-#ifdef USE_APPEND
-        out.append("$").append(std::to_string(buf_.size())).append(CRLF)
-            .append(buf_.c_str(), buf_.size()).append(CRLF);
-#else
-	out += "$";
-	out += std::to_string(buf_.size());
-	out += CRLF;
-	out.append(buf_.c_str(), buf_.size());
-	out += CRLF;
-#endif
+        if (EMPTY(buf_)) {
+            out.append("$-1").append(CRLF);
+        } else {
+            out.append("$").append(std::to_string(buf_.size())).append(CRLF)
+                .append(buf_.c_str(), buf_.size()).append(CRLF);
+        }
         break;
     //case acl::REDIS_RESULT_ARRAY:
     //    break;

@@ -5,11 +5,10 @@
 #include "stdafx.h"
 #include "redis_ocache.h"
 #include "redis_coder.h"
-#include "dao/string.h"
 
 namespace pkv {
 
-#if 1
+#if 0
 #define EMPTY(x) ((x).size() == 0)
 #else
 #define EMPTY(x) ((x).empty())

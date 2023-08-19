@@ -25,7 +25,7 @@ bool rdb::open(const char* path) {
 
     if (acl_make_dirs(path_.c_str(), 0755) == -1) {
         logger_error("create %s error=%s", path_.c_str(), acl::last_serror());
-        return -1;
+        return false;
     }
 
     Options options;
@@ -55,8 +55,10 @@ bool rdb::set(const std::string& key, const std::string& value) {
 bool rdb::get(const std::string& key, std::string& value) {
     Status s = db_->Get(ReadOptions(), key, &value);
     if (!s.ok()) {
-        logger_error("get from %s error: %s, key=%s, data=%zd",
-            path_.c_str(), s.getState(), key.c_str(), value.size());
+        if (!s.IsNotFound()) {
+            logger_error("get from %s error: %s, key=%s, data=%zd",
+                path_.c_str(), s.getState(), key.c_str(), value.size());
+        }
         return false;
     }
 
@@ -77,20 +79,20 @@ bool rdb::scan(const std::string& seek_key, std::vector<std::string>& keys,
        size_t max) {
     rocksdb::Iterator* it = db_->NewIterator(rocksdb::ReadOptions());
     if (seek_key.empty()) {
-	it->SeekToFirst();
+        it->SeekToFirst();
     } else {
-	it->Seek(seek_key);
-	if (it->Valid()) {
-	    it->Next();
-	} else {
-	    return true;
-	}
+        it->Seek(seek_key);
+        if (it->Valid()) {
+            it->Next();
+        } else {
+            return true;
+        }
     }
 
     for (size_t i = 0; i < max && it->Valid(); i++) {
-	auto key = it->key().ToString();
-	keys.emplace_back(key);
-	it->Next();
+        auto key = it->key().ToString();
+        keys.emplace_back(key);
+        it->Next();
     }
 
     return true;

@@ -27,6 +27,18 @@ dao_base::~dao_base() {
     }
 }
 
+void dao_base::reset() {
+    finished_ = false;
+    if (result_) {
+        free(result_);
+        result_ = nullptr;
+    }
+    if (w_doc_) {
+        yyjson_mut_doc_free(w_doc_);
+        w_doc_ = nullptr;
+    }
+}
+
 void dao_base::create_writer() {
     if (w_doc_ == nullptr) {
         w_doc_ = yyjson_mut_doc_new(nullptr);

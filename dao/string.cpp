@@ -40,6 +40,7 @@ bool string::set(shared_db& db, const std::string& key, const char* data) {
     if (build() == nullptr) {
         return false;
     }
+    //printf(">>key=%s\r\n", key.c_str());
     return dao_base::save(db, key, this->result_);
 }
 

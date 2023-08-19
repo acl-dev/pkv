@@ -55,7 +55,9 @@ bool wt_sess::get(const std::string &key, std::string &value) {
     curs_->set_key(curs_, key.c_str());
     int ret = curs_->search(curs_);
     if (ret != 0) {
-        logger("search key=%s error=%d", key.c_str(), ret);
+        if (ret != WT_NOTFOUND) {
+            logger("search key=%s error=%d", key.c_str(), ret);
+        }
         curs_->reset(curs_);
         return false;
     }
