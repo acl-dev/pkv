@@ -16,8 +16,13 @@ public:
     redis_key(redis_handler& handler, const redis_object& obj);
     ~redis_key() override = default;
 
+    bool exec(const char* cmd, redis_coder& result);
+
+public:
     bool del(redis_coder& result);
     bool type(redis_coder& result);
+    bool expire(redis_coder& result);
+    bool ttl(redis_coder& result);
     bool scan(std::string& scan_key, redis_coder& result);
 };
 

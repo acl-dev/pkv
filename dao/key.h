@@ -11,6 +11,8 @@ public:
 
     bool del(shared_db& db, const std::string& key);
     bool type(shared_db& db, const std::string& key, std::string& out);
+    bool expire(shared_db& db, const std::string& key, int n);
+    bool ttl(shared_db& db, const std::string& key, int& n);
     bool scan(shared_db& db, const std::string& seek_key,
 	      std::vector<std::string>& keys, size_t max);
 

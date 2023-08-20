@@ -5,6 +5,7 @@ namespace pkv::dao {
 
 dao_base::dao_base()
 : finished_(false)
+, expire_(-1)
 , result_(nullptr)
 , w_doc_(nullptr)
 , w_root_(nullptr)
@@ -56,12 +57,14 @@ yyjson_val* dao_base::read(shared_db& db, const std::string& key) {
     r_doc_ = yyjson_read(buff.c_str(), buff.size(), 0);
 
     if (r_doc_ == nullptr) {
+        db->del(key);
         return nullptr;
     }
 
     r_root_ = yyjson_doc_get_root(r_doc_);
     yyjson_val* val = yyjson_obj_get(r_root_, "type");
     if (val == nullptr) {
+        db->del(key);
         return nullptr;
     }
 
@@ -70,6 +73,17 @@ yyjson_val* dao_base::read(shared_db& db, const std::string& key) {
     if (type && len > 0) {
         type_ = type;
     } else {
+        return nullptr;
+    }
+
+    val = yyjson_obj_get(r_root_, "expire");
+    if (val == nullptr) {
+        db->del(key);
+        return nullptr;
+    }
+    expire_ = (time_t) yyjson_get_sint(val);
+    if (expire_ >= 0 && expire_ < time(nullptr)) {
+        db->del(key);
         return nullptr;
     }
 

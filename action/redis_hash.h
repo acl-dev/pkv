@@ -14,6 +14,9 @@ public:
     redis_hash(redis_handler& handler, const redis_object& obj);
     ~redis_hash() override = default;
 
+    bool exec(const char* cmd, redis_coder& result);
+
+public:
     bool hset(redis_coder& result);
     bool hget(redis_coder& result);
     bool hdel(redis_coder& result);

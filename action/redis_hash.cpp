@@ -12,9 +12,30 @@
 
 namespace pkv {
 
+#define EQ  !strcasecmp
+
 redis_hash::redis_hash(redis_handler &handler, const redis_object &obj)
 : redis_command(handler, obj)
 {}
+
+bool redis_hash::exec(const char* cmd, redis_coder& result) {
+    if (EQ(cmd, "HSET")) {
+        return hset(result);
+    } else if (EQ(cmd, "HGET")) {
+        return hget(result);
+    } else if (EQ(cmd, "HDEL")) {
+        return hdel(result);
+    } else if (EQ(cmd, "HMSET")) {
+        return hmset(result);
+    } else if (EQ(cmd, "HMGET")) {
+        return hmget(result);
+    } else if (EQ(cmd, "HGETALL")) {
+        return hgetall(result);
+    } else {
+        logger_error("Not support, cmd=%s", cmd);
+        return false;
+    }
+}
 
 bool redis_hash::hset(redis_coder &result) {
     if (obj_.size() < 4) {

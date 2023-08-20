@@ -17,6 +17,15 @@ redis_server::redis_server(redis_handler &handler, const redis_object &obj)
 : redis_command(handler, obj)
 {}
 
+bool redis_server::exec(const char* cmd, redis_coder& result) {
+    if (EQ(cmd, "config")) {
+        return config(result);
+    } else {
+        logger_error("Not support, cmd=%s", cmd);
+        return false;
+    }
+}
+
 bool redis_server::config(redis_coder &result) {
     if (obj_.size() < 3) {
         logger_error("invalid CONFIG command's size=%zd < 3", obj_.size());

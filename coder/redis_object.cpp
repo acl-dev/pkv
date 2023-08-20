@@ -438,7 +438,7 @@ bool redis_object::to_string(std::string& out) const {
 #define CRLF    "\r\n"
 #endif
 
-    if (objs_ && !EMPTY(*objs_)) {
+    if (objs_ /* && !EMPTY(*objs_) */) {
         out.append("*").append(std::to_string(objs_->size())).append(CRLF);
 
         for (const auto& obj : *objs_) {
@@ -448,6 +448,7 @@ bool redis_object::to_string(std::string& out) const {
         }
     }
 
+    //printf(">>>type-%d\n", (int) type_);
     //assert(UNLIKELY(!EMPTY(buf_)));
 
     switch (type_) {
@@ -468,8 +469,9 @@ bool redis_object::to_string(std::string& out) const {
                 .append(buf_.c_str(), buf_.size()).append(CRLF);
         }
         break;
-    //case acl::REDIS_RESULT_ARRAY:
-    //    break;
+    case REDIS_OBJ_ARRAY:
+        //printf(">>>>>>array<<<<<\n");
+        break;
     default:
         break;
     }
@@ -520,6 +522,10 @@ redis_object& redis_object::create_child() {
 
     cnt_ = objs_->size();
     return *obj;
+}
+
+void redis_object::create_empty() {
+    CHECK(objs_);
 }
 
 } // namespace pkv

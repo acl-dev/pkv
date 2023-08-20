@@ -14,6 +14,9 @@ public:
     redis_string(redis_handler& handler, const redis_object& obj);
     ~redis_string() override = default;
 
+    bool exec(const char* cmd, redis_coder& result);
+
+public:
     bool set(redis_coder& result);
     bool get(redis_coder& result);
 

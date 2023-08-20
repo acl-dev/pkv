@@ -19,6 +19,7 @@ public:
 protected:
     bool finished_;
     std::string type_;
+    time_t expire_;
     char* result_;
     yyjson_mut_doc* w_doc_;
     yyjson_mut_val* w_root_;

@@ -56,6 +56,10 @@ bool redis_handler::handle() {
 
     builder_.clear();
 
+    if (buf.empty()) {
+        return true;
+    }
+
     //if (objs.size() >= 20) { printf("reply len=%zd\r\n", buf.size()); }
 
     //printf(">>>buf=[%s]\r\n", buf.c_str());
@@ -65,13 +69,12 @@ bool redis_handler::handle() {
 bool redis_handler::handle_one(const redis_object &obj) {
     auto cmd = obj.get_cmd();
     if (cmd == nullptr || *cmd == '\0') {
-        logger_error("redis command null");
-        return false;
+        return true;
     }
 
     auto handler = service_.get_handler(cmd);
     if (handler != nullptr) {
-	return (*handler)(*this, obj, builder_);
+        return (*handler)(*this, cmd, obj, builder_);
     }
 
     //printf(">>>%s(%d): cmd=%s\r\n", __func__, __LINE__, cmd);
@@ -80,10 +83,10 @@ bool redis_handler::handle_one(const redis_object &obj) {
 
     if (EQ(cmd, "SCAN")) {
         redis_key redis(*this, obj);
-	return redis.scan(scan_key_, builder_);
+        return redis.scan(scan_key_, builder_);
     } else if (EQ(cmd, "QUIT")) {
-	(void) conn_.write("+OK\r\n");
-	return false;
+        (void) conn_.write("+OK\r\n");
+        return false;
     }
 
     std::string err;

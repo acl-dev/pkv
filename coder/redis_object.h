@@ -72,6 +72,7 @@ public:
     redis_object& set_number(long long n, bool return_parent = false);
     redis_object& set_string(const std::string& data, bool return_parent = false);
     redis_object& create_child();
+    void create_empty();
 
     bool to_string(std::string& out) const;
 
