@@ -7,12 +7,16 @@
 
 namespace pkv {
 
+namespace dao {
+    class hash;
+} 
+
 class redis_coder;
 
 class redis_hash : public redis_command {
 public:
     redis_hash(redis_handler& handler, const redis_object& obj);
-    ~redis_hash() override = default;
+    ~redis_hash() override;
 
     bool exec(const char* cmd, redis_coder& result);
 
@@ -23,6 +27,9 @@ public:
     bool hmset(redis_coder& result);
     bool hmget(redis_coder& result);
     bool hgetall(redis_coder& result);
+   
+private:
+    dao::hash* dao_;
 };
 
 } // namespace pkv

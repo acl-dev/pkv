@@ -40,6 +40,7 @@ set(src_paths
     ${base_path}/coder
     ${base_path}/action
     ${base_path}/dao
+    ${base_path}/dao/json
     ${base_path}/db
     ${base_path}/db/rocksdb
     ${base_path}/db/wt

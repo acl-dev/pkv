@@ -5,7 +5,7 @@
 #include "stdafx.h"
 #include "coder/redis_coder.h"
 #include "coder/redis_object.h"
-#include "dao/string.h"
+#include "dao/json/json_string.h"
 
 #include "redis_handler.h"
 #include "redis_string.h"
@@ -16,7 +16,13 @@ namespace pkv {
 
 redis_string::redis_string(redis_handler& handler, const redis_object &obj)
 : redis_command(handler, obj)
-{}
+{
+    dao_ = new dao::json_string;
+}
+
+redis_string::~redis_string() {
+    delete dao_;
+}
 
 bool redis_string::exec(const char* cmd, redis_coder& result) {
     if (EQ(cmd, "SET")) {
@@ -69,9 +75,7 @@ bool redis_string::set(redis_coder& result) {
     }
 #else
     if (!var_cfg_disable_save) {
-        dao::string dao;
-
-        if (!dao.set(handler_.get_db(), key, value)) {
+        if (!dao_->set(handler_.get_db(), key, value)) {
             logger_error("db set error, key=%s", key);
             return false;
         }
@@ -133,8 +137,7 @@ bool redis_string::get(redis_coder& result) {
     result.create_object().set_string(v);
 #else
     std::string buff;
-    dao::string dao;
-    if (!dao.get(handler_.get_db(), key, buff)) {
+    if (!dao_->get(handler_.get_db(), key, buff)) {
         result.create_object().set_string("");
         return true;
     }

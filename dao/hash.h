@@ -7,26 +7,15 @@ namespace pkv::dao {
 class hash : public dao_base {
 public:
     hash() = default;
-    ~hash() override = default;
+    virtual ~hash() override = default;
 
-    int hdel(shared_db& db, const std::string& key, const std::string& name);
-
-    bool hset(shared_db& db, const std::string& key, const std::string& name,
-            const std::string& value);
-
-    bool hget(shared_db& db, const std::string& key, const std::string& name,
-            std::string& value);
-
-    bool hgetall(shared_db& db, const std::string& key);
-
-    const std::map<std::string, std::string>& get_fields() {
-        return fields_;
-    }
-
-private:
-    std::map<std::string, std::string> fields_;
-
-    const char* build();
+    virtual int hdel(shared_db& db, const std::string& key, const std::string& name) = 0;
+    virtual bool hset(shared_db& db, const std::string& key, const std::string& name,
+            const std::string& value) = 0;
+    virtual bool hget(shared_db& db, const std::string& key, const std::string& name,
+            std::string& value) = 0;
+    virtual bool hgetall(shared_db& db, const std::string& key) = 0;
+    virtual const std::map<std::string, std::string>& get_fields() = 0;
 };
 
 } // namespace pkv::dao

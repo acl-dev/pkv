@@ -1,13 +1,13 @@
 #include "stdafx.h"
-#include "key.h"
+#include "json_key.h"
 
 namespace pkv::dao {
 
-bool key::del(shared_db& db, const std::string& keyname) {
+bool json_key::del(shared_db& db, const std::string& keyname) {
     return db->del(keyname);
 }
 
-bool key::type(shared_db& db, const std::string& keyname, std::string& out) {
+bool json_key::type(shared_db& db, const std::string& keyname, std::string& out) {
     auto data = this->read(db, keyname);
     if (data == nullptr) {
         return false;
@@ -16,7 +16,7 @@ bool key::type(shared_db& db, const std::string& keyname, std::string& out) {
     return true;
 }
 
-bool key::expire(pkv::shared_db &db, const std::string &keyname, int n) {
+bool json_key::expire(pkv::shared_db &db, const std::string &keyname, int n) {
     auto data = this->read(db, keyname);
     if (data == nullptr) {
         return false;
@@ -38,7 +38,7 @@ bool key::expire(pkv::shared_db &db, const std::string &keyname, int n) {
     return dao_base::save(db, keyname, this->result_);
 }
 
-bool key::ttl(pkv::shared_db &db, const std::string &keyname, int &n) {
+bool json_key::ttl(pkv::shared_db &db, const std::string &keyname, int &n) {
     auto data = this->read(db, keyname);
     if (data == nullptr) {
         return false;
@@ -51,7 +51,7 @@ bool key::ttl(pkv::shared_db &db, const std::string &keyname, int &n) {
     return true;
 }
 
-bool key::scan(shared_db& db, const std::string& seek_key,
+bool json_key::scan(shared_db& db, const std::string& seek_key,
        std::vector<std::string>& keys, size_t max) {
     return db->scan(seek_key, keys, max);
 }

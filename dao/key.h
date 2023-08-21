@@ -7,14 +7,14 @@ namespace pkv::dao {
 class key : public dao_base {
 public:
     key() = default;
-    ~key() override = default;
+    virtual ~key() override = default;
 
-    bool del(shared_db& db, const std::string& key);
-    bool type(shared_db& db, const std::string& key, std::string& out);
-    bool expire(shared_db& db, const std::string& key, int n);
-    bool ttl(shared_db& db, const std::string& key, int& n);
-    bool scan(shared_db& db, const std::string& seek_key,
-	      std::vector<std::string>& keys, size_t max);
+    virtual bool del(shared_db& db, const std::string& key) = 0;
+    virtual bool type(shared_db& db, const std::string& key, std::string& out) = 0;
+    virtual bool expire(shared_db& db, const std::string& key, int n) = 0;
+    virtual bool ttl(shared_db& db, const std::string& key, int& n) = 0;
+    virtual bool scan(shared_db& db, const std::string& seek_key,
+	      std::vector<std::string>& keys, size_t max) = 0;
 
 private:
 };

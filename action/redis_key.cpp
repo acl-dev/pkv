@@ -4,7 +4,7 @@
 
 #include "stdafx.h"
 #include "coder/redis_coder.h"
-#include "dao/key.h"
+#include "dao/json/json_key.h"
 
 #include "redis_handler.h"
 #include "redis_key.h"
@@ -16,6 +16,11 @@ namespace pkv {
 redis_key::redis_key(redis_handler& handler, const redis_object& obj)
 : redis_command(handler, obj)
 {
+    dao_ = new dao::json_key;
+}
+
+redis_key::~redis_key() {
+    delete dao_;
 }
 
 bool redis_key::exec(const char* cmd, redis_coder& result) {
@@ -44,8 +49,7 @@ bool redis_key::del(redis_coder& result) {
         return false;
     }
 
-    dao::key dao;
-    if (!dao.del(handler_.get_db(), key)) {
+    if (!dao_->del(handler_.get_db(), key)) {
         logger_error("db del error, key=%s", key);
         return false;
     }
@@ -67,8 +71,7 @@ bool redis_key::type(redis_coder& result) {
     }
 
     std::string buff;
-    dao::key dao;
-    if (!dao.type(handler_.get_db(), key, buff)) {
+    if (!dao_->type(handler_.get_db(), key, buff)) {
         return false;
     }
 
@@ -93,8 +96,7 @@ bool redis_key::expire(pkv::redis_coder &result) {
         return false;
     }
     int n = std::atoi(ptr);
-    dao::key dao;
-    if (!dao.expire(handler_.get_db(), key, n)) {
+    if (!dao_->expire(handler_.get_db(), key, n)) {
         result.create_object().set_number(0);
     } else {
         result.create_object().set_number(1);
@@ -115,8 +117,7 @@ bool redis_key::ttl(pkv::redis_coder &result) {
     }
 
     int n;
-    dao::key dao;
-    if (!dao.ttl(handler_.get_db(), key, n)) {
+    if (!dao_->ttl(handler_.get_db(), key, n)) {
         result.create_object().set_number(-2);
     } else {
         result.create_object().set_number(n);
@@ -156,8 +157,7 @@ bool redis_key::scan(std::string& scan_key, redis_coder& result) {
     }
 
     std::vector<std::string> keys;
-    dao::key dao;
-    if (!dao.scan(handler_.get_db(), scan_key, keys, count)) {
+    if (!dao_->scan(handler_.get_db(), scan_key, keys, count)) {
         logger_error("scan error");
         return false;
     }

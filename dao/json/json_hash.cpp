@@ -1,9 +1,9 @@
 #include "stdafx.h"
-#include "dao/hash.h"
+#include "json_hash.h"
 
 namespace pkv::dao {
 
-const char* hash::build() {
+const char* json_hash::build() {
     if (this->finished_) {
         return this->result_;
     }
@@ -27,7 +27,7 @@ const char* hash::build() {
     return result_;
 }
 
-bool hash::hset(shared_db& db, const std::string& key, const std::string& name,
+bool json_hash::hset(shared_db& db, const std::string& key, const std::string& name,
         const std::string& value) {
 
     (void) hgetall(db, key);
@@ -42,7 +42,7 @@ bool hash::hset(shared_db& db, const std::string& key, const std::string& name,
     return dao_base::save(db, key, this->result_);
 }
 
-int hash::hdel(shared_db& db, const std::string& key, const std::string& name) {
+int json_hash::hdel(shared_db& db, const std::string& key, const std::string& name) {
     if (!hgetall(db, key)) {
         return -1;
     }
@@ -68,7 +68,7 @@ int hash::hdel(shared_db& db, const std::string& key, const std::string& name) {
 
 // { "type": "hash", "expire": -1, "data": { "name1": "value1", "name2": "value2" }}
 
-bool hash::hget(shared_db& db, const std::string& key, const std::string& name,
+bool json_hash::hget(shared_db& db, const std::string& key, const std::string& name,
         std::string& value) {
     auto data = this->read(db, key);
     if (data == nullptr) {
@@ -98,7 +98,7 @@ bool hash::hget(shared_db& db, const std::string& key, const std::string& name,
     return false;
 }
 
-bool hash::hgetall(shared_db& db, const std::string& key) {
+bool json_hash::hgetall(shared_db& db, const std::string& key) {
     fields_.clear();
 
     auto data = this->read(db, key);

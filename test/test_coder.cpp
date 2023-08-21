@@ -3,7 +3,7 @@
 //
 
 #include "stdafx.h"
-#include "dao/string.h"
+#include "dao/json/json_string.h"
 #include "coder/redis_ocache.h"
 #include "coder/redis_coder.h"
 
@@ -200,7 +200,7 @@ void redis_build_bench(size_t max) {
 
     gettimeofday(&begin, NULL);
 
-    dao::string dao;
+    dao::json_string dao;
     for (i = 0; i < max; i++) {
         std::string buff;
         dao.set_string("hello world");

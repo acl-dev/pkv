@@ -1,11 +1,11 @@
 #include "stdafx.h"
-#include "string.h"
+#include "json_string.h"
 
 namespace pkv::dao {
 
-string::string() : data_(nullptr) {}
+json_string::json_string() : data_(nullptr) {}
 
-bool string::to_string(std::string& out) {
+bool json_string::to_string(std::string& out) {
     auto res = build();
     if (res && *res) {
         out = res;
@@ -15,11 +15,11 @@ bool string::to_string(std::string& out) {
     }
 }
 
-void string::set_string(const char* data) {
+void json_string::set_string(const char* data) {
     data_ = data;
 }
 
-const char* string::build() {
+const char* json_string::build() {
     if (this->finished_) {
         return this->result_;
     }
@@ -35,7 +35,7 @@ const char* string::build() {
     return result_;
 }
 
-bool string::set(shared_db& db, const std::string& key, const char* data) {
+bool json_string::set(shared_db& db, const std::string& key, const char* data) {
     data_ = data;
     if (build() == nullptr) {
         return false;
@@ -44,7 +44,7 @@ bool string::set(shared_db& db, const std::string& key, const char* data) {
     return dao_base::save(db, key, this->result_);
 }
 
-bool string::get(shared_db& db, const std::string& key, std::string& out) {
+bool json_string::get(shared_db& db, const std::string& key, std::string& out) {
     auto data = this->read(db, key);
     if (data == nullptr) {
         return false;

@@ -5,7 +5,7 @@
 #include "stdafx.h"
 #include "coder/redis_coder.h"
 #include "coder/redis_object.h"
-#include "dao/hash.h"
+#include "dao/json/json_hash.h"
 
 #include "redis_handler.h"
 #include "redis_hash.h"
@@ -16,7 +16,13 @@ namespace pkv {
 
 redis_hash::redis_hash(redis_handler &handler, const redis_object &obj)
 : redis_command(handler, obj)
-{}
+{
+    dao_ = new dao::json_hash;
+}
+
+redis_hash::~redis_hash() {
+    delete dao_;
+}
 
 bool redis_hash::exec(const char* cmd, redis_coder& result) {
     if (EQ(cmd, "HSET")) {
@@ -61,8 +67,7 @@ bool redis_hash::hset(redis_coder &result) {
         return false;
     }
 
-    dao::hash dao;
-    if (!dao.hset(handler_.get_db(), key, name, value)) {
+    if (!dao_->hset(handler_.get_db(), key, name, value)) {
         return false;
     }
 
@@ -89,8 +94,7 @@ bool redis_hash::hget(redis_coder &result) {
     }
 
     std::string buff;
-    dao::hash dao;
-    if (!dao.hget(handler_.get_db(), key, name, buff)) {
+    if (!dao_->hget(handler_.get_db(), key, name, buff)) {
         return false;
     }
 
@@ -117,8 +121,7 @@ bool redis_hash::hdel(redis_coder &result) {
         return false;
     }
 
-    dao::hash dao;
-    int ret = dao.hdel(handler_.get_db(), key, name);
+    int ret = dao_->hdel(handler_.get_db(), key, name);
     result.create_object().set_number(ret);
     return true;
 }
@@ -143,13 +146,12 @@ bool redis_hash::hgetall(redis_coder &result) {
         return false;
     }
 
-    dao::hash dao;
-    if (!dao.hgetall(handler_.get_db(), key)) {
+    if (!dao_->hgetall(handler_.get_db(), key)) {
         logger_error("dao.hgetall error, key=%s", key);
         return false;
     }
 
-    auto& fields = dao.get_fields();
+    auto& fields = dao_->get_fields();
     auto& obj = result.create_object();
     for (const auto& it : fields) {
         obj.create_child().set_string(it.first, true)
