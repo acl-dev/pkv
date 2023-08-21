@@ -128,8 +128,9 @@ void master_service::proc_on_init() {
             logger_error("open db(%s) error", var_cfg_dbpath);
             exit(1);
         }
-    } else if (strcasecmp(var_cfg_dbtype, "mdb") == 0){
+    } else if (strcasecmp(var_cfg_dbtype, "mdb") == 0) {
         db_ = db::create_mdb();
+    } else {
         logger_error("unknown dbtype=%s", var_cfg_dbtype);
         exit(1);
     }
