@@ -438,7 +438,7 @@ bool redis_object::to_string(std::string& out) const {
 #define CRLF    "\r\n"
 #endif
 
-    if (objs_ /* && !EMPTY(*objs_) */) {
+    if (objs_ && !EMPTY(*objs_)) {
         out.append("*").append(std::to_string(objs_->size())).append(CRLF);
 
         for (const auto& obj : *objs_) {

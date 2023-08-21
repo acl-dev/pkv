@@ -3,6 +3,7 @@
 //
 
 #pragma once
+#include "dao/json/json_string.h"
 #include "redis_command.h"
 
 namespace pkv {

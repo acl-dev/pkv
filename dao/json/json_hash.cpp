@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "json_define.h"
 #include "json_hash.h"
 
 namespace pkv::dao {
@@ -10,11 +11,11 @@ const char* json_hash::build() {
 
     this->create_writer();
 
-    yyjson_mut_obj_add_str(this->w_doc_, this->w_root_, "type", "hash");
-    yyjson_mut_obj_add_int(this->w_doc_, this->w_root_, "expire", -1);
+    yyjson_mut_obj_add_str(this->w_doc_, this->w_root_, JSON_TYPE, JSON_TYPE_HASH);
+    yyjson_mut_obj_add_int(this->w_doc_, this->w_root_, JSON_EXPIRE, -1);
 
     auto data = yyjson_mut_obj(this->w_doc_);
-    yyjson_mut_obj_add_val(this->w_doc_, this->w_root_, "data", data);
+    yyjson_mut_obj_add_val(this->w_doc_, this->w_root_, JSON_DATA, data);
 
     for (const auto& cit : fields_) {
         yyjson_mut_obj_add_str(this->w_doc_, data, cit.first.c_str(),
@@ -66,7 +67,7 @@ int json_hash::hdel(shared_db& db, const std::string& key, const std::string& na
     return 1;
 }
 
-// { "type": "hash", "expire": -1, "data": { "name1": "value1", "name2": "value2" }}
+// { "T": "H", "E": -1, "D": { "name1": "value1", "name2": "value2" }}
 
 bool json_hash::hget(shared_db& db, const std::string& key, const std::string& name,
         std::string& value) {
@@ -75,7 +76,7 @@ bool json_hash::hget(shared_db& db, const std::string& key, const std::string& n
         logger_error("db read error, key=%s", key.c_str());
         return false;
     }
-    if (strcasecmp(type_.c_str(), "hash") != 0) {
+    if (strcasecmp(type_.c_str(), JSON_TYPE_HASH) != 0) {
         logger_error("nvalid type=%s, key=%s", type_.c_str(), key.c_str());
         return false;
     }
@@ -106,7 +107,7 @@ bool json_hash::hgetall(shared_db& db, const std::string& key) {
         logger_error("db read error, key=%s", key.c_str());
         return false;
     }
-    if (strcasecmp(type_.c_str(), "hash") != 0) {
+    if (strcasecmp(type_.c_str(), JSON_TYPE_HASH) != 0) {
         logger_error("nvalid type=%s, key=%s", type_.c_str(), key.c_str());
         return false;
     }

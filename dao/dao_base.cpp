@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "json/json_define.h"
 #include "dao_base.h"
 
 namespace pkv::dao {
@@ -62,7 +63,7 @@ yyjson_val* dao_base::read(shared_db& db, const std::string& key) {
     }
 
     r_root_ = yyjson_doc_get_root(r_doc_);
-    yyjson_val* val = yyjson_obj_get(r_root_, "type");
+    yyjson_val* val = yyjson_obj_get(r_root_, JSON_TYPE);
     if (val == nullptr) {
         db->del(key);
         return nullptr;
@@ -76,7 +77,7 @@ yyjson_val* dao_base::read(shared_db& db, const std::string& key) {
         return nullptr;
     }
 
-    val = yyjson_obj_get(r_root_, "expire");
+    val = yyjson_obj_get(r_root_, JSON_EXPIRE);
     if (val == nullptr) {
         db->del(key);
         return nullptr;
@@ -87,7 +88,7 @@ yyjson_val* dao_base::read(shared_db& db, const std::string& key) {
         return nullptr;
     }
 
-    return yyjson_obj_get(r_root_, "data");
+    return yyjson_obj_get(r_root_, "D");
 }
 
 bool dao_base::save(shared_db& db, const std::string& key,

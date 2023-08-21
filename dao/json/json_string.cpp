@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "json_define.h"
 #include "json_string.h"
 
 namespace pkv::dao {
@@ -26,9 +27,10 @@ const char* json_string::build() {
 
     this->create_writer();
 
-    yyjson_mut_obj_add_str(this->w_doc_, this->w_root_, "type", "string");
-    yyjson_mut_obj_add_int(this->w_doc_, this->w_root_, "expire", -1);
-    yyjson_mut_obj_add_str(this->w_doc_, this->w_root_, "data", data_);
+    yyjson_mut_obj_add_str(this->w_doc_, this->w_root_,
+            JSON_TYPE, JSON_TYPE_STRING);
+    yyjson_mut_obj_add_int(this->w_doc_, this->w_root_, JSON_EXPIRE, -1);
+    yyjson_mut_obj_add_str(this->w_doc_, this->w_root_, JSON_DATA, data_);
     this->result_ = yyjson_mut_write(this->w_doc_, 0, nullptr);
 
     finished_ = true;
@@ -49,7 +51,7 @@ bool json_string::get(shared_db& db, const std::string& key, std::string& out) {
     if (data == nullptr) {
         return false;
     }
-    if (strcasecmp(this->type_.c_str(), "string") != 0) {
+    if (strcasecmp(this->type_.c_str(), JSON_TYPE_STRING) != 0) {
         logger_error("invalid type=%s, key=%s", type_.c_str(), key.c_str());
         return false;
     }

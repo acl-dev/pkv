@@ -5,12 +5,14 @@
 #pragma once
 #include "../db.h"
 
+#define USE_HTABLE
+
 namespace pkv {
 
 class mdb : public db {
 public:
-    mdb() = default;
-    ~mdb() override = default;
+    mdb();
+    ~mdb() override;
 
 protected:
     // @override
@@ -36,7 +38,12 @@ public:
     }
 
 private:
-    std::map<std::string, std::string> store_;
+#ifdef USE_HTABLE
+    ACL_HTABLE* store_;
+    ACL_SLICE_POOL* slice_;
+#else
+    std::unordered_map<std::string, std::string> store_;
+#endif
 };
 
 } // namespace pkv

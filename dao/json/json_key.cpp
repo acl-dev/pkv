@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "json_define.h"
 #include "json_key.h"
 
 namespace pkv::dao {
@@ -23,7 +24,7 @@ bool json_key::expire(pkv::shared_db &db, const std::string &keyname, int n) {
     }
 
     this->expire_ = time(nullptr) + n;
-    auto val = yyjson_obj_get(r_root_, "expire");
+    auto val = yyjson_obj_get(r_root_, JSON_EXPIRE);
     if (val) {
         yyjson_set_sint(val, this->expire_);
     } else {
