@@ -68,7 +68,7 @@ static __thread redis_ocache* __cache = NULL;
 void master_service::run(acl::socket_stream& conn, size_t size) {
     if (__cache == NULL) {
         __cache = new redis_ocache(var_cfg_ocache_max);
-        for (size_t i = 0; i < var_cfg_ocache_max; i++) {
+        for (int i = 0; i < var_cfg_ocache_max; i++) {
             pkv::redis_object* o = new pkv::redis_object(*__cache);
             __cache->put(o);
         }
@@ -128,7 +128,8 @@ void master_service::proc_on_init() {
             logger_error("open db(%s) error", var_cfg_dbpath);
             exit(1);
         }
-    } else {
+    } else if (strcasecmp(var_cfg_dbtype, "mdb") == 0){
+        db_ = db::create_mdb();
         logger_error("unknown dbtype=%s", var_cfg_dbtype);
         exit(1);
     }

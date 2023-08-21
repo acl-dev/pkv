@@ -8,6 +8,8 @@
 #include "wt/wdb.h"
 #endif
 
+#include "mdb/mdb.h"
+
 #include "db.h"
 
 namespace pkv {
@@ -48,6 +50,10 @@ shared_db db::create_wdb() {
 #else
     return std::make_shared<dummy_db>();
 #endif
+}
+
+shared_db db::create_mdb() {
+    return std::make_shared<mdb>();
 }
 
 } // namespace pkv
