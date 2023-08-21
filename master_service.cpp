@@ -27,10 +27,12 @@ acl::master_bool_tbl var_conf_bool_tab[] = {
 
 static int  var_cfg_io_timeout;
 static int  var_cfg_buf_size;
+static int  var_cfg_ocache_max;
 
 acl::master_int_tbl var_conf_int_tab[] = {
     { "io_timeout",     120,    &var_cfg_io_timeout,    0,  0   },
-    { "buf_size",       8192,   &var_cfg_buf_size,  0,  0 },
+    { "buf_size",       8192,   &var_cfg_buf_size,      0,  0   },
+    { "ocache_max",     10000,  &var_cfg_ocache_max,    0,  0   },
 
     { 0, 0 , 0 , 0, 0 }
 };
@@ -65,8 +67,8 @@ static __thread redis_ocache* __cache = NULL;
 
 void master_service::run(acl::socket_stream& conn, size_t size) {
     if (__cache == NULL) {
-        __cache = new redis_ocache;
-        for (size_t i = 0; i < 100000; i++) {
+        __cache = new redis_ocache(var_cfg_ocache_max);
+        for (size_t i = 0; i < var_cfg_ocache_max; i++) {
             pkv::redis_object* o = new pkv::redis_object(*__cache);
             __cache->put(o);
         }
