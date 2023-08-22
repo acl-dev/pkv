@@ -3,9 +3,15 @@
 //
 
 #pragma once
-#include "../db.h"
 
 #define USE_HTABLE
+//#define USE_FOLLY
+
+#if defined(USE_FOLLY)
+# include <folly/AtomicHashMap.h>
+#endif
+
+#include "../db.h"
 
 namespace pkv {
 
@@ -38,10 +44,13 @@ public:
     }
 
 private:
-#ifdef USE_HTABLE
+#if defined(USE_HTABLE)
     ACL_HTABLE* store_;
     ACL_SLICE_POOL* slice_;
+#elif defined(USE_FOLLY)
+    folly::AtomicHashMap<std::string, std::string>* store_;
 #else
+    acl::thread_mutex lock_;
     std::unordered_map<std::string, std::string> store_;
 #endif
 };

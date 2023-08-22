@@ -8,25 +8,31 @@
 namespace pkv {
 
 mdb::mdb() {
-#ifdef USE_HTABLE
+#if defined(USE_HTABLE)
 # ifdef USE_MEM_SLICE
     slice_ = acl_slice_pool_create(4, 10000,
             ACL_SLICE_FLAG_GC2 | ACL_SLICE_FLAG_RTGC_OFF);
 # else
     slice_ = NULL;
 # endif
-    store_ = acl_htable_create3(20000000, 0, slice_);
+
+    unsigned flags = ACL_HTABLE_FLAG_USE_LOCK;
+    store_ = acl_htable_create3(20000000, flags, slice_);
     acl_htable_ctl(store_, ACL_HTABLE_CTL_HASH_FN, acl_hash_func5,
             ACL_HTABLE_CTL_END);
+#elif defined(USE_FOLLY)
+    store_ = new folly::AtomicHashMap<std::string, std::string>(10000000);
 #endif
 }
 
 mdb::~mdb() {
-#ifdef USE_HTABLE
+#if defined(USE_HTABLE)
     acl_htable_free(store_, slice_ ? nullptr : free);
     if (slice_) {
         acl_slice_pool_destroy(slice_);
     }
+#elif defined(USE_FOLLY)
+    delete store_;
 #endif
 }
 
@@ -48,17 +54,23 @@ bool mdb::set(const std::string &key, const std::string &value) {
 
     buf[value.size()] = 0;
 
-    ACL_HTABLE_INFO* info = acl_htable_enter(store_, key.c_str(), buf);
-    if (store_->status == ACL_HTABLE_STAT_DUPLEX_KEY) {
+    void* old = nullptr;
+    ACL_HTABLE_INFO* info = acl_htable_enter_r2(store_, key.c_str(), buf, &old);
+    if (old) {
         if (slice_) {
-            acl_slice_pool_free(__FILE__, __LINE__, info->value);
+            acl_slice_pool_free(__FILE__, __LINE__, old);
         } else {
-            free(info->value);
+            free(old);
         }
-        info->value = buf;
+    }
+
+    if (info == nullptr) {
+        return false;
     }
 #else
+    lock_.lock();
     store_[key] = value;
+    lock_.unlock();
 #endif
     return true;
 }
