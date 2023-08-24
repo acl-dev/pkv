@@ -2,7 +2,8 @@
 #include "db/db.h"
 #include "dao_base.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 class hash : public dao_base {
 public:
@@ -18,4 +19,5 @@ public:
     virtual const std::map<std::string, std::string>& get_fields() = 0;
 };
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv

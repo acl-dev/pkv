@@ -2,7 +2,8 @@
 #include "db/db.h"
 #include "dao_base.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 class key : public dao_base {
 public:
@@ -19,4 +20,5 @@ public:
 private:
 };
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv

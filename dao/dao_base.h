@@ -2,7 +2,8 @@
 #include <yyjson.h>
 #include "db/db.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 class dao_base {
 public:
@@ -29,4 +30,5 @@ protected:
     void create_writer();
 };
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv

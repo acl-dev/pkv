@@ -2,7 +2,8 @@
 #include "json_define.h"
 #include "json_string.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 json_string::json_string() : data_(nullptr) {}
 
@@ -71,4 +72,5 @@ bool json_string::get(shared_db& db, const std::string& key, std::string& out) {
     return false;
 }
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv

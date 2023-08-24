@@ -2,7 +2,8 @@
 #include "db/db.h"
 #include "../key.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 class json_key : public key {
 public:
@@ -26,4 +27,5 @@ public:
 	      std::vector<std::string>& json_keys, size_t max) override;
 };
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv

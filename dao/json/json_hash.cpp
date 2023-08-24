@@ -2,7 +2,8 @@
 #include "json_define.h"
 #include "json_hash.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 const char* json_hash::build() {
     if (this->finished_) {
@@ -128,4 +129,5 @@ bool json_hash::hgetall(shared_db& db, const std::string& key) {
     return true;
 }
 
+} // namespace dao
 } // namespace pkv

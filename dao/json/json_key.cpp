@@ -2,7 +2,8 @@
 #include "json_define.h"
 #include "json_key.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 bool json_key::del(shared_db& db, const std::string& keyname) {
     return db->del(keyname);
@@ -57,4 +58,5 @@ bool json_key::scan(shared_db& db, const std::string& seek_key,
     return db->scan(seek_key, keys, max);
 }
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv

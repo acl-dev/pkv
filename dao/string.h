@@ -2,7 +2,8 @@
 #include "db/db.h"
 #include "dao_base.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 class string : public dao_base {
 public:
@@ -13,4 +14,5 @@ public:
     virtual bool get(shared_db& db, const std::string& key, std::string& out) = 0;
 };
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv

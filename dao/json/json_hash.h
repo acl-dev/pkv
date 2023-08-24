@@ -2,7 +2,8 @@
 #include "db/db.h"
 #include "../hash.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 class json_hash : public hash {
 public:
@@ -34,4 +35,5 @@ private:
     const char* build();
 };
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv

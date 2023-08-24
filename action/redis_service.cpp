@@ -3,6 +3,7 @@
 //
 
 #include "stdafx.h"
+#include <algorithm>
 #include "redis_key.h"
 #include "redis_string.h"
 #include "redis_hash.h"

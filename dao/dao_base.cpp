@@ -2,7 +2,8 @@
 #include "json/json_define.h"
 #include "dao_base.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 dao_base::dao_base()
 : finished_(false)
@@ -96,4 +97,5 @@ bool dao_base::save(shared_db& db, const std::string& key,
     return db->set(key, data);
 }
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv

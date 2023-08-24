@@ -2,7 +2,8 @@
 #include "db/db.h"
 #include "../string.h"
 
-namespace pkv::dao {
+namespace pkv {
+namespace dao {
 
 class json_string : public string {
 public:
@@ -26,4 +27,5 @@ private:
     const char* data_;
 };
 
-} // namespace pkv::dao
+} // namespace dao
+} // namespace pkv
