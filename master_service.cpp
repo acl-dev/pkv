@@ -130,6 +130,8 @@ void master_service::proc_on_init() {
         }
     } else if (strcasecmp(var_cfg_dbtype, "mdb") == 0) {
         db_ = db::create_mdb();
+    } else if (strcasecmp(var_cfg_dbtype, "mdb_avl") == 0) {
+        db_ = db::create_mdb_avl();
     } else {
         logger_error("unknown dbtype=%s", var_cfg_dbtype);
         exit(1);
