@@ -26,6 +26,7 @@ public:
     static shared_db create_mdb();
     static shared_db create_mdb_htable();
     static shared_db create_mdb_avl();
+    static shared_db create_mdb_tbb();
 };
 
 } // namespace pkv

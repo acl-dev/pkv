@@ -31,22 +31,28 @@ bool mdb::set(const std::string &key, const std::string &value) {
 }
 
 bool mdb::get(const std::string &key, std::string &value) {
+    lock_.lock();
     auto it = store_.find(key);
     if (it == store_.end()) {
+        lock_.unlock();
         return false;
     }
 
     value = it->second;
+    lock_.unlock();
     return true;
 }
 
 bool mdb::del(const std::string &key) {
+    lock_.lock();
     auto it = store_.find(key);
     if (it == store_.end()) {
+        lock_.unlock();
         return false;
     }
 
     store_.erase(it);
+    lock_.unlock();
     return true;
 }
 

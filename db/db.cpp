@@ -11,6 +11,7 @@
 #include "mdb/mdb.h"
 #include "mdb/mdb_htable.h"
 #include "mdb/mdb_avl.h"
+#include "mdb/mdb_tbb.h"
 
 #include "db.h"
 
@@ -64,6 +65,14 @@ shared_db db::create_mdb_htable() {
 
 shared_db db::create_mdb_avl() {
     return std::make_shared<mdb_avl>();
+}
+
+shared_db db::create_mdb_tbb() {
+#ifdef HAS_TBB
+    return std::make_shared<mdb_tbb>();
+#else
+    return std::make_shared<dummy_db>();
+#endif
 }
 
 } // namespace pkv

@@ -73,6 +73,7 @@ add_definitions(
     "-Wno-error=deprecated-declarations"
     "-Wno-deprecated-declarations"
     "-fPIC"
+    "-DHAS_TBB"
 )
 
 if (${BUILD_WITH_C11} MATCHES "YES")
@@ -118,7 +119,7 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
     set(lib_all ${lib_all} ${uring} ${iconv} ${jemalloc})
 endif()
 
-set(lib_all ${lib_all} ${fiber_lib} -lz -lpthread -ldl)
+set(lib_all ${lib_all} ${fiber_lib} -ltbb -lz -lpthread -ldl)
 
 set(output_path ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${output_path})

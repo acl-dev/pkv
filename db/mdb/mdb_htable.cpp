@@ -16,7 +16,7 @@ mdb_htable::mdb_htable() {
 # endif
 
     unsigned flags = ACL_HTABLE_FLAG_USE_LOCK;
-    store_ = acl_htable_create3(10000, flags, slice_);
+    store_ = acl_htable_create3(10000000, flags, slice_);
     acl_htable_ctl(store_, ACL_HTABLE_CTL_HASH_FN, acl_hash_func5,
             ACL_HTABLE_CTL_END);
 }
