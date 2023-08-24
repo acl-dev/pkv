@@ -37,7 +37,7 @@ bool mdb_tbb::get(const std::string &key, std::string &value) {
 }
 
 bool mdb_tbb::del(const std::string &key) {
-    return true;
+    return store_.erase(key);
 }
 
 bool mdb_tbb::scan(const std::string &key, std::vector<std::string> &keys,
