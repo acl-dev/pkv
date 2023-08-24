@@ -9,6 +9,7 @@
 #endif
 
 #include "mdb/mdb.h"
+#include "mdb/mdb_htable.h"
 #include "mdb/mdb_avl.h"
 
 #include "db.h"
@@ -55,6 +56,10 @@ shared_db db::create_wdb() {
 
 shared_db db::create_mdb() {
     return std::make_shared<mdb>();
+}
+
+shared_db db::create_mdb_htable() {
+    return std::make_shared<mdb_htable>();
 }
 
 shared_db db::create_mdb_avl() {

@@ -4,20 +4,14 @@
 
 #pragma once
 
-//#define USE_FOLLY
-
-#if defined(USE_FOLLY)
-# include <folly/AtomicHashMap.h>
-#endif
-
 #include "../db.h"
 
 namespace pkv {
 
-class mdb : public db {
+class mdb_htable : public db {
 public:
-    mdb();
-    ~mdb() override;
+    mdb_htable();
+    ~mdb_htable() override;
 
 protected:
     // @override
@@ -42,12 +36,8 @@ protected:
     }
 
 private:
-#if defined(USE_FOLLY)
-    folly::AtomicHashMap<std::string, std::string>* store_;
-#else
-    acl::thread_mutex lock_;
-    std::unordered_map<std::string, std::string> store_;
-#endif
+    ACL_HTABLE* store_;
+    ACL_SLICE_POOL* slice_;
 };
 
 } // namespace pkv
