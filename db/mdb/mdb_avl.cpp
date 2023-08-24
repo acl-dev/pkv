@@ -8,7 +8,7 @@
 namespace pkv {
 
 static const char *key_names[] = { "key", "expire", nullptr };
-static unsigned key_flags[] = { ACL_MDT_FLAG_UNI, ACL_MDT_FLAG_UNI };
+static unsigned key_flags[] = { ACL_MDT_FLAG_NUL, ACL_MDT_FLAG_NUL };
 
 mdb_avl::mdb_avl() {
     table_name_ = "test.table";
@@ -45,10 +45,12 @@ bool mdb_avl::get(const std::string &key, std::string &value) {
 
     const void *val = acl_mdt_fetch_row(res);
     if (val == nullptr) {
+        acl_mdt_res_free(res);
         return false;
     }
 
     value = (const char*) val;
+    acl_mdt_res_free(res);
     return true;
 }
 
