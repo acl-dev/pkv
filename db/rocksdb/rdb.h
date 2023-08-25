@@ -17,7 +17,7 @@ public:
 
 protected:
     // @override
-    bool open(const char* path) override;
+    bool open(const char* paths) override;
 
     // @override
     bool set(const std::string& key, const std::string& value) override;
@@ -40,7 +40,10 @@ public:
 
 private:
     std::string path_;
-    rocksdb::DB* db_;
+    std::vector<rocksdb::DB*> dbs_;
+    std::vector<std::string> paths_;
+
+    bool open_one(const std::string& path);
 };
 
 } // namespace pkv

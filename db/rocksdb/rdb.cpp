@@ -12,40 +12,63 @@ using namespace rocksdb;
 
 namespace pkv {
 
-rdb::rdb() : db_(nullptr) {}
+rdb::rdb() {}
 
 rdb::~rdb() {
-    delete db_;
-    logger("rdb in %s closed", path_.c_str());
+    size_t i = 0;
+    for (auto dbp : dbs_) {
+        delete dbp;
+	logger("db(%s) closed", paths_[i++].c_str());
+    }
+
+    logger("rdb closed");
 }
 
-bool rdb::open(const char* path) {
-    path_ = path;
-    path_ += "/rdb";
+bool rdb::open(const char* paths) {
+    acl::string buf(paths);
+    auto& tokens = buf.split2(";, \t");
+    for (auto token : tokens) {
+        std::string path = token;
+        path += "/rdb";
+        if (!open_one(path)) {
+            return false;
+        }
+    }
+    return true;
+}
 
-    if (acl_make_dirs(path_.c_str(), 0755) == -1) {
-        logger_error("create %s error=%s", path_.c_str(), acl::last_serror());
+bool rdb::open_one(const std::string& path) {
+    if (acl_make_dirs(path.c_str(), 0755) == -1) {
+        logger_error("create %s error=%s", path.c_str(), acl::last_serror());
         return false;
     }
+
+    rocksdb::DB* dbp;
 
     Options options;
     options.IncreaseParallelism();
     // options.OptimizeLevelStyleCompaction();
     options.create_if_missing = true;
-    Status s = DB::Open(options, path_, &db_);
+    Status s = DB::Open(options, path, &dbp);
     if (!s.ok()) {
-        logger_error("open %s db error: %s", path_.c_str(), s.getState());
+        logger_error("open %s db error: %s", path.c_str(), s.getState());
         return false;
     }
 
+    dbs_.push_back(dbp);
+    paths_.push_back(path);
+    logger("open %s ok, db=%zd", path.c_str(), dbs_.size());
     return true;
 }
 
 bool rdb::set(const std::string& key, const std::string& value) {
-    Status s = db_->Put(WriteOptions(), key, value);
+    unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
+    auto dbp = dbs_[n];
+
+    Status s = dbp->Put(WriteOptions(), key, value);
     if (!s.ok()) {
         logger_error("put to %s error: %s, key=%s",
-	    path_.c_str(), s.getState(), key.c_str());
+            paths_[n].c_str(), s.getState(), key.c_str());
         return false;
     }
 
@@ -53,11 +76,14 @@ bool rdb::set(const std::string& key, const std::string& value) {
 }
 
 bool rdb::get(const std::string& key, std::string& value) {
-    Status s = db_->Get(ReadOptions(), key, &value);
+    unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
+    auto dbp = dbs_[n];
+
+    Status s = dbp->Get(ReadOptions(), key, &value);
     if (!s.ok()) {
         if (!s.IsNotFound()) {
             logger_error("get from %s error: %s, key=%s, data=%zd",
-                path_.c_str(), s.getState(), key.c_str(), value.size());
+                paths_[n].c_str(), s.getState(), key.c_str(), value.size());
         }
         return false;
     }
@@ -66,9 +92,12 @@ bool rdb::get(const std::string& key, std::string& value) {
 }
 
 bool rdb::del(const std::string& key) {
-    Status s = db_->Delete(WriteOptions(), key);
+    unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
+    auto dbp = dbs_[n];
+
+    Status s = dbp->Delete(WriteOptions(), key);
     if (!s.ok()) {
-        logger_error("del from %s error: %s", path_.c_str(), s.getState());
+        logger_error("del from %s error: %s", paths_[n].c_str(), s.getState());
         return false;
     }
 
@@ -77,6 +106,7 @@ bool rdb::del(const std::string& key) {
 
 bool rdb::scan(const std::string& seek_key, std::vector<std::string>& keys,
        size_t max) {
+#if 0
     rocksdb::Iterator* it = db_->NewIterator(rocksdb::ReadOptions());
     if (seek_key.empty()) {
         it->SeekToFirst();
@@ -94,6 +124,7 @@ bool rdb::scan(const std::string& seek_key, std::vector<std::string>& keys,
         keys.emplace_back(key);
         it->Next();
     }
+#endif
 
     return true;
 }
