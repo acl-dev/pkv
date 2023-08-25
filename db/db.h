@@ -17,10 +17,9 @@ public:
     virtual bool del(const std::string& key) = 0;
     virtual bool scan(const std::string& seek_key,
         std::vector<std::string>& keys, size_t max) = 0;
-
-public:
     virtual const char* get_dbtype() const = 0;
 
+public:
     static shared_db create_rdb();
     static shared_db create_wdb();
     static shared_db create_mdb();

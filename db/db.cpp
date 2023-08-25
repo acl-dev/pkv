@@ -37,6 +37,14 @@ public:
     bool del(const std::string&) override {
         return false;
     }
+
+    bool scan(const std::string&, std::vector<std::string>&, size_t) override {
+        return false;
+    }
+
+    const char* get_dbtype() const override {
+        return "dummy_db";
+    }
 };
 
 shared_db db::create_rdb() {
