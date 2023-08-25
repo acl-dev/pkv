@@ -15,6 +15,8 @@ using string_t = pkv::kstring;
 
 namespace pkv {
 
+using atomic_map_t = tbb::concurrent_hash_map<string_t, string_t>;
+
 class mdb_tbb : public db {
 public:
     mdb_tbb();
@@ -43,7 +45,7 @@ protected:
     }
 
 private:
-    tbb::concurrent_hash_map<string_t, string_t> store_;
+    std::vector<atomic_map_t*> stores_;
 };
 
 } // namespace pkv
