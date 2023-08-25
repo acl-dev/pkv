@@ -4,15 +4,16 @@
 
 #pragma once
 
-//#define USE_FOLLY
-
-#if defined(USE_FOLLY)
-# include <folly/AtomicHashMap.h>
-#endif
-
 #include "../db.h"
+#include "common/kstring.h"
+#include "common/spinlock.h"
 
 namespace pkv {
+
+//using lock_t = acl::thread_mutex;
+using lock_t = spinlock;
+using map_t  = std::unordered_map<kstring, kstring>;
+//using map_t  = std::map<kstring, kstring>;
 
 class mdb : public db {
 public:
@@ -42,12 +43,8 @@ protected:
     }
 
 private:
-#if defined(USE_FOLLY)
-    folly::AtomicHashMap<std::string, std::string>* store_;
-#else
-    acl::thread_mutex lock_;
-    std::unordered_map<std::string, std::string> store_;
-#endif
+    std::vector<lock_t*> locks_;
+    std::vector<map_t*> stores_;
 };
 
 } // namespace pkv

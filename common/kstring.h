@@ -64,6 +64,22 @@ public:
 		return false;
 	}
 
+	bool operator<(const kstring& s) const {
+		size_t nLeft = dlen_;
+		size_t nRight = s.dlen_;
+		size_t n = nLeft > nRight ? nRight : nLeft;
+		int   ret = memcmp(buff_, s.buff_, n);
+		if (ret < 0) {
+			return true;
+		} else if (ret > 0) {
+			return false;
+		}
+		if (nLeft < nRight) {
+			return true;
+		}
+		return false;
+	}
+
 	const char* c_str() const {
 		return buff_;
 	}

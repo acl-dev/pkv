@@ -8,15 +8,20 @@
 namespace pkv {
 
 mdb::mdb() {
-#if defined(USE_FOLLY)
-    store_ = new folly::AtomicHashMap<std::string, std::string>(10000000);
-#endif
+    for (size_t i = 0; i < 1024; i++) {
+        auto lock = new lock_t;
+	locks_.push_back(lock);
+
+	auto store = new map_t;
+	stores_.push_back(store);
+    }
 }
 
 mdb::~mdb() {
-#if defined(USE_FOLLY)
-    delete store_;
-#endif
+    for (size_t i = 0; i < stores_.size(); i++) {
+        delete locks_[i];
+        delete stores_[i];
+    }
 }
 
 bool mdb::open(const char * /* path */) {
@@ -24,35 +29,48 @@ bool mdb::open(const char * /* path */) {
 }
 
 bool mdb::set(const std::string &key, const std::string &value) {
-    lock_.lock();
-    store_[key] = value;
-    lock_.unlock();
+    unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
+    auto store = stores_[n];
+
+    locks_[n]->lock();
+
+    (*store)[key] = value;
+
+    locks_[n]->unlock();
     return true;
 }
 
 bool mdb::get(const std::string &key, std::string &value) {
-    lock_.lock();
-    auto it = store_.find(key);
-    if (it == store_.end()) {
-        lock_.unlock();
+    unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
+    auto store = stores_[n];
+
+    locks_[n]->lock();
+
+    auto it = store->find(key);
+    if (it == store->end()) {
+    	locks_[n]->unlock();
         return false;
     }
 
-    value = it->second;
-    lock_.unlock();
+    value = it->second.c_str();
+    locks_[n]->unlock();
     return true;
 }
 
 bool mdb::del(const std::string &key) {
-    lock_.lock();
-    auto it = store_.find(key);
-    if (it == store_.end()) {
-        lock_.unlock();
+    unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
+    auto store = stores_[n];
+
+    locks_[n]->lock();
+
+    auto it = store->find(key);
+    if (it == store->end()) {
+    	locks_[n]->unlock();
         return false;
     }
 
-    store_.erase(it);
-    lock_.unlock();
+    store->erase(it);
+    locks_[n]->unlock();
     return true;
 }
 
