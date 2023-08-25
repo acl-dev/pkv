@@ -36,7 +36,7 @@ protected:
     }
 
 private:
-    ACL_HTABLE* store_;
+    std::vector<ACL_HTABLE*> stores_;
     ACL_SLICE_POOL* slice_;
 };
 

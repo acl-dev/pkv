@@ -16,13 +16,20 @@ mdb_htable::mdb_htable() {
 # endif
 
     unsigned flags = ACL_HTABLE_FLAG_USE_LOCK;
-    store_ = acl_htable_create3(10000000, flags, slice_);
-    acl_htable_ctl(store_, ACL_HTABLE_CTL_HASH_FN, acl_hash_func5,
+
+    for (size_t i = 0; i < 256; i++) {
+        auto store = acl_htable_create3(100000, flags, slice_);
+        acl_htable_ctl(store, ACL_HTABLE_CTL_HASH_FN, acl_hash_func5,
             ACL_HTABLE_CTL_END);
+	stores_.push_back(store);
+    }
 }
 
 mdb_htable::~mdb_htable() {
-    acl_htable_free(store_, slice_ ? nullptr : free);
+    for (auto store : stores_) {
+        acl_htable_free(store, slice_ ? nullptr : free);
+    }
+
     if (slice_) {
         acl_slice_pool_destroy(slice_);
     }
@@ -45,8 +52,11 @@ bool mdb_htable::set(const std::string &key, const std::string &value) {
 
     buf[value.size()] = 0;
 
+    unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
+    auto store = stores_[n];
+
     void* old = nullptr;
-    ACL_HTABLE_INFO* info = acl_htable_enter_r2(store_, key.c_str(), buf, &old);
+    ACL_HTABLE_INFO* info = acl_htable_enter_r2(store, key.c_str(), buf, &old);
     if (old) {
         if (slice_) {
             acl_slice_pool_free(__FILE__, __LINE__, old);
@@ -62,7 +72,10 @@ bool mdb_htable::set(const std::string &key, const std::string &value) {
 }
 
 bool mdb_htable::get(const std::string &key, std::string &value) {
-    void* data = acl_htable_find(store_, key.c_str());
+    unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
+    auto store = stores_[n];
+
+    void* data = acl_htable_find(store, key.c_str());
     if (data == nullptr) {
         return false;
     }
@@ -71,7 +84,10 @@ bool mdb_htable::get(const std::string &key, std::string &value) {
 }
 
 bool mdb_htable::del(const std::string &key) {
-    int ret = acl_htable_delete(store_, key.c_str(), acl_myfree_fn);
+    unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
+    auto store = stores_[n];
+
+    int ret = acl_htable_delete(store, key.c_str(), acl_myfree_fn);
     return ret == 0;
 }
 
