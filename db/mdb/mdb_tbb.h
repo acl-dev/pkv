@@ -8,6 +8,10 @@
 # include <tbb/concurrent_hash_map.h>
 
 #include "../db.h"
+#include "common/kstring.h"
+
+using string_t = pkv::kstring;
+//using string_t = std::string;
 
 namespace pkv {
 
@@ -39,7 +43,7 @@ protected:
     }
 
 private:
-    tbb::concurrent_hash_map<std::string, std::string> store_;
+    tbb::concurrent_hash_map<string_t, string_t> store_;
 };
 
 } // namespace pkv

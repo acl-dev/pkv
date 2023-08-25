@@ -36,6 +36,7 @@ include_directories(
 set(base_path ${CMAKE_CURRENT_SOURCE_DIR})
 set(src_paths
     ${base_path}
+    ${base_path}/common
     ${base_path}/test
     ${base_path}/coder
     ${base_path}/action

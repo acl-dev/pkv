@@ -7,7 +7,7 @@
 
 #if defined(HAS_TBB)
 
-typedef tbb::concurrent_hash_map<std::string, std::string>::accessor Accessor;
+typedef tbb::concurrent_hash_map<string_t, string_t>::accessor Accessor;
 
 namespace pkv {
 
@@ -30,7 +30,7 @@ bool mdb_tbb::get(const std::string &key, std::string &value) {
     Accessor a;
     const auto found = store_.find(a, key);
     if (found) {
-        value = a->second;
+        value = a->second.c_str();
 	return true;
     }
     return false;
