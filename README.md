@@ -54,15 +54,23 @@ Start pkv in the below way, pkv will listen on 19001 as default.
 ```shell
 # ./pkv alone mdb_tbb.cf
 ```
+
 - Run pkv with data being stored memory by hash table of acl:
 ```shell
 # ./pkv alone mdb_htable.cf
 ```
+
 - Run pkv with data being stored in rocksdb:
 ```shell
 # ./pkv alone rdb.cf
 ```
+
 - Run pkv with data being stoared in wiredtiger:
 ```shell
 # ./pkv alone wdb.cf
+```
+
+- Run the redis-benchmark in redis to test the pkv's performance
+```shell
+# ./redis-benchmark -p 19001 -n 10000000 -P 1000 -t set -r 100000000
 ```
