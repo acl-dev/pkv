@@ -23,18 +23,26 @@ redis_key::~redis_key() {
     delete dao_;
 }
 
+struct key_handler {
+    const char* cmd;
+    bool (redis_key::*func) (redis_coder&);
+};
+
+static struct key_handler handlers[] = {
+    { "DEL",        &redis_key::del         },
+    { "TYPE",       &redis_key::type        },
+    { "EXPIRE",     &redis_key::expire      },
+    { "TTL",        &redis_key::ttl         },
+    { nullptr,      nullptr                 },
+};
+
 bool redis_key::exec(const char* cmd, redis_coder& result) {
-    if (EQ(cmd, "DEL")) {
-        return del(result);
-    } else if (EQ(cmd, "TYPE")) {
-        return type(result);
-    } else if (EQ(cmd, "EXPIRE")) {
-        return expire(result);
-    } else if (EQ(cmd, "TTL")) {
-        return ttl(result);
-    } else {
-        return false;
+    for (int i = 0; handlers[i].cmd != nullptr; i++) {
+        return (this->*(handlers[i].func))(result);
     }
+
+    logger_error("Not support, cmd=%s", cmd);
+    return false;
 }
 
 bool redis_key::del(redis_coder& result) {

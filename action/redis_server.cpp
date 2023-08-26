@@ -17,13 +17,25 @@ redis_server::redis_server(redis_handler &handler, const redis_object &obj)
 : redis_command(handler, obj)
 {}
 
+struct server_handler {
+    const char* cmd;
+    bool (redis_server::*func) (redis_coder&);
+};
+
+static struct server_handler handlers[] = {
+    { "CONFIG",     &redis_server::config   },
+    { nullptr,      nullptr                 },
+};
+
 bool redis_server::exec(const char* cmd, redis_coder& result) {
-    if (EQ(cmd, "config")) {
-        return config(result);
-    } else {
-        logger_error("Not support, cmd=%s", cmd);
-        return false;
+    for (int i = 0; handlers[i].cmd != nullptr; i++) {
+        if (EQ(cmd, handlers[i].cmd)) {
+            return (this->*(handlers[i].func))(result);
+        }
     }
+
+    logger_error("Not support, cmd=%s", cmd);
+    return false;
 }
 
 bool redis_server::config(redis_coder &result) {

@@ -24,23 +24,30 @@ redis_hash::~redis_hash() {
     delete dao_;
 }
 
+struct hash_handler {
+    const char* cmd;
+    bool (redis_hash::*func) (redis_coder&);
+};
+
+static struct hash_handler handlers[] = {
+    { "HSET",       &redis_hash::hset       },
+    { "HGET",       &redis_hash::hget       },
+    { "HDEL",       &redis_hash::hdel       },
+    { "HMSET",      &redis_hash::hmset      },
+    { "HMGET",      &redis_hash::hmget      },
+    { "HGETALL",    &redis_hash::hgetall    },
+    { nullptr,      nullptr                 },
+};
+
 bool redis_hash::exec(const char* cmd, redis_coder& result) {
-    if (EQ(cmd, "HSET")) {
-        return hset(result);
-    } else if (EQ(cmd, "HGET")) {
-        return hget(result);
-    } else if (EQ(cmd, "HDEL")) {
-        return hdel(result);
-    } else if (EQ(cmd, "HMSET")) {
-        return hmset(result);
-    } else if (EQ(cmd, "HMGET")) {
-        return hmget(result);
-    } else if (EQ(cmd, "HGETALL")) {
-        return hgetall(result);
-    } else {
-        logger_error("Not support, cmd=%s", cmd);
-        return false;
+    for (int i = 0; handlers[i].cmd != nullptr; i++) {
+        if (EQ(cmd, handlers[i].cmd)) {
+            return (this->*(handlers[i].func))(result);
+        }
     }
+
+    logger_error("Not support, cmd=%s", cmd);
+    return false;
 }
 
 bool redis_hash::hset(redis_coder &result) {

@@ -24,15 +24,26 @@ redis_string::~redis_string() {
     delete dao_;
 }
 
+struct string_handler {
+    const char* cmd;
+    bool (redis_string::*func) (redis_coder&);
+};
+
+static struct string_handler handlers[] = {
+    { "SET",        &redis_string::set      },
+    { "GET",        &redis_string::get      },
+    { nullptr,      nullptr                 },
+};
+
 bool redis_string::exec(const char* cmd, redis_coder& result) {
-    if (EQ(cmd, "SET")) {
-        return set(result);
-    } else if (EQ(cmd, "GET")) {
-        return get(result);
-    } else {
-        logger_error("Not support, cmd=%s", cmd);
-        return false;
+    for (int i = 0; handlers[i].cmd != nullptr; i++) {
+        if (EQ(cmd, handlers[i].cmd)) {
+            return (this->*(handlers[i].func))(result);
+        }
     }
+
+    logger_error("Not support, cmd=%s", cmd);
+    return false;
 }
 
 bool redis_string::set(redis_coder& result) {
