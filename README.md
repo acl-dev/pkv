@@ -8,9 +8,21 @@ Parallel KV service supports redis protocol.
 - **Streamed parser:** Streamed parser which is IO independent; 
 - **Serialization:** Use yyjson to serialize and deserialize the stored data.
 
+# Support redis commands
+- **TYPE**
+- **DEL**
+- **EXPIRE**
+- **TTL**
+- **SET**
+- **GET**
+- **HSET**
+- **HGET**
+- **HDEL**
+- **HGETALL**
+
 # Dependence
 - **c++11**
-- **CentOS8 or Ubuntu 18**
+- **CentOS7.6 or Ubuntu 18**
 - **Acl project:** https://github.com/acl-dev/acl
 - **Yyjson:** https://github.com/ibireme/yyjson
 - **Rocksdb:** https://github.com/facebook/rocksdb
