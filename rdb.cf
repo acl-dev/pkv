@@ -124,6 +124,6 @@ service pkv
 #	应用自己的配置选项
 
 	buf_size = 8192
-	dbpath = ./data/db1; ./data/db2; ./data/db3; ./data/db4
+	dbpath = ./data/rdb/db1; ./data/rdb/db2; ./data/rdb/db3; ./data/rdb/db4
 	dbtype = rdb
 }

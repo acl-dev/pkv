@@ -1,3 +1,3 @@
 #!/bin/sh
 
-./pkv alone pkv.cf
+./pkv alone wdb.cf

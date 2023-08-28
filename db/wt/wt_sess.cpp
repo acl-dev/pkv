@@ -26,9 +26,13 @@ bool wt_sess::open() {
     const char* table_name = "table:access";
 
     std::string table_conf;
-    table_conf += "split_pct=90,leaf_item_max=1KB";
-    table_conf += ",type=lsm,internal_page_max=16KB,leaf_page_max=16KB";
+    table_conf += "split_pct=90,leaf_item_max=4KB";
+#if 1
+    table_conf += ",type=lsm";
+    table_conf += ",internal_page_max=16KB,leaf_page_max=16KB";
     //table_conf += ",lsm=(chunk_size=4MB,bloom_config=(leaf_page_max=4MB))";
+#endif
+
     //table_conf += ",block_compressor=snappy";
     table_conf += ",key_format=S,value_format=S";
 

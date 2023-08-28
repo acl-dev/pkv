@@ -3,6 +3,9 @@
 //
 
 #include "stdafx.h"
+#include <time.h>
+#include <stdlib.h>
+#include <acl-lib/fiber/go_fiber.hpp>
 
 #include "test_db.h"
 
@@ -13,8 +16,14 @@ test_db::test_db() {}
 test_db::~test_db() {}
 
 void test_db::bench(const std::string &path, size_t max) {
-    rdb_bench(path, max);
-    wdb_bench(path, max);
+    srand(time(NULL));
+
+    go[&path, max] {
+        rdb_bench(path, max);
+        wdb_bench(path, max);
+    };
+
+    acl::fiber::schedule();
 }
 
 void test_db::rdb_bench(const std::string &path, size_t max) {
@@ -69,7 +78,8 @@ size_t test_db::bench_set(pkv::shared_db &db, size_t max) {
     size_t i;
     for (i = 0; i < max; i++) {
         std::string key("key-");
-        key += std::to_string(i);
+        auto n = rand() % max + 1;
+        key += std::to_string(n);
 
         std::string val("val-");
         val += std::to_string(i);
