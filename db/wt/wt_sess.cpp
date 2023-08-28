@@ -3,31 +3,42 @@
 //
 
 #include "stdafx.h"
-#include "wdb.h"
-#include "wt_sess.h"
 
 #ifdef HAS_WT
 
+#include "wt.h"
+#include "wt_sess.h"
+
 namespace pkv {
 
-wt_sess::wt_sess(wdb &db) : db_(db), sess_(nullptr), curs_(nullptr) {}
+wt_sess::wt_sess(wt& db) : db_(db), n_(0), sess_(nullptr), curs_(nullptr) {}
 
 wt_sess::~wt_sess() = default;
 
 bool wt_sess::open() {
-    int ret = db_.get_db()->open_session(db_.get_db(), nullptr, nullptr, &sess_);
+    auto db = db_.get_db();
+    int ret = db->open_session(db, nullptr, nullptr, &sess_);
     if (ret != 0) {
         logger_error("open session error %d", ret);
         return false;
     }
 
-    ret = sess_->create(sess_, "table:access", "key_format=S, value_format=S");
+    const char* table_name = "table:access";
+
+    std::string table_conf;
+    table_conf += "split_pct=90,leaf_item_max=1KB";
+    table_conf += ",type=lsm,internal_page_max=16KB,leaf_page_max=16KB";
+    //table_conf += ",lsm=(chunk_size=4MB,bloom_config=(leaf_page_max=4MB))";
+    //table_conf += ",block_compressor=snappy";
+    table_conf += ",key_format=S,value_format=S";
+
+    ret = sess_->create(sess_, table_name, table_conf.c_str());
     if (ret != 0) {
         logger_error("create session error %d", ret);
         return false;
     }
 
-    ret = sess_->open_cursor(sess_, "table:access", nullptr, nullptr, &curs_);
+    ret = sess_->open_cursor(sess_, table_name, nullptr, "overwrite=true", &curs_);
     if (ret != 0) {
         logger_error("open cursor error %d", ret);
         return false;
@@ -38,15 +49,24 @@ bool wt_sess::open() {
 
 bool wt_sess::add(const std::string &key, const std::string &value) {
     assert(curs_);
+    if (n_ == 0) {
+        //sess_->begin_transaction(sess_, NULL);
+    }
+
     curs_->set_key(curs_, key.c_str());
     curs_->set_value(curs_, value.c_str());
     int ret = curs_->insert(curs_);
     if (ret != 0) {
         logger_error("insert %s %s error=%d", key.c_str(), value.c_str(), ret);
         curs_->reset(curs_);
+        //sess_->commit_transaction(sess_, NULL);
         return false;
     }
     curs_->reset(curs_);
+    if (++n_ >= 1000) {
+        //sess_->commit_transaction(sess_, NULL);
+        n_ = 0;
+    }
     return true;
 }
 

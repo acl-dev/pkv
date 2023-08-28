@@ -8,11 +8,9 @@
 
 #ifdef HAS_WT
 
-typedef struct __wt_connection WT_CONNECTION;
-
 namespace pkv {
 
-class wt_sess;
+class wt;
 
 class wdb : public db {
 public:
@@ -21,7 +19,7 @@ public:
 
 protected:
     // @override
-    bool open(const char* path) override;
+    bool open(const char* paths) override;
 
     // @override
     bool set(const std::string& key, const std::string& value) override;
@@ -34,7 +32,7 @@ protected:
 
     // @override
     bool scan(const std::string& seek_key,
-	std::vector<std::string>& keys, size_t max) override;
+        std::vector<std::string>& keys, size_t max) override;
 
 public:
     // @override
@@ -42,14 +40,11 @@ public:
         return "wdb";
     }
 
-public:
-    NODISCARD WT_CONNECTION* get_db() const {
-        return db_;
-    }
-
 private:
-    std::string path_;
-    WT_CONNECTION *db_;
+    size_t cache_max_;
+    std::vector<wt*> dbs_;
+
+    bool open_one(const std::string& path);
 };
 
 } // namespace pkv

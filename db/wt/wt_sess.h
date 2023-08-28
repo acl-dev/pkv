@@ -10,11 +10,11 @@
 
 namespace pkv {
 
-class wdb;
+class wt;
 
 class wt_sess {
 public:
-    explicit wt_sess(wdb& db);
+    explicit wt_sess(wt& db);
     ~wt_sess();
 
     bool open();
@@ -26,7 +26,8 @@ public:
     bool del(const std::string& key);
 
 private:
-    wdb& db_;
+    wt& db_;
+    size_t n_;
 
     WT_SESSION *sess_;
     WT_CURSOR  *curs_;
