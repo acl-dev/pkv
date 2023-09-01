@@ -25,6 +25,15 @@ public:
     bool hgetall(shared_db& db, const std::string& key) override;
 
     // @override
+    int hmset(shared_db& db, const std::string& key,
+            const std::map<std::string, std::string>& fields) override;
+
+    // @override
+    bool hmget(shared_db& db, const std::string& key,
+            const std::vector<std::string>& names,
+            std::map<std::string, std::string>& result) override;
+
+    // @override
     const std::map<std::string, std::string>& get_fields() override {
         return fields_;
     }

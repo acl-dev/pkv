@@ -36,7 +36,7 @@ bool json_hash::hset(shared_db& db, const std::string& key, const std::string& n
     fields_[name] = value;
 
     if (build() == nullptr) {
-        logger_error("build for hset error, key=%s, name=%s, value=%s",
+        logger_error("Build for hset error, key=%s, name=%s, value=%s",
               key.c_str(), name.c_str(), value.c_str());
         return false;
     }
@@ -58,7 +58,7 @@ int json_hash::hdel(shared_db& db, const std::string& key, const std::string& na
     if (fields_.empty()) {
         db->del(key);
     } else if (build() == nullptr) {
-        logger_error("build for hset error, key=%s, name=%s",
+        logger_error("Build for hset error, key=%s, name=%s",
               key.c_str(), name.c_str());
         return -1;
     } else if (!dao_base::save(db, key, this->result_)) {
@@ -78,7 +78,7 @@ bool json_hash::hget(shared_db& db, const std::string& key, const std::string& n
         return false;
     }
     if (strcasecmp(type_.c_str(), JSON_TYPE_HASH) != 0) {
-        logger_error("nvalid type=%s, key=%s", type_.c_str(), key.c_str());
+        logger_error("Invalid type=%s, key=%s", type_.c_str(), key.c_str());
         return false;
     }
 
@@ -105,11 +105,11 @@ bool json_hash::hgetall(shared_db& db, const std::string& key) {
 
     auto data = this->read(db, key);
     if (data == nullptr) {
-        logger_error("db read error, key=%s", key.c_str());
-        return false;
+        //logger_error("db read error, key=%s", key.c_str());
+        return true;
     }
     if (strcasecmp(type_.c_str(), JSON_TYPE_HASH) != 0) {
-        logger_error("nvalid type=%s, key=%s", type_.c_str(), key.c_str());
+        logger_error("Invalid type=%s, key=%s", type_.c_str(), key.c_str());
         return false;
     }
 
@@ -126,6 +126,36 @@ bool json_hash::hgetall(shared_db& db, const std::string& key) {
         }
     }
 
+    return true;
+}
+
+int json_hash::hmset(shared_db &db, const std::string &key,
+     const std::map<std::string, std::string> &fields) {
+    (void) hgetall(db, key);
+    for (auto field : fields) {
+        fields_[field.first] = field.second;
+    }
+
+    if (build() == nullptr) {
+        logger_error("Build for hmset error, key=%s", key.c_str());
+        return false;
+    }
+    return dao_base::save(db, key, this->result_);
+}
+
+bool json_hash::hmget(shared_db &db, const std::string &key,
+     const std::vector<std::string> &names,
+     std::map<std::string, std::string>& result) {
+
+    (void) hgetall(db, key);
+    for (auto name : names) {
+        auto it = fields_.find(name);
+        if (it != fields_.end()) {
+            result[name] = it->second;
+        } else {
+            result[name] = "";
+        }
+    }
     return true;
 }
 

@@ -71,4 +71,12 @@ extern acl::master_bool_tbl var_conf_bool_tab[];
 extern acl::master_int_tbl var_conf_int_tab[];
 extern acl::master_int64_tbl var_conf_int64_tab[];
 
+#ifndef HAS_ROCKSDB
+# define HAS_ROCKSDB
+#endif
+
+#ifndef HAS_WT
+# define HAS_WT
+#endif
+
 //#define HAS_VECTOR

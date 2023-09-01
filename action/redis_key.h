@@ -14,6 +14,7 @@ namespace dao {
 class redis_handler;
 class redis_object;
 class redis_coder;
+class db_cursor;
 
 class redis_key : public redis_command {
 public:
@@ -27,7 +28,7 @@ public:
     bool type(redis_coder& result);
     bool expire(redis_coder& result);
     bool ttl(redis_coder& result);
-    bool scan(std::string& scan_key, redis_coder& result);
+    bool scan(db_cursor& cursor, redis_coder& result);
 
 private:
     dao::key* dao_;

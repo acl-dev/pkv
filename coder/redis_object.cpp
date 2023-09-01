@@ -193,8 +193,8 @@ const char* redis_object::parse_begin(const char* data, size_t& len) {
         status_ = redis_s_arlen;
         break;
     default:	// CMDLINE
-	status_ = redis_s_cmdline;
-	return data;
+        status_ = redis_s_cmdline;
+        return data;
     }
 
     len--;
@@ -470,7 +470,7 @@ bool redis_object::to_string(std::string& out) const {
         }
         break;
     case REDIS_OBJ_ARRAY:
-        //printf(">>>>>>array<<<<<\n");
+        printf(">>>>>>array<<<<<\n");
         break;
     default:
         break;

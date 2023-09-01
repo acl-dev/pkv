@@ -4,6 +4,7 @@
 
 #include "stdafx.h"
 #include "coder/redis_coder.h"
+#include "db/db_cursor.h"
 #include "dao/json/json_key.h"
 
 #include "redis_handler.h"
@@ -38,7 +39,9 @@ static struct key_handler handlers[] = {
 
 bool redis_key::exec(const char* cmd, redis_coder& result) {
     for (int i = 0; handlers[i].cmd != nullptr; i++) {
-        return (this->*(handlers[i].func))(result);
+        if (EQ(cmd, handlers[i].cmd)) {
+            return (this->*(handlers[i].func))(result);
+        }
     }
 
     logger_error("Not support, cmd=%s", cmd);
@@ -133,15 +136,15 @@ bool redis_key::ttl(pkv::redis_coder &result) {
     return true;
 }
 
-bool redis_key::scan(std::string& scan_key, redis_coder& result) {
+bool redis_key::scan(db_cursor& cursor, redis_coder& result) {
     if (obj_.size() < 2) {
         logger_error("invalid SCAN params' size=%zd", obj_.size());
         return false;
     }
 
-    int cursor = std::atoi(obj_[1]);
-    if (cursor <= 0) {
-        scan_key.clear();
+    int ncursor = std::atoi(obj_[1]);
+    if (ncursor <= 0) {  // Scan again.
+        cursor.reset();
     }
 
     std::string pattern;
@@ -165,7 +168,7 @@ bool redis_key::scan(std::string& scan_key, redis_coder& result) {
     }
 
     std::vector<std::string> keys;
-    if (!dao_->scan(handler_.get_db(), scan_key, keys, count)) {
+    if (!dao_->scan(handler_.get_db(), cursor, keys, count)) {
         logger_error("scan error");
         return false;
     }
@@ -177,7 +180,6 @@ bool redis_key::scan(std::string& scan_key, redis_coder& result) {
         return true;
     }
 
-    scan_key = keys[keys.size() - 1]; // Save the last key.
     auto& o = result.create_object();
     o.create_child().set_string(std::to_string(keys.size()));
 

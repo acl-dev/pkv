@@ -5,6 +5,7 @@
 #include "stdafx.h"
 #include "coder/redis_object.h"
 #include "coder/redis_coder.h"
+#include "db/db_cursor.h"
 #include "redis_service.h"
 #include "redis_key.h"
 #include "redis_handler.h"
@@ -22,6 +23,10 @@ redis_handler::redis_handler(redis_service& service, shared_db & db,
 , builder_(parser.get_cache())
 , coder_(parser.get_cache())
 {
+}
+
+redis_handler::~redis_handler() {
+    delete cursor_;
 }
 
 bool redis_handler::handle() {
@@ -82,8 +87,14 @@ bool redis_handler::handle_one(const redis_object &obj) {
     // The other commands left.
 
     if (EQ(cmd, "SCAN")) {
+        if (cursor_ == nullptr) {
+            cursor_ = db_->create_cursor();
+            if (cursor_ == nullptr) {
+                return false;
+            }
+        }
         redis_key redis(*this, obj);
-        return redis.scan(scan_key_, builder_);
+        return redis.scan(*cursor_, builder_);
     } else if (EQ(cmd, "QUIT")) {
         (void) conn_.write("+OK\r\n");
         return false;

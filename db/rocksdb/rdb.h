@@ -12,7 +12,7 @@ namespace pkv {
 
 class rdb : public db {
 public:
-    rdb();
+    rdb() = default;
     ~rdb() override;
 
 protected:
@@ -29,8 +29,10 @@ protected:
     bool del(const std::string& key) override;
 
     // @override
-    bool scan(const std::string& key, std::vector<std::string>& keys,
-	      size_t max) override;
+    db_cursor* create_cursor() override;
+
+    // @override
+    bool scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) override;
 
 public:
     // @override
@@ -39,9 +41,11 @@ public:
     }
 
 private:
-    std::string path_;
     std::vector<rocksdb::DB*> dbs_;
     std::vector<std::string> paths_;
+
+    static bool scan(rocksdb::DB& rdb, db_cursor& cursor,
+              std::vector<std::string>& keys, size_t max);
 
     bool open_one(const std::string& path);
 };

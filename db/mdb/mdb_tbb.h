@@ -36,8 +36,7 @@ protected:
     bool del(const std::string& key) override;
 
     // @override
-    bool scan(const std::string& key, std::vector<std::string>& keys,
-          size_t max) override;
+    bool scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) override;
 
     // @override
     NODISCARD const char* get_dbtype() const override {

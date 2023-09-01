@@ -91,8 +91,7 @@ bool mdb_htable::del(const std::string &key) {
     return ret == 0;
 }
 
-bool mdb_htable::scan(const std::string &key, std::vector<std::string> &keys,
-       size_t max) {
+bool mdb_htable::scan(db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
     return false;
 }
 

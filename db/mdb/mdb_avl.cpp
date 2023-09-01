@@ -60,8 +60,7 @@ bool mdb_avl::del(const std::string &key) {
     return n > 0 ? true : false;
 }
 
-bool mdb_avl::scan(const std::string &key, std::vector<std::string> &keys,
-      size_t max) {
+bool mdb_avl::scan(db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
     return false;
 }
 

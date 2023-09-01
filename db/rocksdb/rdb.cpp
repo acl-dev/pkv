@@ -3,16 +3,16 @@
 #ifdef HAS_ROCKSDB
 
 #include "rocksdb/db.h"
-#include "rocksdb/slice.h"
+//#include "rocksdb/slice.h"
 #include "rocksdb/options.h"
 
+#include "../db_cursor.h"
+#include "rdb_cursor.h"
 #include "rdb.h"
 
 using namespace rocksdb;
 
 namespace pkv {
-
-rdb::rdb() {}
 
 rdb::~rdb() {
     size_t i = 0;
@@ -27,7 +27,7 @@ rdb::~rdb() {
 bool rdb::open(const char* paths) {
     acl::string buf(paths);
     auto& tokens = buf.split2(";, \t");
-    for (auto token : tokens) {
+    for (auto& token : tokens) {
         std::string path = token;
         path += "/rdb";
         if (!open_one(path)) {
@@ -104,10 +104,39 @@ bool rdb::del(const std::string& key) {
     return true;
 }
 
-bool rdb::scan(const std::string& seek_key, std::vector<std::string>& keys,
-       size_t max) {
-#if 0
-    rocksdb::Iterator* it = db_->NewIterator(rocksdb::ReadOptions());
+db_cursor* rdb::create_cursor() {
+    return new rdb_cursor();
+}
+
+bool rdb::scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) {
+    keys.clear();
+
+    while (true) {
+        size_t idx = cursor.get_db();
+        if (idx >= dbs_.size()) {
+            return true;
+        }
+
+        auto dbp = dbs_[idx];
+        if (!scan(*dbp, cursor, keys, max)) {
+            return false;
+        }
+
+        if (keys.size() >= max) {
+            return true;
+        }
+
+        // If not got the needed keys, we should clear the seek key for next db.
+        cursor.set_seek_key("");
+        cursor.next_db();
+    }
+}
+
+bool rdb::scan(rocksdb::DB& rdb, db_cursor& cursor,
+     std::vector<std::string>& keys, size_t max) {
+    auto& seek_key = cursor.get_seek_key();
+
+    rocksdb::Iterator* it = rdb.NewIterator(rocksdb::ReadOptions());
     if (seek_key.empty()) {
         it->SeekToFirst();
     } else {
@@ -121,10 +150,10 @@ bool rdb::scan(const std::string& seek_key, std::vector<std::string>& keys,
 
     for (size_t i = 0; i < max && it->Valid(); i++) {
         auto key = it->key().ToString();
+        cursor.set_seek_key(key);
         keys.emplace_back(key);
         it->Next();
     }
-#endif
 
     return true;
 }

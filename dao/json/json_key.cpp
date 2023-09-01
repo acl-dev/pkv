@@ -53,9 +53,9 @@ bool json_key::ttl(pkv::shared_db &db, const std::string &keyname, int &n) {
     return true;
 }
 
-bool json_key::scan(shared_db& db, const std::string& seek_key,
+bool json_key::scan(shared_db& db, db_cursor& cursor,
        std::vector<std::string>& keys, size_t max) {
-    return db->scan(seek_key, keys, max);
+    return db->scan(cursor, keys, max);
 }
 
 } // namespace dao

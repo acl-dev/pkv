@@ -68,8 +68,7 @@ bool wdb::del(const std::string &key) {
     return dbp->del(key);
 }
 
-bool wdb::scan(const std::string& seek_key, std::vector<std::string> &keys,
-       size_t max) {
+bool wdb::scan(db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
     return false;
 }
 

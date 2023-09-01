@@ -13,12 +13,14 @@ namespace pkv {
 class redis_service;
 class redis_object;
 class redis_ocache;
+class db_cursor;
 
 class redis_handler {
 public:
     explicit redis_handler(redis_service& service, shared_db& db,
-   	redis_coder& parser, acl::socket_stream& conn);
-    ~redis_handler() = default;
+   	    redis_coder& parser, acl::socket_stream& conn);
+
+    ~redis_handler();
 
     bool handle();
 
@@ -41,16 +43,9 @@ private:
     acl::socket_stream& conn_;
     redis_coder builder_;
     redis_coder coder_;
-    std::string scan_key_;
+    db_cursor* cursor_ = nullptr;
 
     bool handle_one(const redis_object& obj);
-
-    bool hset(const redis_object& obj);
-    bool hget(const redis_object& obj);
-    bool hdel(const redis_object& obj);
-    bool hmset(const redis_object& obj);
-    bool hmget(const redis_object& obj);
-    bool hgetall(const redis_object& obj);
 };
 
-}
+} // namespace pkv

@@ -38,11 +38,11 @@ public:
         return false;
     }
 
-    bool scan(const std::string&, std::vector<std::string>&, size_t) override {
+    bool scan(db_cursor&, std::vector<std::string>&, size_t) override {
         return false;
     }
 
-    const char* get_dbtype() const override {
+    NODISCARD const char* get_dbtype() const override {
         return "dummy_db";
     }
 };

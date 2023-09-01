@@ -3,6 +3,9 @@
 #include "dao_base.h"
 
 namespace pkv {
+
+class db_cursor;
+
 namespace dao {
 
 class key : public dao_base {
@@ -14,7 +17,7 @@ public:
     virtual bool type(shared_db& db, const std::string& key, std::string& out) = 0;
     virtual bool expire(shared_db& db, const std::string& key, int n) = 0;
     virtual bool ttl(shared_db& db, const std::string& key, int& n) = 0;
-    virtual bool scan(shared_db& db, const std::string& seek_key,
+    virtual bool scan(shared_db& db, db_cursor& cursor,
 	      std::vector<std::string>& keys, size_t max) = 0;
 
 private:

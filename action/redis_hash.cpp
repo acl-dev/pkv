@@ -52,7 +52,7 @@ bool redis_hash::exec(const char* cmd, redis_coder& result) {
 
 bool redis_hash::hset(redis_coder &result) {
     if (obj_.size() < 4) {
-        logger_error("invalid HSET command's size=%zd < 4", obj_.size());
+        logger_error("Invalid HSET command's size=%zd < 4", obj_.size());
         return false;
     }
 
@@ -84,7 +84,7 @@ bool redis_hash::hset(redis_coder &result) {
 
 bool redis_hash::hget(redis_coder &result) {
     if (obj_.size() < 3) {
-        logger_error("invalid HGET command's size=%zd < 3", obj_.size());
+        logger_error("Invalid HGET command's size=%zd < 3", obj_.size());
         return false;
     }
 
@@ -112,7 +112,7 @@ bool redis_hash::hget(redis_coder &result) {
 
 bool redis_hash::hdel(redis_coder &result) {
     if (obj_.size() < 3) {
-        logger_error("invalid HDEL params' size=%zd < 3", obj_.size());
+        logger_error("Invalid HDEL params' size=%zd < 3", obj_.size());
         return false;
     }
 
@@ -134,16 +134,79 @@ bool redis_hash::hdel(redis_coder &result) {
 }
 
 bool redis_hash::hmset(redis_coder &result) {
-    return false;
+    size_t n = obj_.size();
+    if (n < 4 || (n - 4) % 2 != 0) {
+        logger_error("Invalid HMSET command's size=%zd", n);
+        return false;
+    }
+
+    auto key = obj_[1];
+    if (key == nullptr || *key == 0) {
+        logger_error("key null");
+        return false;
+    }
+
+    std::map<std::string, std::string> fields;
+    for (size_t i = 2; i < n; i += 2) {
+        auto name = obj_[i];
+        auto value = obj_[i + 1];
+        if (name == nullptr || *name == 0) {
+            logger_error("name null");
+            return false;
+        }
+        if (value == nullptr || *value == 0) {
+            logger_error("value null");
+            return false;
+        }
+
+        fields[name] = value;
+    }
+
+    int ret = dao_->hmset(handler_.get_db(), key, fields);
+
+    result.create_object().set_number(ret);
+    return true;
 }
 
 bool redis_hash::hmget(redis_coder &result) {
-    return false;
+    size_t n = obj_.size();
+    if (n < 3) {
+        logger_error("Invalid HMGET command's size=%zd", n);
+        return false;
+    }
+
+    auto key = obj_[1];
+    if (key == nullptr || *key == 0) {
+        logger_error("key null");
+        return false;
+    }
+
+    std::vector<std::string> names;
+    for (size_t i = 2; i < n; i++) {
+        auto name = obj_[i];
+        if (name == nullptr || *name == 0) {
+            logger_error("name null");
+            return false;
+        }
+        names.emplace_back(name);
+    }
+
+    std::map<std::string, std::string> fields;
+    if (!dao_->hmget(handler_.get_db(), key, names, fields)) {
+        return false;
+    }
+
+    auto& obj = result.create_object();
+    for (const auto& it : fields) {
+        obj.create_child().set_string(it.first, true)
+            .create_child().set_string(it.second);
+    }
+    return true;
 }
 
 bool redis_hash::hgetall(redis_coder &result) {
     if (obj_.size() < 2) {
-        logger_error("invalid HGETALL command's size=%zd < 2", obj_.size());
+        logger_error("Invalid HGETALL command's size=%zd < 2", obj_.size());
         return false;
     }
 
@@ -158,8 +221,13 @@ bool redis_hash::hgetall(redis_coder &result) {
         return false;
     }
 
-    auto& fields = dao_->get_fields();
     auto& obj = result.create_object();
+
+    auto& fields = dao_->get_fields();
+    if (fields.empty()) {
+        obj.create_child();
+        return true;
+    }
     for (const auto& it : fields) {
         obj.create_child().set_string(it.first, true)
             .create_child().set_string(it.second);

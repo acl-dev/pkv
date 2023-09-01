@@ -74,8 +74,7 @@ bool mdb::del(const std::string &key) {
     return true;
 }
 
-bool mdb::scan(const std::string &key, std::vector<std::string> &keys,
-       size_t max) {
+bool mdb::scan(db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
     return false;
 }
 

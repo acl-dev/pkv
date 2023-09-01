@@ -58,8 +58,7 @@ bool mdb_tbb::del(const std::string &key) {
     return store->erase(key);
 }
 
-bool mdb_tbb::scan(const std::string &key, std::vector<std::string> &keys,
-       size_t max) {
+bool mdb_tbb::scan(db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
     return false;
 }
 
