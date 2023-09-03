@@ -8,6 +8,8 @@
 
 namespace pkv {
 
+class mdb_htable_cursor;
+
 class mdb_htable : public db {
 public:
     mdb_htable();
@@ -27,6 +29,9 @@ protected:
     bool del(const std::string& key) override;
 
     // @override
+    db_cursor* create_cursor() override;
+
+    // @override
     bool scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) override;
 
     // @override
@@ -35,8 +40,10 @@ protected:
     }
 
 private:
-    std::vector<ACL_HTABLE*> stores_;
+    std::vector<ACL_HTABLE*> dbs_;
     ACL_SLICE_POOL* slice_;
+
+    bool scan(ACL_HTABLE&, mdb_htable_cursor&, std::vector<std::string>&, size_t);
 };
 
 } // namespace pkv

@@ -225,7 +225,7 @@ bool redis_hash::hgetall(redis_coder &result) {
 
     auto& fields = dao_->get_fields();
     if (fields.empty()) {
-        obj.create_child();
+        obj.set_type(REDIS_OBJ_EMPTY);
         return true;
     }
     for (const auto& it : fields) {

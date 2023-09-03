@@ -470,7 +470,9 @@ bool redis_object::to_string(std::string& out) const {
         }
         break;
     case REDIS_OBJ_ARRAY:
-        printf(">>>>>>array<<<<<\n");
+        break;
+    case REDIS_OBJ_EMPTY:
+        out.append("*0").append(CRLF);
         break;
     default:
         break;
@@ -524,8 +526,8 @@ redis_object& redis_object::create_child() {
     return *obj;
 }
 
-void redis_object::create_empty() {
-    CHECK(objs_);
+void redis_object::set_type(pkv::redis_obj_t type) {
+    type_ = type;
 }
 
 } // namespace pkv

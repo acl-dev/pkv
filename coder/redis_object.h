@@ -18,6 +18,7 @@ typedef enum {
 	REDIS_OBJ_INTEGER,
 	REDIS_OBJ_STRING,
 	REDIS_OBJ_ARRAY,
+    REDIS_OBJ_EMPTY,
 } redis_obj_t;
 
 class redis_ocache;
@@ -72,7 +73,7 @@ public:
     redis_object& set_number(long long n, bool return_parent = false);
     redis_object& set_string(const std::string& data, bool return_parent = false);
     redis_object& create_child();
-    void create_empty();
+    void set_type(redis_obj_t type);
 
     bool to_string(std::string& out) const;
 

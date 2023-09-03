@@ -176,7 +176,7 @@ bool redis_key::scan(db_cursor& cursor, redis_coder& result) {
     if (keys.empty()) {
         auto& o = result.create_object();
         o.create_child().set_string("0");
-        o.create_child().create_empty();
+        o.create_child().set_type(REDIS_OBJ_EMPTY);
         return true;
     }
 
