@@ -13,6 +13,7 @@
 #include "mdb/mdb_avl.h"
 #include "mdb/mdb_tbb.h"
 
+#include "db_cursor.h"
 #include "db.h"
 
 namespace pkv {
@@ -38,7 +39,11 @@ public:
         return false;
     }
 
-    bool scan(db_cursor&, std::vector<std::string>&, size_t) override {
+    db_cursor* create_cursor() override {
+        return nullptr;
+    }
+
+    bool scan(size_t, db_cursor&, std::vector<std::string>&, size_t) override {
         return false;
     }
 
@@ -81,6 +86,29 @@ shared_db db::create_mdb_tbb() {
 #else
     return std::make_shared<dummy_db>();
 #endif
+}
+
+bool db::scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) {
+    keys.clear();
+
+    while (true) {
+        size_t idx = cursor.get_db();
+        if (idx >= this->dbsize()) {
+            return true;
+        }
+
+        if (!scan(idx, cursor, keys, max)) {
+            return false;
+        }
+
+        if (keys.size() >= max) {
+            return true;
+        }
+
+        // If not got the needed keys, we should clear the seek key for next db.
+        cursor.clear();
+        cursor.next_db();
+    }
 }
 
 } // namespace pkv

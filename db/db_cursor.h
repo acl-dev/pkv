@@ -12,19 +12,13 @@ public:
     virtual ~db_cursor() = default;
 
 public:
-    void set_seek_key(const std::string& key);
-
-    NODISCARD const std::string& get_seek_key() const {
-        return seek_key_;
-    }
-
     NODISCARD size_t get_db() const;
     void next_db();
 
     void reset();
+    virtual void clear() = 0;
 
-public:
-    std::string seek_key_;
+private:
     size_t dbidx_ = 0;
 };
 

@@ -18,6 +18,7 @@ mdb_avl::mdb_avl() {
 }
 
 mdb_avl::~mdb_avl() {
+    acl_mdt_free(mdt_);
     acl_mdb_free(mdb_);
 }
 
@@ -57,10 +58,10 @@ bool mdb_avl::get(const std::string &key, std::string &value) {
 bool mdb_avl::del(const std::string &key) {
     int n = acl_mdb_del(mdb_, table_name_.c_str(), key_names[0], key.c_str(),
                         nullptr);
-    return n > 0 ? true : false;
+    return n > 0;
 }
 
-bool mdb_avl::scan(db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
+bool mdb_avl::scan(size_t idx, db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
     return false;
 }
 

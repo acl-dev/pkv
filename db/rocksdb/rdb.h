@@ -10,6 +10,8 @@ namespace rocksdb {
 
 namespace pkv {
 
+class rdb_cursor;
+
 class rdb : public db {
 public:
     rdb() = default;
@@ -32,7 +34,13 @@ protected:
     db_cursor* create_cursor() override;
 
     // @override
-    bool scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) override;
+    bool scan(size_t idx, db_cursor& cursor,
+              std::vector<std::string>& keys, size_t max) override;
+
+    // @override
+    NODISCARD size_t dbsize() const override {
+        return dbs_.size();
+    }
 
 public:
     // @override
@@ -43,9 +51,6 @@ public:
 private:
     std::vector<rocksdb::DB*> dbs_;
     std::vector<std::string> paths_;
-
-    static bool scan(rocksdb::DB& rdb, db_cursor& cursor,
-              std::vector<std::string>& keys, size_t max);
 
     bool open_one(const std::string& path);
 };

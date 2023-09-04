@@ -32,7 +32,13 @@ protected:
     db_cursor* create_cursor() override;
 
     // @override
-    bool scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) override;
+    bool scan(size_t, db_cursor&, std::vector<std::string>&, size_t) override;
+
+protected:
+    // @override
+    NODISCARD size_t dbsize() const override {
+        return dbs_.size();
+    }
 
     // @override
     NODISCARD const char* get_dbtype() const override {
@@ -43,7 +49,6 @@ private:
     std::vector<ACL_HTABLE*> dbs_;
     ACL_SLICE_POOL* slice_;
 
-    bool scan(ACL_HTABLE&, mdb_htable_cursor&, std::vector<std::string>&, size_t);
 };
 
 } // namespace pkv

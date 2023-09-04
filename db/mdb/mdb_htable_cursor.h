@@ -11,15 +11,17 @@ class mdb_htable;
 
 class mdb_htable_cursor : public db_cursor {
 public:
-    mdb_htable_cursor(mdb_htable& htable);
-    ~mdb_htable_cursor() = default;
+    explicit mdb_htable_cursor() = default;
+    ~mdb_htable_cursor() override = default;
+
+    // @override
+    void clear() override;
 
 private:
     friend class mdb_htable;
     size_t idx_ = 0;
 
-    mdb_htable& htable_;
-    ACL_HTABLE_ITER iter_;
+    ACL_HTABLE_ITER iter_{};
 };
 
 } // namespace pkv

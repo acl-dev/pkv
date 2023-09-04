@@ -22,7 +22,7 @@ wdb::~wdb() {
 bool wdb::open(const char *paths) {
     acl::string buf(paths);
     auto& tokens = buf.split2(";, \t");
-    for (auto token : tokens) {
+    for (auto& token : tokens) {
         std::string path = token;
         path += "/wdb";
         if (!open_one(path)) {
@@ -68,7 +68,7 @@ bool wdb::del(const std::string &key) {
     return dbp->del(key);
 }
 
-bool wdb::scan(db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
+bool wdb::scan(size_t idx, db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
     return false;
 }
 

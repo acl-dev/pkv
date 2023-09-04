@@ -8,6 +8,8 @@
 
 namespace pkv {
 
-mdb_htable_cursor::mdb_htable_cursor(mdb_htable &htable) : htable_(htable) {}
+void mdb_htable_cursor::clear() {
+    idx_ = 0;
+}
 
 } // namespace pkv

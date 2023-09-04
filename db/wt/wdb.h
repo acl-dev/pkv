@@ -31,9 +31,19 @@ protected:
     bool del(const std::string& key) override;
 
     // @override
-    bool scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) override;
+    db_cursor* create_cursor() override {
+        return nullptr;
+    }
 
-public:
+    // @override
+    bool scan(size_t, db_cursor&, std::vector<std::string>&, size_t) override;
+
+protected:
+    // @override
+    NODISCARD size_t dbsize() const override {
+        return dbs_.size();
+    }
+
     // @override
     NODISCARD const char* get_dbtype() const override {
         return "wdb";

@@ -7,10 +7,6 @@
 
 namespace pkv {
 
-void db_cursor::set_seek_key(const std::string &key) {
-    seek_key_ = key;
-}
-
 size_t db_cursor::get_db() const {
     return dbidx_;
 }
@@ -20,8 +16,8 @@ void db_cursor::next_db() {
 }
 
 void db_cursor::reset() {
-    seek_key_.clear();
     dbidx_ = 0;
+    this->clear();
 }
 
 } // namespace pkv

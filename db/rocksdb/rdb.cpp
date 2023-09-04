@@ -3,7 +3,6 @@
 #ifdef HAS_ROCKSDB
 
 #include "rocksdb/db.h"
-//#include "rocksdb/slice.h"
 #include "rocksdb/options.h"
 
 #include "../db_cursor.h"
@@ -108,35 +107,16 @@ db_cursor* rdb::create_cursor() {
     return new rdb_cursor();
 }
 
-bool rdb::scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) {
-    keys.clear();
-
-    while (true) {
-        size_t idx = cursor.get_db();
-        if (idx >= dbs_.size()) {
-            return true;
-        }
-
-        auto dbp = dbs_[idx];
-        if (!scan(*dbp, cursor, keys, max)) {
-            return false;
-        }
-
-        if (keys.size() >= max) {
-            return true;
-        }
-
-        // If not got the needed keys, we should clear the seek key for next db.
-        cursor.set_seek_key("");
-        cursor.next_db();
+bool rdb::scan(size_t idx, db_cursor& cur, std::vector<std::string>& keys, size_t max) {
+    if (idx >= dbs_.size()) {
+        return false;
     }
-}
 
-bool rdb::scan(rocksdb::DB& rdb, db_cursor& cursor,
-     std::vector<std::string>& keys, size_t max) {
+    auto dbp = dbs_[idx];
+    auto& cursor = (rdb_cursor&) cur;
     auto& seek_key = cursor.get_seek_key();
 
-    rocksdb::Iterator* it = rdb.NewIterator(rocksdb::ReadOptions());
+    rocksdb::Iterator* it = dbp->NewIterator(rocksdb::ReadOptions());
     if (seek_key.empty()) {
         it->SeekToFirst();
     } else {
@@ -154,7 +134,6 @@ bool rdb::scan(rocksdb::DB& rdb, db_cursor& cursor,
         keys.emplace_back(key);
         it->Next();
     }
-
     return true;
 }
 

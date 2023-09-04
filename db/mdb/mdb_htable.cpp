@@ -93,43 +93,26 @@ bool mdb_htable::del(const std::string &key) {
 }
 
 db_cursor *mdb_htable::create_cursor() {
-    return new mdb_htable_cursor(*this);
+    return new mdb_htable_cursor();
 }
 
-bool mdb_htable::scan(db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
-    mdb_htable_cursor& cur = (mdb_htable_cursor&) cursor;
-    keys.clear();
-    while (true) {
-        size_t idx = cursor.get_db();
-        if (idx >= dbs_.size()) {
-            return true;
-        }
-
-        auto dbp = dbs_[idx];
-        if (!scan(*dbp, cur, keys, max)) {
-            return false;
-        }
-
-        if (keys.size() >= max) {
-            return true;
-        }
-
-        // If not got the needed keys, we should reset the cursor for next db.
-        cur.idx_ = 0;
-        cursor.next_db();
-    }
-}
-
-bool mdb_htable::scan(ACL_HTABLE& db, mdb_htable_cursor& cursor,
+bool mdb_htable::scan(size_t idx, db_cursor& cur,
       std::vector<std::string>& keys, size_t max) {
 
-    acl_htable_lock_read(&db);
+    if (idx >= dbs_.size()) {
+        return false;
+    }
+
+    auto& cursor = (mdb_htable_cursor&) cur;
+    ACL_HTABLE* dbp = dbs_[idx];
+
+    acl_htable_lock_read(dbp);
 
     while (keys.size() < max) {
         const ACL_HTABLE_INFO *info;
 
         if (cursor.idx_ == 0) {
-            info = acl_htable_iter_head(&db, &cursor.iter_);
+            info = acl_htable_iter_head(dbp, &cursor.iter_);
         } else {
             info = acl_htable_iter_next(&cursor.iter_);
         }
@@ -142,7 +125,7 @@ bool mdb_htable::scan(ACL_HTABLE& db, mdb_htable_cursor& cursor,
         keys.emplace_back(info->key.key);
     }
 
-    acl_htable_unlock(&db);
+    acl_htable_unlock(dbp);
     return true;
 }
 

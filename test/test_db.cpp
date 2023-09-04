@@ -3,20 +3,20 @@
 //
 
 #include "stdafx.h"
-#include <time.h>
-#include <stdlib.h>
+#include <ctime>
+#include <cstdlib>
 #include <acl-lib/fiber/go_fiber.hpp>
 
 #include "test_db.h"
 
 namespace pkv {
 
-test_db::test_db() {}
+test_db::test_db() = default;
 
-test_db::~test_db() {}
+test_db::~test_db() = default;
 
 void test_db::bench(const std::string &path, size_t max) {
-    srand(time(NULL));
+    srand(time(nullptr));
 
     go[&path, max] {
         rdb_bench(path, max);
@@ -52,15 +52,15 @@ void test_db::wdb_bench(const std::string &path, size_t max) {
 void test_db::bench(shared_db &db, size_t max) {
     printf("Begin test %s, count=%zd\r\n", db->get_dbtype(), max);
 
-    struct timeval begin;
+    struct timeval begin{};
     gettimeofday(&begin, nullptr);
 
     size_t n = bench_set(db, max);
 
-    struct timeval end;
+    struct timeval end{};
     gettimeofday(&end, nullptr);
     double cost = acl::stamp_sub(end, begin);
-    double speed = (n * 1000) / (cost > 0 ? cost : 0.0001);
+    double speed = ((double) n * 1000) / (cost > 0 ? cost : 0.0001);
     printf("%s: count=%zd, cost=%.2f ms, set speed=%.2f\r\n",
            db->get_dbtype(), n, cost, speed);
 
@@ -69,7 +69,7 @@ void test_db::bench(shared_db &db, size_t max) {
     gettimeofday(&end, nullptr);
 
     cost = acl::stamp_sub(end, begin);
-    speed = (n * 1000) / (cost > 0 ? cost : 0.0001);
+    speed = ((double) n * 1000) / (cost > 0 ? cost : 0.0001);
     printf("%s: count=%zd, cost=%.2f ms, get speed=%.2f\r\n",
            db->get_dbtype(), n, cost, speed);
 }
