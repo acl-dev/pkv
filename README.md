@@ -8,17 +8,10 @@ Parallel KV service supports redis protocol.
 - **Streamed parser:** Streamed parser which is IO independent; 
 - **Serialization:** Use yyjson to serialize and deserialize the stored data.
 
-# Support redis commands
-- **TYPE**
-- **DEL**
-- **EXPIRE**
-- **TTL**
-- **SET**
-- **GET**
-- **HSET**
-- **HGET**
-- **HDEL**
-- **HGETALL**
+# Supporting redis commands
+- **Key:** TYPE, DEL, SCAN, EXPIRE, TTL
+- **String:** SET, GET
+- **Hash:** HSET, HGET, HDEL, HMSET, HMGET, HGETALL
 
 # Dependence
 - **c++11**
