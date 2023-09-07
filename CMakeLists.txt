@@ -46,6 +46,7 @@ set(src_paths
     ${base_path}/db/rocksdb
     ${base_path}/db/wt
     ${base_path}/db/mdb
+    ${base_path}/cluster
 )
 
 foreach(iter ${src_paths})

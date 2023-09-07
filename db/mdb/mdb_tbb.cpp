@@ -1,5 +1,5 @@
 //
-// Created by shuxin ¡¡¡¡zheng on 2023/8/21.
+// Created by shuxin zheng on 2023/8/21.
 //
 
 #include "stdafx.h"
@@ -58,8 +58,18 @@ bool mdb_tbb::del(const std::string &key) {
     return store->erase(key);
 }
 
-bool mdb_tbb::scan(size_t, db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
-    return false;
+bool mdb_tbb::scan(size_t shard_id, db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
+    auto store = stores_[shard_id];
+    Accessor a;
+    for (auto it = store->begin(); it != store->end(); ++it) {
+        if (keys.size() >= max) {
+            break;
+        }
+        if (store->find(a, it->first)) {
+            keys.push_back(a->first.c_str());
+        }
+    }
+    return true;
 }
 
 } // namespace pkv

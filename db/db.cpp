@@ -105,7 +105,8 @@ bool db::scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) {
             return true;
         }
 
-        // If not got the needed keys, we should clear the seek key for next db.
+        // If the keys are not enough, we should use the next db to get more,
+        // and clear the current cursor.
         cursor.clear();
         cursor.next_db();
     }
