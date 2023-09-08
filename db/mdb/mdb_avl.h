@@ -1,5 +1,5 @@
 //
-// Created by shuxin ¡¡¡¡zheng on 2023/8/24.
+// Created by shuxin zheng on 2023/8/24.
 //
 
 #pragma once

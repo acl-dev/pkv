@@ -1,5 +1,5 @@
 //
-// Created by shuxin ¡¡¡¡zheng on 2023/8/1.
+// Created by shuxin zheng on 2023/8/1.
 //
 
 #include "stdafx.h"
