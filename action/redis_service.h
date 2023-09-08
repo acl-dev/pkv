@@ -36,6 +36,8 @@ private:
         const redis_object&, redis_coder& result);
     static bool server_handler(redis_handler&, const char*,
         const redis_object&, redis_coder& result);
+    static bool cluster_handler(redis_handler&, const char*,
+        const redis_object&, redis_coder& result);
 };
 
 } // namespace pkv

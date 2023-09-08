@@ -68,6 +68,7 @@ extern int var_cfg_disable_serialize;
 extern int var_cfg_disable_save;
 extern acl::master_bool_tbl var_conf_bool_tab[];
 
+extern int var_cfg_redis_max_slots;
 extern acl::master_int_tbl var_conf_int_tab[];
 extern acl::master_int64_tbl var_conf_int64_tab[];
 

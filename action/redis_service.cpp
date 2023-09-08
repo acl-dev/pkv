@@ -7,6 +7,7 @@
 #include "redis_key.h"
 #include "redis_string.h"
 #include "redis_hash.h"
+#include "redis_cluster.h"
 #include "redis_server.h"
 #include "redis_service.h"
 
@@ -26,6 +27,7 @@ redis_service::redis_service() {
     handlers_["HMGET"] = hash_handler;
     handlers_["HGETALL"] = hash_handler;
     handlers_["CONFIG"] = server_handler;
+    handlers_["CLUSTER"] = cluster_handler;
 }
 
 redis_handler_t * redis_service::get_handler(const char *cmd) {
@@ -61,6 +63,12 @@ bool redis_service::hash_handler(redis_handler& handler, const char* cmd,
 bool redis_service::server_handler(redis_handler& handler, const char* cmd,
      const redis_object& obj, redis_coder& result) {
     redis_server redis(handler, obj);
+    return redis.exec(cmd, result);
+}
+
+bool redis_service::cluster_handler(redis_handler& handler, const char* cmd,
+     const redis_object& obj, redis_coder& result) {
+    redis_cluster redis(handler, obj);
     return redis.exec(cmd, result);
 }
 

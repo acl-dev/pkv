@@ -28,11 +28,14 @@ acl::master_bool_tbl var_conf_bool_tab[] = {
 static int  var_cfg_io_timeout;
 static int  var_cfg_buf_size;
 static int  var_cfg_ocache_max;
+int var_cfg_redis_max_slots;
 
 acl::master_int_tbl var_conf_int_tab[] = {
     { "io_timeout",     120,    &var_cfg_io_timeout,    0,  0   },
     { "buf_size",       8192,   &var_cfg_buf_size,      0,  0   },
     { "ocache_max",     10000,  &var_cfg_ocache_max,    0,  0   },
+
+    { "redis_max_slots", 16384, &var_cfg_redis_max_slots, 0, 0  },
 
     { 0, 0 , 0 , 0, 0 }
 };
