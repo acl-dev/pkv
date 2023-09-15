@@ -25,8 +25,14 @@ bool cluster_service::bind(const char *addr, size_t max_slots) {
     return true;
 }
 
-void cluster_service::add_slots(const std::string &addr,
+bool cluster_service::add_slots(const std::string &addr,
       const std::vector<int> &slots) {
+    if (slots.size() > slots_.size()) {
+        logger_error("Slots overflow, capacity=%zd, adding=%zd",
+                slots_.size(), slots.size());
+        return false;
+    }
+
     shared_node node;
     auto it = nodes_.find(addr);
     if (it == nodes_.end()) {
@@ -38,9 +44,10 @@ void cluster_service::add_slots(const std::string &addr,
 
     node->add_slots(slots);
 
-    for (auto& slot : slots) {
+    for (auto slot : slots) {
         slots_[slot] = node;
     }
+    return true;
 }
 
 } // namespace pkv

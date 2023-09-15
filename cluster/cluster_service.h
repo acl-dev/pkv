@@ -38,8 +38,9 @@ public:
      * 
      * @param addr The address of the node.
      * @param slots The slots to add.
+     * @return {bool}
      */
-    void add_slots(const std::string& addr, const std::vector<int>& slots);
+    bool add_slots(const std::string& addr, const std::vector<int>& slots);
 
     const std::map<std::string, shared_node>& get_nodes() const {
         return nodes_;

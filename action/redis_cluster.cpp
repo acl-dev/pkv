@@ -26,9 +26,9 @@ struct cluster_handler {
 };
 
 static struct cluster_handler handlers[] = {
-    { "NODES",          &redis_cluster::nodes           },
-    { "ADDSLOTS",       &redis_cluster::addslots        },
-    { nullptr,      nullptr                 },
+    { "NODES",      &redis_cluster::cluster_nodes           },
+    { "ADDSLOTS",   &redis_cluster::cluster_addslots        },
+    { nullptr,      nullptr                                 },
 };
 
 bool redis_cluster::exec(const char*, redis_coder& result) {
@@ -53,7 +53,7 @@ bool redis_cluster::exec(const char*, redis_coder& result) {
     return false;
 }
 
-bool redis_cluster::addslots(redis_coder& result) {
+bool redis_cluster::cluster_addslots(redis_coder& result) {
     if (obj_.size() < 3) {
         logger_error("Invalid CLUSTER ADDSLOTS params: %zd", obj_.size());
         return false;
@@ -74,7 +74,7 @@ bool redis_cluster::addslots(redis_coder& result) {
     return true;
 }
 
-bool redis_cluster::nodes(redis_coder &result) {
+bool redis_cluster::cluster_nodes(redis_coder &result) {
     if (obj_.size() != 2) {
         logger_error("Invalid CLUSTER NODES params: %zd", obj_.size());
         return false;

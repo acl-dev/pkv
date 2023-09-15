@@ -19,8 +19,8 @@ public:
     bool exec(const char* cmd, redis_coder& result);
 
 public:
-    bool addslots(redis_coder& result);
-    bool nodes(redis_coder& result);
+    bool cluster_addslots(redis_coder& result);
+    bool cluster_nodes(redis_coder& result);
 
 private:
     void add_node(std::string& buf, const std::string& addr,

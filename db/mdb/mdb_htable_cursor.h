@@ -21,7 +21,7 @@ private:
     friend class mdb_htable;
     size_t idx_ = 0;
 
-    ACL_HTABLE_ITER iter_{};
+    ACL_HTABLE_ITER iter_;
 };
 
 } // namespace pkv

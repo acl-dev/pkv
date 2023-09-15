@@ -52,12 +52,12 @@ void test_db::wdb_bench(const std::string &path, size_t max) {
 void test_db::bench(shared_db &db, size_t max) {
     printf("Begin test %s, count=%zd\r\n", db->get_dbtype(), max);
 
-    struct timeval begin{};
+    struct timeval begin;
     gettimeofday(&begin, nullptr);
 
     size_t n = bench_set(db, max);
 
-    struct timeval end{};
+    struct timeval end;
     gettimeofday(&end, nullptr);
     double cost = acl::stamp_sub(end, begin);
     double speed = ((double) n * 1000) / (cost > 0 ? cost : 0.0001);
