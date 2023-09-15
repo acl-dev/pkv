@@ -1,37 +1,81 @@
 # pkv
-
-#### 介绍
 Parallel KV service supports redis protocol.
 
-#### 软件架构
-软件架构说明
+# Features
+- **Multiple store engines:** Supports rocksdb, wiredtiger, Intel tbb hashmap, stl hashmap, acl hash table;
+- **Multiple threads:** Use multiple CPU cores with multiple threads;
+- **Coroutine IO:** Use the coroutine lib from acl;
+- **Streamed parser:** Streamed parser which is IO independent; 
+- **Serialization:** Use yyjson to serialize and deserialize the stored data.
 
+# Supporting redis commands
+- **Key:** TYPE, DEL, SCAN, EXPIRE, TTL
+- **String:** SET, GET
+- **Hash:** HSET, HGET, HDEL, HMSET, HMGET, HGETALL
 
-#### 安装教程
+# Dependence
+- **c++11**
+- **CentOS7.6 or Ubuntu 18**
+- **Acl project:** https://github.com/acl-dev/acl
+- **Yyjson:** https://github.com/ibireme/yyjson
+- **Rocksdb:** https://github.com/facebook/rocksdb
+- **Wiredtiger:** https://github.com/wiredtiger/wiredtiger
+- **Intel oneTBB:** https://github.com/oneapi-src/oneTBB
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+# Build
+## Build and install acl
+In the acl source path run below as root:
+```shell
+ # make & make packinstall
+```
+Then the libs including libacl_all.a, libfiber_cpp.a and libfiber.a will be installed to `/usr/lib`, and the header files of acl will be installed in `/usr/include/acl-lib`.
 
-#### 使用说明
+## Build and install yyjson, rocksdb, wiredtiger, oneTBB
+In the source path of every project run:
+```shell
+# mkdir build
+# cd build
+# cmake ..
+# make -j 4
+# make install
+```
 
-1.  xxxx
-2.  xxxx
-3.  xxxx
+## Build pkv
+Build pkv with c++17 in default mode:
+```shell
+# make
+```
+Or build pkv with c++11
+```shell
+# make BUILD_WITH_C11=YES
+```
 
-#### 参与贡献
+The pkv binary will be created.
 
-1.  Fork 本仓库
-2.  新建 Feat_xxx 分支
-3.  提交代码
-4.  新建 Pull Request
+# Test
+Start pkv in the below way, pkv will listen on 19001 as default.
 
+- Run pkv with data being stored memory by oneTBB:
+```shell
+# ./pkv alone mdb_tbb.cf
+```
 
-#### 特技
+- Run pkv with data being stored memory by hash table of acl:
+```shell
+# ./pkv alone mdb_htable.cf
+```
 
-1.  使用 Readme\_XXX.md 来支持不同的语言，例如 Readme\_en.md, Readme\_zh.md
-2.  Gitee 官方博客 [blog.gitee.com](https://blog.gitee.com)
-3.  你可以 [https://gitee.com/explore](https://gitee.com/explore) 这个地址来了解 Gitee 上的优秀开源项目
-4.  [GVP](https://gitee.com/gvp) 全称是 Gitee 最有价值开源项目，是综合评定出的优秀开源项目
-5.  Gitee 官方提供的使用手册 [https://gitee.com/help](https://gitee.com/help)
-6.  Gitee 封面人物是一档用来展示 Gitee 会员风采的栏目 [https://gitee.com/gitee-stars/](https://gitee.com/gitee-stars/)
+- Run pkv with data being stored in rocksdb:
+```shell
+# ./pkv alone rdb.cf
+```
+
+- Run pkv with data being stoared in wiredtiger:
+```shell
+# ./pkv alone wdb.cf
+```
+
+- Run the redis-benchmark in redis to test the pkv's performance
+```shell
+# ./redis-benchmark -p 19001 -n 10000000 -P 1000 -t set -r 100000000
+```
