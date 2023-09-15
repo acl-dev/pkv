@@ -26,7 +26,8 @@ struct cluster_handler {
 };
 
 static struct cluster_handler handlers[] = {
-    { "ADDSLOTS",       &redis_cluster::addslots       },
+    { "NODES",          &redis_cluster::nodes           },
+    { "ADDSLOTS",       &redis_cluster::addslots        },
     { nullptr,      nullptr                 },
 };
 
@@ -68,9 +69,40 @@ bool redis_cluster::addslots(redis_coder& result) {
         }
     }
 
-    cluster_service::get_instance().add_slots(slots);
+    cluster_service::get_instance().add_slots(var_cfg_service_addr, slots);
     result.create_object().set_status("OK");
     return true;
+}
+
+bool redis_cluster::nodes(redis_coder &result) {
+    if (obj_.size() != 2) {
+        logger_error("Invalid CLUSTER NODES params: %zd", obj_.size());
+        return false;
+    }
+
+    std::string buf;
+    auto& nodes = cluster_service::get_instance().get_nodes();
+    for (auto& node : nodes) {
+        add_node(buf, node.first, *node.second);
+    }
+    result.create_object().set_string(buf);
+    return true;
+}
+
+void redis_cluster::add_node(std::string &buf, const std::string &addr,
+       const cluster_node &node) {
+    buf += node.get_id() + " ";
+    buf += node.get_addr() + "@29001 ";
+    buf += node.get_type() + " - 0 ";
+    buf += std::to_string(node.get_join_time()) + " ";
+    buf += std::to_string(node.get_idx()) + " ";
+    buf += node.is_connected() ? "connected" : "disconnected";
+    auto slots = node.get_slots();
+    for (auto& slot : slots) {
+        buf += " ";
+        buf += std::to_string(slot.first) + "-" + std::to_string(slot.second);
+    }
+    buf += "\r\n";
 }
 
 } // namespace 

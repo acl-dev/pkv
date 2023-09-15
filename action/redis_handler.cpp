@@ -67,7 +67,7 @@ bool redis_handler::handle() {
 
     //if (objs.size() >= 20) { printf("reply len=%zd\r\n", buf.size()); }
 
-    //printf(">>>buf=[%s]\r\n", buf.c_str());
+    printf(">>>buf=[%s]\r\n", buf.c_str());
     return conn_.write(buf.c_str(), buf.size()) != -1;
 }
 

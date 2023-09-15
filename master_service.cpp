@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "cluster/cluster_service.h"
 #include "coder/redis_ocache.h"
 #include "coder/redis_coder.h"
 #include "action/redis_handler.h"
@@ -7,10 +8,14 @@
 
 static char *var_cfg_dbpath;
 static char *var_cfg_dbtype;
+char *var_cfg_service_addr;
+char *var_cfg_rpc_addr;
 
 acl::master_str_tbl var_conf_str_tab[] = {
-    { "dbpath",     "./dbpath",     &var_cfg_dbpath },
-    { "dbtype",     "rdb",          &var_cfg_dbtype },
+    { "dbpath",         "./dbpath",         &var_cfg_dbpath         },
+    { "dbtype",         "rdb",              &var_cfg_dbtype         },
+    { "master_service", "127.0.0.1:19001",  &var_cfg_service_addr   },
+    { "rpc_addr",       "127.0.0.1:29001",  &var_cfg_rpc_addr       },
 
     { 0,    0,  0   }
 };
@@ -88,7 +93,7 @@ void master_service::run(acl::socket_stream& conn, size_t size) {
         }
 
         buf[ret] = 0;
-        //printf("%s", buf); fflush(stdout);
+        printf("%s", buf); fflush(stdout);
 
         size_t len = (size_t) ret;
         const char* data = parser.update(buf, len);
@@ -142,6 +147,11 @@ void master_service::proc_on_init() {
     } else {
         logger_error("unknown dbtype=%s", var_cfg_dbtype);
         exit(1);
+    }
+
+    if (!cluster_service::get_instance().bind(var_cfg_rpc_addr,
+          var_cfg_redis_max_slots)) {
+        logger_error("Bind %s error %s", var_cfg_rpc_addr, acl::last_serror());
     }
 }
 

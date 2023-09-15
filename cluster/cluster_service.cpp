@@ -7,26 +7,39 @@
 
 namespace pkv {
 
-cluster_service::~cluster_service() {
-    delete slots_;
-}
-
-bool cluster_service::bind(const char *addr, int max_slots) {
+bool cluster_service::bind(const char *addr, size_t max_slots) {
     if (!server_.open(addr)) {
         logger_error("Bind %s error %s", addr, acl::last_serror());
         return false;
     }
     logger("Bind %s ok", addr);
 
-    assert(max_slots > 0);
+    if (max_slots > 0) {
+        max_slots_ = max_slots;
+    }
 
-    slots_ = new acl::bitmap(max_slots);
+    slots_.clear();
+    for (size_t i = 0; i < max_slots_; i++) {
+        slots_.push_back(nullptr);
+    }
     return true;
 }
 
-void cluster_service::add_slots(const std::vector<int> &slots) {
+void cluster_service::add_slots(const std::string &addr,
+      const std::vector<int> &slots) {
+    shared_node node;
+    auto it = nodes_.find(addr);
+    if (it == nodes_.end()) {
+        node = std::make_shared<cluster_node>(addr.c_str());
+        nodes_[addr] = node;
+    } else {
+        node = it->second;
+    }
+
+    node->add_slots(slots);
+
     for (auto& slot : slots) {
-        slots_->bit_set((size_t) slot);
+        slots_[slot] = node;
     }
 }
 

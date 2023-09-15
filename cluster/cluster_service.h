@@ -1,23 +1,55 @@
 //
-// Created by shuxin �heng on 2023/9/8.
+// Created by shuxin zheng on 2023/9/8.
 //
 
 #pragma once
+#include "cluster_node.h"
 
 namespace pkv {
 
+/**
+ * @brief The cluster_service class is a singleton class that manages the cluster nodes and slots.
+ * 
+ * It provides functionality to bind to a given address and add slots to the cluster.
+ */
 class cluster_service : public acl::singleton<cluster_service> {
 public:
+    /**
+     * @brief Default constructor for cluster_service.
+     */
     cluster_service() = default;
-    ~cluster_service();
 
-    bool bind(const char* addr, int max_slots);
+    /**
+     * @brief Default destructor for cluster_service.
+     */
+    ~cluster_service() = default;
 
-    void add_slots(const std::vector<int>& slots);
+    /**
+     * @brief Binds the cluster service to the given address and sets the maximum number of slots.
+     * 
+     * @param addr The address to bind to.
+     * @param max_slots The maximum number of slots.
+     * @return true if successful, false otherwise.
+     */
+    bool bind(const char* addr, size_t max_slots);
+
+    /**
+     * @brief Adds slots to the cluster.
+     * 
+     * @param addr The address of the node.
+     * @param slots The slots to add.
+     */
+    void add_slots(const std::string& addr, const std::vector<int>& slots);
+
+    const std::map<std::string, shared_node>& get_nodes() const {
+        return nodes_;
+    }
 
 private:
-    acl::bitmap* slots_ = nullptr;
-    acl::server_socket server_;
+    std::map<std::string, shared_node> nodes_; /**< The map of nodes in the cluster. */
+    std::vector<shared_node> slots_; /**< The vector of slots in the cluster. */
+    acl::server_socket server_; /**< The server socket for the cluster. */
+    size_t max_slots_ = 16384; /**< The maximum number of slots in the cluster. */
 };
 
 } // namespace pkv

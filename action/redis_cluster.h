@@ -9,6 +9,7 @@
 namespace pkv {
 
 class redis_coder;
+class cluster_node;
 
 class redis_cluster : public redis_command {
 public:
@@ -19,6 +20,11 @@ public:
 
 public:
     bool addslots(redis_coder& result);
+    bool nodes(redis_coder& result);
+
+private:
+    void add_node(std::string& buf, const std::string& addr,
+        const cluster_node& node);
 };
 
 } // namespace pkv
