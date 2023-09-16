@@ -28,6 +28,7 @@ struct cluster_handler {
 static struct cluster_handler handlers[] = {
     { "NODES",      &redis_cluster::cluster_nodes           },
     { "ADDSLOTS",   &redis_cluster::cluster_addslots        },
+    { "MEET",       &redis_cluster::cluster_meet            },
     { nullptr,      nullptr                                 },
 };
 
@@ -59,11 +60,11 @@ bool redis_cluster::cluster_addslots(redis_coder& result) {
         return false;
     }
 
-    std::vector<int> slots;
-    for (size_t i = 0; i < obj_.size(); i++) {
+    std::vector<size_t> slots;
+    for (size_t i = 2; i < obj_.size() && (int) i < var_cfg_redis_max_slots; i++) {
         int slot = atoi(obj_[i]);
         if (slot >= 0 && slot < var_cfg_redis_max_slots) {
-            slots.push_back(slot);
+            slots.push_back((size_t) slot);
         } else {
             logger_error("Invalid slot: %d", slot);
         }
@@ -80,13 +81,17 @@ bool redis_cluster::cluster_nodes(redis_coder &result) {
         return false;
     }
 
+    build_nodes(result);
+    return true;
+}
+
+void redis_cluster::build_nodes(redis_coder& result) {
     std::string buf;
     auto& nodes = cluster_service::get_instance().get_nodes();
     for (auto& node : nodes) {
         add_node(buf, node.first, *node.second);
     }
     result.create_object().set_string(buf);
-    return true;
 }
 
 void redis_cluster::add_node(std::string &buf, const std::string &addr,
@@ -105,5 +110,52 @@ void redis_cluster::add_node(std::string &buf, const std::string &addr,
     buf += "\r\n";
 }
 
-} // namespace 
+bool redis_cluster::cluster_meet(redis_coder& result) {
+    if (obj_.size() < 4) {
+        logger_error("Invalid CLUSTER MEET params: %zd", obj_.size());
+        return false;
+    }
 
+    const char* ip = obj_[2];
+    if (ip == nullptr || *ip == 0) {
+        logger_error("IP null");
+        return false;
+    }
+
+    const char* port_s = obj_[3];
+    if (port_s == nullptr || *port_s == 0) {
+        logger_error("PORT null");
+        return false;
+    }
+    int port = std::atoi(port_s);
+    if (port <= 0 || port >= 65535) {
+        logger_error("Invalid port=%d", port);
+        return false;
+    }
+
+    std::string addr = ip;
+    addr += ":";
+    addr +=port_s;
+
+    acl::redis_client conn(addr.c_str());
+    acl::redis redis(&conn);
+    auto* nodes = redis.cluster_nodes();
+    if (nodes == nullptr) {
+        logger_error("Request CLUSTER NODES error to addr=%s", addr.c_str());
+        return false;
+    }
+
+    result.create_object().set_status("OK");
+
+    add_nodes(*nodes);
+    build_nodes(result);
+    return true;
+}
+
+void redis_cluster::add_nodes(const std::map<acl::string, acl::redis_node*>& nodes) {
+    for (auto& it : nodes) {
+        cluster_service::get_instance().add_node(*it.second);
+    }
+}
+
+} // namespace 

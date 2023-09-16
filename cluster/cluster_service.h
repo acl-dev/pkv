@@ -40,7 +40,9 @@ public:
      * @param slots The slots to add.
      * @return {bool}
      */
-    bool add_slots(const std::string& addr, const std::vector<int>& slots);
+    bool add_slots(const std::string& addr, const std::vector<size_t>& slots);
+
+    bool add_node(const acl::redis_node& node);
 
     const std::map<std::string, shared_node>& get_nodes() const {
         return nodes_;

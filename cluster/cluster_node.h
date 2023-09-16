@@ -23,12 +23,18 @@ public:
      */
     ~cluster_node();
 
+    cluster_node& set_id(const std::string& id);
+    cluster_node& set_type(const std::string& type);
+    cluster_node& set_join_time(long long join_time);
+    cluster_node& set_idx(int idx);
+    cluster_node& set_connected(bool connected);
+
     /**
      * @brief Adds the given slots to the node.
      * 
      * @param slots A vector of slot numbers to add.
      */
-    void add_slots(const std::vector<int> &slots);
+    void add_slots(const std::vector<size_t> &slots);
 
 public:
     /**
@@ -61,7 +67,7 @@ public:
     }
 
     // Get the slots in the node.
-    std::vector<std::pair<int, int>> get_slots() const;
+    std::vector<std::pair<size_t, size_t>> get_slots() const;
 
 private:
     std::string id_;

@@ -21,10 +21,14 @@ public:
 public:
     bool cluster_addslots(redis_coder& result);
     bool cluster_nodes(redis_coder& result);
+    bool cluster_meet(redis_coder& result);
 
 private:
     void add_node(std::string& buf, const std::string& addr,
         const cluster_node& node);
+    void add_nodes(const std::map<acl::string, acl::redis_node*>& nodes);
+
+    void build_nodes(redis_coder& result);
 };
 
 } // namespace pkv
