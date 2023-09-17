@@ -10,7 +10,7 @@ namespace pkv {
 bool cluster_service::bind(const char *addr, size_t max_slots) {
     if (!server_.open(addr)) {
         logger_error("Bind %s error %s", addr, acl::last_serror());
-        return false;
+        //return false;
     }
     logger("Bind %s ok", addr);
 

@@ -97,7 +97,7 @@ void redis_cluster::build_nodes(redis_coder& result) {
 void redis_cluster::add_node(std::string &buf, const std::string &addr,
        const cluster_node &node) {
     buf += node.get_id() + " ";
-    buf += node.get_addr() + "@29001 ";
+    buf += node.get_addr() + "@39002 ";
     buf += node.get_type() + " - 0 ";
     buf += std::to_string(node.get_join_time()) + " ";
     buf += std::to_string(node.get_idx()) + " ";
