@@ -26,10 +26,15 @@ struct cluster_handler {
 };
 
 static struct cluster_handler handlers[] = {
+    { "SLOTS",      &redis_cluster::cluster_slots           },
     { "NODES",      &redis_cluster::cluster_nodes           },
     { "ADDSLOTS",   &redis_cluster::cluster_addslots        },
     { "MEET",       &redis_cluster::cluster_meet            },
-    { nullptr,      nullptr                                 },
+
+    // My extention of redis cluster commands.
+    { "SYNCSLOTS",  &redis_cluster::cluster_syncslots       },
+
+    { nullptr, nullptr,                               },
 };
 
 bool redis_cluster::exec(const char*, redis_coder& result) {
@@ -54,6 +59,34 @@ bool redis_cluster::exec(const char*, redis_coder& result) {
     return false;
 }
 
+bool redis_cluster::cluster_slots(redis_coder& result) {
+    if (obj_.size() != 2) {
+        logger_error("Invalid CLUSTER SLOTS params: %zd", obj_.size());
+        return false;
+    }
+
+    auto& obj = result.create_object();
+    auto& nodes = cluster_service::get_instance().get_nodes();
+
+    for (auto& item : nodes) {
+        auto& node = item.second;
+        auto& id = node->get_id();
+        auto slots = node->get_slots();
+
+        for (auto slot_pair : slots) {
+            auto& child = obj.create_child();
+            child.create_child().set_number(slot_pair.first, true)
+                .create_child().set_number(slot_pair.second);
+            auto& info = child.create_child();
+            info.create_child().set_string(node->get_ip(), true)
+                .create_child().set_number(node->get_port(), true)
+                .create_child().set_string(id);
+        }
+    }
+
+    return true;
+}
+
 bool redis_cluster::cluster_addslots(redis_coder& result) {
     if (obj_.size() < 3) {
         logger_error("Invalid CLUSTER ADDSLOTS params: %zd", obj_.size());
@@ -62,7 +95,7 @@ bool redis_cluster::cluster_addslots(redis_coder& result) {
 
     std::vector<size_t> slots;
     for (size_t i = 2; i < obj_.size() && (int) i < var_cfg_redis_max_slots; i++) {
-        int slot = atoi(obj_[i]);
+        int slot = std::atoi(obj_[i]);
         if (slot >= 0 && slot < var_cfg_redis_max_slots) {
             slots.push_back((size_t) slot);
         } else {
@@ -111,7 +144,7 @@ void redis_cluster::add_node(std::string &buf, const std::string &addr,
 }
 
 bool redis_cluster::cluster_meet(redis_coder& result) {
-    if (obj_.size() < 4) {
+   if (obj_.size() < 4) {
         logger_error("Invalid CLUSTER MEET params: %zd", obj_.size());
         return false;
     }
@@ -145,10 +178,19 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
         return false;
     }
 
+    // Update mine join time.
+    if (!cluster_service::get_instance().update_join_time(var_cfg_service_addr)) {
+        logger_error("Update the join time error for me=%s", var_cfg_service_addr);
+        return false;
+    }
+
     result.create_object().set_status("OK");
 
     add_nodes(*nodes);
     build_nodes(result);
+
+    // Notify the peer node to sync my slots info.
+    sync_slots(result.get_cache(), addr, var_cfg_service_addr);
     return true;
 }
 
@@ -158,4 +200,108 @@ void redis_cluster::add_nodes(const std::map<acl::string, acl::redis_node*>& nod
     }
 }
 
-} // namespace 
+bool redis_cluster::cluster_syncslots(redis_coder &result) {
+    if (obj_.size() != 3) {
+        logger_error("Invalid CLUSTER SYNCSLOTS params: %zd", obj_.size());
+        return false;
+    }
+
+    const char* peer_addr = obj_[2];
+    if (peer_addr == nullptr || *peer_addr == 0) {
+        logger_error("peer address null");
+        return false;
+    }
+
+    // Begin to get the peer node's SLOTS info.
+    acl::redis_client conn(peer_addr);
+    acl::redis redis(&conn);
+    auto* nodes = redis.cluster_nodes();
+    if (nodes == nullptr) {
+        logger_error("Request CLUSTER NODES error to addr=%s", peer_addr);
+        return false;
+    }
+
+    result.create_object().set_status("OK");
+    add_nodes(*nodes);
+    return true;
+}
+
+bool redis_cluster::sync_slots(redis_ocache& ocache, const std::string &addr,
+      const char *myaddr) {
+    acl::socket_stream conn;
+    if (!conn.open(addr.c_str(), 60, 60)) {
+        logger_error("Connect peer %s error %s", addr.c_str(), acl::last_serror());
+        return false;
+    }
+
+    redis_coder coder(ocache);
+    coder.create_object().create_child().set_string("CLUSTER", true)
+        .create_child().set_string("SYNCSLOTS", true)
+        .create_child().set_string(myaddr);
+
+    std::string req;
+    if (!coder.to_string(req)) {
+        logger_error("Create request command error!");
+        return false;
+    }
+
+    // Send CLUSTER SYNCSLOTS to peer node.
+    if (conn.write(req.c_str(), req.size()) != (int) req.size()) {
+        logger_error("Send request(%s) to %s error", req.c_str(), addr.c_str());
+        return false;
+    }
+
+    coder.clear();
+
+    // Wait the peer node's response.
+
+    char buf[4096];
+    while (true) {
+        int ret = conn.read(buf, sizeof(buf) - 1, false);
+        if (ret < 0) {
+            logger_error("Read response error!");
+            return false;
+        }
+
+        buf[ret] = 0;
+
+        size_t len = ret;
+        (void) coder.update(buf, len);
+        auto& objs = coder.get_objects();
+        if (objs.empty()) {
+            continue;
+        }
+
+        if (objs.size() != 1) {
+            logger_error("Invalid reply objs' size=%zd", objs.size());
+            return false;
+        }
+
+        auto obj = objs[0];
+        if (obj->failed()) {
+            logger_error("Invalid data: %s", buf);
+            return false;
+        }
+        if (obj->finish()) {
+            auto type = obj->get_type();
+            if (type != REDIS_OBJ_STATUS) {
+                logger_error("Invalid type=%d, not status type", (int) type);
+                return false;
+            }
+
+            auto& data = obj->get_buf();
+            if (data.empty()) {
+                logger_error("No data got for status");
+                return false;
+            }
+
+            if (strcasecmp(data.c_str(), "OK") != 0) {
+                logger_error("Invalid status=%s", data.c_str());
+                return false;
+            }
+            return true;
+        }
+    }
+}
+
+} // namespace

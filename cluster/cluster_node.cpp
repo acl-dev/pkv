@@ -13,10 +13,20 @@ cluster_node::cluster_node(const char* addr)
 : addr_(addr)
 {
     slots_ = acl_dlink_create(10);
-    struct timeval now;
+    struct timeval now = { 0, 0 };
     gettimeofday(&now, nullptr);
     id_ = std::to_string(now.tv_sec * 1000000) + std::to_string(now.tv_usec)
-        + std::to_string(getpid());
+          + std::to_string(getpid());
+
+    acl::string buf(addr);
+    char* port = buf.rfind(":");
+    if (port) {
+        *port++ = 0;
+        ip_ = buf.c_str();
+        port_ = std::atoi(port);
+    } else {
+        logger_error("Invalid addr=%s", addr);
+    }
 }
 
 cluster_node::~cluster_node() {

@@ -44,8 +44,10 @@ bool cluster_service::add_slots(const std::string &addr,
 
     node->add_slots(slots);
 
+    size_t max = 0;
     for (auto slot : slots) {
         slots_[slot] = node;
+        if (slot > max) max = slot;
     }
     return true;
 }
@@ -71,9 +73,7 @@ bool cluster_service::add_node(const acl::redis_node& node) {
 
     auto& slots_v = node.get_slots();
 
-    struct timeval now;
-    gettimeofday(&now, nullptr);
-    long long join_time = now.tv_sec * 1000 + now.tv_usec / 1000;
+    long long join_time = get_stamp();
     int idx = 0;
     bool connected = node.is_connected();
 
@@ -103,6 +103,40 @@ bool cluster_service::add_node(const acl::redis_node& node) {
     }
 
     return true;
+}
+
+shared_node cluster_service::get_node(const std::string &addr) const {
+    auto it = nodes_.find(addr);
+    return it == nodes_.end() ? nullptr : it->second;
+}
+
+bool cluster_service::update_join_time(const std::string &addr) const {
+    auto node = get_node(addr);
+    if (node == nullptr) {
+        logger_error("Not found the node with addr=%s", addr.c_str());
+        return false;
+    }
+
+    long long now = get_stamp();
+    node->set_join_time(now);
+    return true;
+}
+
+shared_node& cluster_service::get_node(const char *key, size_t& slot) {
+    slot = hash_slot(key);
+    auto& node = slots_[slot];
+    return node;
+}
+
+size_t cluster_service::hash_slot(const char *key) const {
+    unsigned hash = acl_hash_crc32(key, strlen(key));
+    return hash % max_slots_;
+}
+
+long long cluster_service::get_stamp() {
+    struct timeval now = { 0, 0 };
+    gettimeofday(&now, nullptr);
+    return now.tv_sec * 1000 + now.tv_usec / 1000;
 }
 
 } // namespace pkv

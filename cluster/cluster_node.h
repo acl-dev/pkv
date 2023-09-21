@@ -16,7 +16,7 @@ public:
      * 
      * @param addr The address of the node.
      */
-    cluster_node(const char* addr);
+    explicit cluster_node(const char* addr);
 
     /**
      * @brief Destroys the cluster node and frees any allocated resources.
@@ -67,11 +67,22 @@ public:
     }
 
     // Get the slots in the node.
-    std::vector<std::pair<size_t, size_t>> get_slots() const;
+    NODISCARD std::vector<std::pair<size_t, size_t>> get_slots() const;
+
+public:
+    NODISCARD const std::string& get_ip() const {
+        return ip_;
+    }
+
+    NODISCARD int get_port() const {
+        return port_;
+    }
 
 private:
-    std::string id_;
+    std::string id_; /**< The id of the node. */
     std::string addr_; /**< The address of the node. */
+    std::string ip_;
+    int port_ = 0;
     std::string type_ = "myself,master";
     long long join_time_ = 0; /**< The time of joining the cluster */
     int idx_ = 0;

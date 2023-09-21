@@ -14,7 +14,7 @@ char *var_cfg_rpc_addr;
 acl::master_str_tbl var_conf_str_tab[] = {
     { "dbpath",         "./dbpath",         &var_cfg_dbpath         },
     { "dbtype",         "rdb",              &var_cfg_dbtype         },
-    { "service", "127.0.0.1:39001",  &var_cfg_service_addr   },
+    { "service",        "127.0.0.1:19001",  &var_cfg_service_addr   },
     { "rpc_addr",       "127.0.0.1:29001",  &var_cfg_rpc_addr       },
 
     { 0,    0,  0   }
@@ -24,8 +24,8 @@ int var_cfg_disable_serialize;
 int var_cfg_disable_save;
 
 acl::master_bool_tbl var_conf_bool_tab[] = {
-    { "disable_serialize", 0, &var_cfg_disable_serialize },
-    { "disable_save", 0, &var_cfg_disable_save },
+    { "disable_serialize",  0 , &var_cfg_disable_serialize  },
+    { "disable_save",       0,  &var_cfg_disable_save       },
 
     { 0,    0,  0   }
 };
@@ -92,11 +92,7 @@ void master_service::run(acl::socket_stream& conn, size_t size) {
         }
 
         buf[ret] = 0;
-        printf("%s, len=%zd", buf, strlen(buf)); fflush(stdout);
-        if (strcmp(buf, "RCmd") == 0) {
-            conn.write(buf, strlen(buf));
-            continue;
-        }
+        //printf("%s, len=%zd", buf, strlen(buf)); fflush(stdout);
 
         size_t len = (size_t) ret;
         const char* data = parser.update(buf, len);

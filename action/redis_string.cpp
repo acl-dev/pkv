@@ -3,8 +3,6 @@
 //
 
 #include "stdafx.h"
-#include "coder/redis_coder.h"
-#include "coder/redis_object.h"
 #include "dao/json/json_string.h"
 
 #include "redis_handler.h"
@@ -26,18 +24,23 @@ redis_string::~redis_string() {
 
 struct string_handler {
     const char* cmd;
+    bool check_slot;
     bool (redis_string::*func) (redis_coder&);
 };
 
 static struct string_handler handlers[] = {
-    { "SET",        &redis_string::set      },
-    { "GET",        &redis_string::get      },
-    { nullptr,      nullptr                 },
+    { "SET",        true,   &redis_string::set      },
+    { "GET",        true,   &redis_string::get      },
+
+    { nullptr,      false, nullptr            },
 };
 
 bool redis_string::exec(const char* cmd, redis_coder& result) {
     for (int i = 0; handlers[i].cmd != nullptr; i++) {
         if (EQ(cmd, handlers[i].cmd)) {
+            if (handlers[i].check_slot) {
+                CHECK_AND_REDIRECT(cmd, obj_, var_cfg_service_addr);
+            }
             return (this->*(handlers[i].func))(result);
         }
     }

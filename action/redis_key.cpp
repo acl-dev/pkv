@@ -3,7 +3,6 @@
 //
 
 #include "stdafx.h"
-#include "coder/redis_coder.h"
 #include "db/db_cursor.h"
 #include "dao/json/json_key.h"
 
@@ -26,20 +25,25 @@ redis_key::~redis_key() {
 
 struct key_handler {
     const char* cmd;
+    bool check_slot;
     bool (redis_key::*func) (redis_coder&);
 };
 
 static struct key_handler handlers[] = {
-    { "DEL",        &redis_key::del         },
-    { "TYPE",       &redis_key::type        },
-    { "EXPIRE",     &redis_key::expire      },
-    { "TTL",        &redis_key::ttl         },
-    { nullptr,      nullptr                 },
+    { "DEL",        true,   &redis_key::del         },
+    { "TYPE",       true,   &redis_key::type        },
+    { "EXPIRE",     true,   &redis_key::expire      },
+    { "TTL",        true,   &redis_key::ttl         },
+
+    { nullptr,      false, nullptr            },
 };
 
 bool redis_key::exec(const char* cmd, redis_coder& result) {
     for (int i = 0; handlers[i].cmd != nullptr; i++) {
         if (EQ(cmd, handlers[i].cmd)) {
+            if (handlers[i].check_slot) {
+                CHECK_AND_REDIRECT(cmd, obj_, var_cfg_service_addr);
+            }
             return (this->*(handlers[i].func))(result);
         }
     }
