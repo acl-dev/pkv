@@ -467,7 +467,7 @@ bool redis_object::to_string(std::string& out, bool one_line) const {
         if (EMPTY(buf_)) {
             out.append("$-1").append(CRLF);
         } else if (one_line) {
-            if (out.empty()) {
+            if (EMPTY(out)) {
                 out += " ";
             }
             out.append(buf_.c_str(), buf_.size()).append(CRLF);

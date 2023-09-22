@@ -15,9 +15,12 @@ redis_command::redis_command(redis_handler& handler, const redis_object& obj)
 
 bool redis_command::redirect(const std::string &addr, size_t slot,
       redis_coder& result) {
-    result.create_object().create_child().set_string("-MOVED", true)
-        .create_child().set_string(std::to_string(slot), true)
-        .create_child().set_string(addr);
+    std::string buf("MOVED");
+    buf += " ";
+    buf += std::to_string(slot);
+    buf += " ";
+    buf += addr;
+    result.create_object().set_error(buf);
     return true;
 }
 
