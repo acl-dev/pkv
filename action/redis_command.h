@@ -33,7 +33,7 @@ protected:
         return false;                                                          \
     }                                                                          \
     size_t slot;                                                               \
-    auto& node = cluster_service::get_instance().get_node(key, slot);          \
+    auto node = cluster_service::get_instance().get_node(key, slot);          \
     const auto& addr = node->get_addr();                                       \
     if (addr != myaddr) {                                                      \
         return this->redirect(addr, slot, result);                             \

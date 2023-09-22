@@ -104,6 +104,7 @@ bool redis_cluster::cluster_addslots(redis_coder& result) {
     }
 
     cluster_service::get_instance().add_slots(var_cfg_service_addr, slots);
+    //cluster_service::get_instance().show_null_slots();
     result.create_object().set_status("OK");
     return true;
 }
@@ -114,6 +115,7 @@ bool redis_cluster::cluster_nodes(redis_coder &result) {
         return false;
     }
 
+    //cluster_service::get_instance().show_null_slots();
     build_nodes(result);
     return true;
 }
@@ -184,13 +186,20 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
         return false;
     }
 
-    result.create_object().set_status("OK");
-
     add_nodes(*nodes);
-    build_nodes(result);
 
     // Notify the peer node to sync my slots info.
-    sync_slots(result.get_cache(), addr, var_cfg_service_addr);
+    if (!sync_slots(result.get_cache(), addr, var_cfg_service_addr)) {
+        return false;
+    }
+
+    auto& all_nodes = cluster_service::get_instance().get_nodes();
+    for (auto it : all_nodes) {
+        auto one_addr = it.second->get_addr();
+        sync_slots(result.get_cache(), one_addr, var_cfg_service_addr);
+    }
+
+    result.create_object().set_status("OK");
     return true;
 }
 
@@ -200,7 +209,7 @@ void redis_cluster::add_nodes(const std::map<acl::string, acl::redis_node*>& nod
     }
 }
 
-bool redis_cluster::cluster_syncslots(redis_coder &result) {
+bool redis_cluster::cluster_syncslots(redis_coder& result) {
     if (obj_.size() != 3) {
         logger_error("Invalid CLUSTER SYNCSLOTS params: %zd", obj_.size());
         return false;
@@ -217,7 +226,7 @@ bool redis_cluster::cluster_syncslots(redis_coder &result) {
     acl::redis redis(&conn);
     auto* nodes = redis.cluster_nodes();
     if (nodes == nullptr) {
-        logger_error("Request CLUSTER NODES error to addr=%s", peer_addr);
+        logger_error("Request CLUSTER NODES error from addr=%s", peer_addr);
         return false;
     }
 
@@ -259,7 +268,7 @@ bool redis_cluster::sync_slots(redis_ocache& ocache, const std::string &addr,
     while (true) {
         int ret = conn.read(buf, sizeof(buf) - 1, false);
         if (ret < 0) {
-            logger_error("Read response error!");
+            logger_error("Read response error from %s", addr.c_str());
             return false;
         }
 

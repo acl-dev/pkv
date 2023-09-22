@@ -49,6 +49,8 @@ bool cluster_service::add_slots(const std::string &addr,
         slots_[slot] = node;
         if (slot > max) max = slot;
     }
+
+    //show_null_slots();
     return true;
 }
 
@@ -91,7 +93,7 @@ bool cluster_service::add_node(const acl::redis_node& node) {
 
     std::vector<size_t> slots;
     for (auto itv : slots_v) {
-        for (size_t slot = itv.first; slot != itv.second; ++slot) {
+        for (size_t slot = itv.first; slot <= itv.second; ++slot) {
             slots.push_back(slot);
         }
     }
@@ -102,6 +104,7 @@ bool cluster_service::add_node(const acl::redis_node& node) {
         slots_[slot] = snode;
     }
 
+    //show_null_slots();
     return true;
 }
 
@@ -122,9 +125,13 @@ bool cluster_service::update_join_time(const std::string &addr) const {
     return true;
 }
 
-shared_node& cluster_service::get_node(const char *key, size_t& slot) {
+shared_node cluster_service::get_node(const char *key, size_t& slot) {
     slot = hash_slot(key);
-    auto& node = slots_[slot];
+    auto node = slots_[slot];
+    if (node == nullptr) {
+        show_null_slots();
+        assert(node);
+    }
     return node;
 }
 
@@ -137,6 +144,14 @@ long long cluster_service::get_stamp() {
     struct timeval now = { 0, 0 };
     gettimeofday(&now, nullptr);
     return now.tv_sec * 1000 + now.tv_usec / 1000;
+}
+
+void cluster_service::show_null_slots() const {
+    for (size_t i = 0; i < slots_.size(); i++) {
+        if (slots_[i] == nullptr) {
+            printf(">>>%s: null slot=%zd\r\n", __func__, i);
+        }
+    }
 }
 
 } // namespace pkv

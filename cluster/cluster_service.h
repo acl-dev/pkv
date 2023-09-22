@@ -85,7 +85,7 @@ public:
      * @param slot {size_t} will store the hash slot of the key.
      * @return {shared_node}
      */
-    NODISCARD shared_node& get_node(const char* key, size_t& slot);
+    NODISCARD shared_node get_node(const char* key, size_t& slot);
 
     /**
      * Hash the given key to get the hash slot of it.
@@ -93,6 +93,9 @@ public:
      * @return {size_t}
      */
     NODISCARD size_t hash_slot(const char* key) const;
+
+public:
+    void show_null_slots() const;
 
 private:
     std::map<std::string, shared_node> nodes_; /**< The map of nodes in the cluster. */

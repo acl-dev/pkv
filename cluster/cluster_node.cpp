@@ -15,8 +15,9 @@ cluster_node::cluster_node(const char* addr)
     slots_ = acl_dlink_create(10);
     struct timeval now = { 0, 0 };
     gettimeofday(&now, nullptr);
-    id_ = std::to_string(now.tv_sec * 1000000) + std::to_string(now.tv_usec)
-          + std::to_string(getpid());
+    id_  = std::to_string(now.tv_sec * 1000000) + std::to_string(now.tv_usec);
+    id_ += "_";
+    id_ += std::to_string(getpid());
 
     acl::string buf(addr);
     char* port = buf.rfind(":");
