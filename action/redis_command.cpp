@@ -13,6 +13,10 @@ redis_command::redis_command(redis_handler& handler, const redis_object& obj)
 : handler_(handler), obj_(obj)
 {}
 
+bool redis_command::check_cluster_mode(bool on) const {
+    return var_cfg_cluster_mode != 0 && on;
+}
+
 bool redis_command::redirect(const std::string &addr, size_t slot,
       redis_coder& result) {
     std::string buf("MOVED");

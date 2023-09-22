@@ -22,10 +22,12 @@ acl::master_str_tbl var_conf_str_tab[] = {
 
 int var_cfg_disable_serialize;
 int var_cfg_disable_save;
+int var_cfg_cluster_mode;
 
 acl::master_bool_tbl var_conf_bool_tab[] = {
     { "disable_serialize",  0 , &var_cfg_disable_serialize  },
     { "disable_save",       0,  &var_cfg_disable_save       },
+    { "cluster_mode",       0,  &var_cfg_cluster_mode       },
 
     { 0,    0,  0   }
 };

@@ -38,7 +38,7 @@ static struct string_handler handlers[] = {
 bool redis_string::exec(const char* cmd, redis_coder& result) {
     for (int i = 0; handlers[i].cmd != nullptr; i++) {
         if (EQ(cmd, handlers[i].cmd)) {
-            if (handlers[i].check_slot) {
+            if (this->check_cluster_mode(handlers[i].check_slot)) {
                 CHECK_AND_REDIRECT(cmd, obj_, var_cfg_service_addr);
             }
             return (this->*(handlers[i].func))(result);

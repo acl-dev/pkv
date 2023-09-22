@@ -128,10 +128,13 @@ bool cluster_service::update_join_time(const std::string &addr) const {
 shared_node cluster_service::get_node(const char *key, size_t& slot) {
     slot = hash_slot(key);
     auto node = slots_[slot];
+
+#ifdef DEBUG_CLUSTER
     if (node == nullptr) {
         show_null_slots();
         assert(node);
     }
+#endif
     return node;
 }
 

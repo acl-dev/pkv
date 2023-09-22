@@ -40,7 +40,7 @@ static struct hash_handler handlers[] = {
 
 bool redis_hash::exec(const char* cmd, redis_coder& result) {
     for (int i = 0; handlers[i].cmd != nullptr; i++) {
-        if (EQ(cmd, handlers[i].cmd)) {
+        if (this->check_cluster_mode(handlers[i].check_slot)) {
             if (handlers[i].check_slot) {
                 CHECK_AND_REDIRECT(cmd, obj_, var_cfg_service_addr);
             }

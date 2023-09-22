@@ -19,6 +19,7 @@ protected:
     redis_handler& handler_;
     const redis_object &obj_;
 
+    bool check_cluster_mode(bool on) const;
     bool redirect(const std::string& addr, size_t slot, redis_coder& result);
 };
 
@@ -33,7 +34,10 @@ protected:
         return false;                                                          \
     }                                                                          \
     size_t slot;                                                               \
-    auto node = cluster_service::get_instance().get_node(key, slot);          \
+    auto node = cluster_service::get_instance().get_node(key, slot);           \
+    if (node == nullptr) {                                                     \
+        return false;                                                          \
+    }                                                                          \
     const auto& addr = node->get_addr();                                       \
     if (addr != myaddr) {                                                      \
         return this->redirect(addr, slot, result);                             \
