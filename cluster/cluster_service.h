@@ -7,6 +7,8 @@
 
 namespace pkv {
 
+struct pkv_node;
+
 /**
  * @brief The cluster_service class is a singleton class that manages the cluster nodes and slots.
  * 
@@ -23,6 +25,8 @@ public:
      * @brief Default destructor for cluster_service.
      */
     ~cluster_service() = default;
+
+    void init(const char* save_path);
 
     /**
      * @brief Binds the cluster service to the given address and sets the maximum number of slots.
@@ -95,13 +99,19 @@ public:
     NODISCARD size_t hash_slot(const char* key) const;
 
 public:
+    bool save_nodes() const;
+    bool load_nodes();
+
     void show_null_slots() const;
 
 private:
+    std::string save_path_;
     std::map<std::string, shared_node> nodes_; /**< The map of nodes in the cluster. */
     std::vector<shared_node> slots_; /**< The vector of slots in the cluster. */
     acl::server_socket server_; /**< The server socket for the cluster. */
     size_t max_slots_ = 16384; /**< The maximum number of slots in the cluster. */
+
+    void add_node(const struct pkv_node& node);
 
 public:
     // Get the current time stamp.

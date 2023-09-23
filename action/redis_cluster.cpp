@@ -193,11 +193,15 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
         return false;
     }
 
+    // Notify all the others to sync my slots info.
     auto& all_nodes = cluster_service::get_instance().get_nodes();
     for (auto it : all_nodes) {
         auto one_addr = it.second->get_addr();
         sync_slots(result.get_cache(), one_addr, var_cfg_service_addr);
     }
+
+    // Save the current nodes info to the disk file.
+    cluster_service::get_instance().save_nodes();
 
     result.create_object().set_status("OK");
     return true;
@@ -230,8 +234,12 @@ bool redis_cluster::cluster_syncslots(redis_coder& result) {
         return false;
     }
 
-    result.create_object().set_status("OK");
     add_nodes(*nodes);
+
+    // Save the current nodes info to the disk file.
+    cluster_service::get_instance().save_nodes();
+
+    result.create_object().set_status("OK");
     return true;
 }
 

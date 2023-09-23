@@ -10,12 +10,14 @@ static char *var_cfg_dbpath;
 static char *var_cfg_dbtype;
 char *var_cfg_service_addr;
 char *var_cfg_rpc_addr;
+static char *var_cfg_dump_path;
 
 acl::master_str_tbl var_conf_str_tab[] = {
     { "dbpath",         "./dbpath",         &var_cfg_dbpath         },
     { "dbtype",         "rdb",              &var_cfg_dbtype         },
     { "service",        "127.0.0.1:19001",  &var_cfg_service_addr   },
     { "rpc_addr",       "127.0.0.1:29001",  &var_cfg_rpc_addr       },
+    { "dump_path",      "",                 &var_cfg_dump_path      },
 
     { 0,    0,  0   }
 };
@@ -154,6 +156,15 @@ void master_service::proc_on_init() {
     if (!cluster_service::get_instance().bind(var_cfg_rpc_addr,
           var_cfg_redis_max_slots)) {
         logger_error("Bind %s error %s", var_cfg_rpc_addr, acl::last_serror());
+    }
+
+    if (var_cfg_cluster_mode && *var_cfg_dump_path) {
+        cluster_service::get_instance().init(var_cfg_dump_path);
+        if (!cluster_service::get_instance().load_nodes()) {
+            logger_error("Load nodes info failed in %s", var_cfg_dump_path);
+        } else {
+            logger_error("Load nodes info ok in %s", var_cfg_dump_path);
+        }
     }
 }
 
