@@ -1,8 +1,5 @@
 #include "stdafx.h"
-<<<<<<< HEAD
-=======
 #include "cluster/cluster_service.h"
->>>>>>> master
 #include "coder/redis_ocache.h"
 #include "coder/redis_coder.h"
 #include "action/redis_handler.h"
@@ -11,12 +8,6 @@
 
 static char *var_cfg_dbpath;
 static char *var_cfg_dbtype;
-<<<<<<< HEAD
-
-acl::master_str_tbl var_conf_str_tab[] = {
-    { "dbpath",     "./dbpath",     &var_cfg_dbpath },
-    { "dbtype",     "rdb",          &var_cfg_dbtype },
-=======
 char *var_cfg_service_addr;
 char *var_cfg_rpc_addr;
 static char *var_cfg_dump_path;
@@ -27,26 +18,18 @@ acl::master_str_tbl var_conf_str_tab[] = {
     { "service",        "127.0.0.1:19001",  &var_cfg_service_addr   },
     { "rpc_addr",       "127.0.0.1:29001",  &var_cfg_rpc_addr       },
     { "dump_path",      "",                 &var_cfg_dump_path      },
->>>>>>> master
 
     { 0,    0,  0   }
 };
 
 int var_cfg_disable_serialize;
 int var_cfg_disable_save;
-<<<<<<< HEAD
-
-acl::master_bool_tbl var_conf_bool_tab[] = {
-    { "disable_serialize", 0, &var_cfg_disable_serialize },
-    { "disable_save", 0, &var_cfg_disable_save },
-=======
 int var_cfg_cluster_mode;
 
 acl::master_bool_tbl var_conf_bool_tab[] = {
     { "disable_serialize",  0 , &var_cfg_disable_serialize  },
     { "disable_save",       0,  &var_cfg_disable_save       },
     { "cluster_mode",       0,  &var_cfg_cluster_mode       },
->>>>>>> master
 
     { 0,    0,  0   }
 };
@@ -60,10 +43,6 @@ acl::master_int_tbl var_conf_int_tab[] = {
     { "io_timeout",     120,    &var_cfg_io_timeout,    0,  0   },
     { "buf_size",       8192,   &var_cfg_buf_size,      0,  0   },
     { "ocache_max",     10000,  &var_cfg_ocache_max,    0,  0   },
-<<<<<<< HEAD
-
-=======
->>>>>>> master
     { "redis_max_slots", 16384, &var_cfg_redis_max_slots, 0, 0  },
 
     { 0, 0 , 0 , 0, 0 }
@@ -117,12 +96,8 @@ void master_service::run(acl::socket_stream& conn, size_t size) {
         }
 
         buf[ret] = 0;
-<<<<<<< HEAD
-        //printf("%s", buf); fflush(stdout);
-=======
 
         //printf("%s, len=%zd", buf, strlen(buf)); fflush(stdout);
->>>>>>> master
 
         size_t len = (size_t) ret;
         const char* data = parser.update(buf, len);
@@ -177,8 +152,6 @@ void master_service::proc_on_init() {
         logger_error("unknown dbtype=%s", var_cfg_dbtype);
         exit(1);
     }
-<<<<<<< HEAD
-=======
 
     if (!cluster_service::get_instance().bind(var_cfg_rpc_addr,
           var_cfg_redis_max_slots)) {
@@ -193,7 +166,6 @@ void master_service::proc_on_init() {
             logger_error("Load nodes info ok in %s", var_cfg_dump_path);
         }
     }
->>>>>>> master
 }
 
 void master_service::close_db() {

@@ -18,11 +18,7 @@ redis_cluster::redis_cluster(redis_handler& handler, const redis_object& obj)
 {
 }
 
-<<<<<<< HEAD
-redis_cluster::~redis_cluster() {}
-=======
 redis_cluster::~redis_cluster() = default;
->>>>>>> master
 
 struct cluster_handler {
     const char* cmd;
@@ -30,10 +26,6 @@ struct cluster_handler {
 };
 
 static struct cluster_handler handlers[] = {
-<<<<<<< HEAD
-    { "ADDSLOTS",       &redis_cluster::addslots       },
-    { nullptr,      nullptr                 },
-=======
     { "SLOTS",      &redis_cluster::cluster_slots           },
     { "NODES",      &redis_cluster::cluster_nodes           },
     { "ADDSLOTS",   &redis_cluster::cluster_addslots        },
@@ -43,7 +35,6 @@ static struct cluster_handler handlers[] = {
     { "SYNCSLOTS",  &redis_cluster::cluster_syncslots       },
 
     { nullptr, nullptr,                               },
->>>>>>> master
 };
 
 bool redis_cluster::exec(const char*, redis_coder& result) {
@@ -68,9 +59,6 @@ bool redis_cluster::exec(const char*, redis_coder& result) {
     return false;
 }
 
-<<<<<<< HEAD
-bool redis_cluster::addslots(redis_coder& result) {
-=======
 bool redis_cluster::cluster_slots(redis_coder& result) {
     if (obj_.size() != 2) {
         logger_error("Invalid CLUSTER SLOTS params: %zd", obj_.size());
@@ -100,44 +88,27 @@ bool redis_cluster::cluster_slots(redis_coder& result) {
 }
 
 bool redis_cluster::cluster_addslots(redis_coder& result) {
->>>>>>> master
     if (obj_.size() < 3) {
         logger_error("Invalid CLUSTER ADDSLOTS params: %zd", obj_.size());
         return false;
     }
 
-<<<<<<< HEAD
-    std::vector<int> slots;
-    for (size_t i = 0; i < obj_.size(); i++) {
-        int slot = atoi(obj_[i]);
-        if (slot >= 0 && slot < var_cfg_redis_max_slots) {
-            slots.push_back(slot);
-=======
     std::vector<size_t> slots;
     for (size_t i = 2; i < obj_.size() && (int) i < var_cfg_redis_max_slots; i++) {
         int slot = std::atoi(obj_[i]);
         if (slot >= 0 && slot < var_cfg_redis_max_slots) {
             slots.push_back((size_t) slot);
->>>>>>> master
         } else {
             logger_error("Invalid slot: %d", slot);
         }
     }
 
-<<<<<<< HEAD
-    cluster_service::get_instance().add_slots(slots);
-=======
     cluster_service::get_instance().add_slots(var_cfg_service_addr, slots);
     //cluster_service::get_instance().show_null_slots();
->>>>>>> master
     result.create_object().set_status("OK");
     return true;
 }
 
-<<<<<<< HEAD
-} // namespace 
-
-=======
 bool redis_cluster::cluster_nodes(redis_coder &result) {
     if (obj_.size() != 2) {
         logger_error("Invalid CLUSTER NODES params: %zd", obj_.size());
@@ -351,4 +322,3 @@ bool redis_cluster::sync_slots(redis_ocache& ocache, const std::string &addr,
 }
 
 } // namespace
->>>>>>> master
