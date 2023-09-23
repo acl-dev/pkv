@@ -11,6 +11,7 @@ endif
 BUILD_ARGS += -DHAS_ROCKSDB=YES
 BUILD_ARGS += -DHAS_WT=YES
 BUILD_ARGS += -DHAS_JEMALLOC=YES
+BUILD_ARGS += -DHAS_TBB=YES
 
 all:
 	@(mkdir -p build; cd build; cmake ${BUILD_ARGS} ..; make -j 4)

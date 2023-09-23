@@ -76,7 +76,6 @@ add_definitions(
     "-Wno-error=deprecated-declarations"
     "-Wno-deprecated-declarations"
     "-fPIC"
-    "-DHAS_TBB"
 )
 
 if (${BUILD_WITH_C11} MATCHES "YES")
@@ -94,21 +93,26 @@ set(lib_all ${fiber_cpp_lib} ${acl_lib} ${yyjson})
 
 if(${HAS_ROCKSDB} MATCHES "YES")
     find_library(rocksdb NAMES rocksdb PATHS /usr/lib /usr/local/lib /usr/local/lib64)
-#    set(rocksdb /lib64/librocksdb.a)
-    add_definitions("-DHAS_ROCKSDB")
     set(lib_all ${lib_all} ${rocksdb})
+    add_definitions("-DHAS_ROCKSDB")
 endif()
 
 if(${HAS_WT} MATCHES "YES")
     find_library(wiredtiger NAMES wiredtiger PATHS /usr/lib /usr/local/lib /usr/local/lib64)
-#    set(wiredtiger /usr/local/lib64/libwiredtiger.so)
-    add_definitions("-DHAS_WT")
     set(lib_all ${lib_all} ${wiredtiger})
+    add_definitions("-DHAS_WT")
+endif()
+
+if(${HAS_TBB} MATCHES "YES")
+    find_library(tbb_lib tbb PATHS /usr/lib /usr/local/lib)
+    find_library(tbbmalloc_lib tbbmalloc PATHS /usr/lib /usr/local/lib)
+    set(tbb_libs ${tbb_lib} ${tbbmalloc_lib})
+    set(lib_all ${lib_all} ${tbb_libs})
+    add_definitions("-DHAS_TBB")
 endif()
 
 if(${HAS_JEMALLOC} MATCHES "YES")
     find_library(jemalloc NAMES jemalloc PATHS /usr/lib /usr/local/lib /usr/local/lib64)
-#    set(jemalloc /usr/local/lib/libjemalloc.a)
     add_definitions("-DHAS_JEAMALLOC")
     set(lib_all ${lib_all} ${jemalloc})
 endif()
@@ -124,12 +128,7 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
     set(lib_all ${lib_all} ${uring} ${iconv} ${jemalloc})
 endif()
 
-find_library(tbb_lib tbb PATHS /usr/lib /usr/local/lib)
-find_library(tbbmalloc_lib tbbmalloc PATHS /usr/lib /usr/local/lib)
-set(tbb_libs ${tbb_lib} ${tbbmalloc_lib})
-#set(tbb_libs ${tbb_lib})
-#set(tbb_lib /usr/local/lib64/libtbb.a /usr/local/lib64/libtbbmalloc.a)
-set(lib_all ${lib_all} ${fiber_lib} ${tbb_libs} -lz -lpthread -ldl)
+set(lib_all ${lib_all} ${fiber_lib} -lz -lpthread -ldl)
 
 set(output_path ${CMAKE_CURRENT_SOURCE_DIR})
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${output_path})

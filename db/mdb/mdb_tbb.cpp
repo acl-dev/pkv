@@ -14,7 +14,7 @@ namespace pkv {
 mdb_tbb::mdb_tbb() {
     for (size_t i = 0; i < 128; i++) {
         auto store = new atomic_map_t;
-	stores_.push_back(store);
+        stores_.push_back(store);
     }
 }
 
@@ -58,7 +58,8 @@ bool mdb_tbb::del(const std::string &key) {
     return store->erase(key);
 }
 
-bool mdb_tbb::scan(size_t shard_id, db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
+bool mdb_tbb::scan(size_t shard_id, db_cursor& cursor,
+        std::vector<std::string> &keys, size_t max) {
     auto store = stores_[shard_id];
     Accessor a;
     for (auto it = store->begin(); it != store->end(); ++it) {

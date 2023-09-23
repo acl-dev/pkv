@@ -50,6 +50,10 @@ public:
     NODISCARD const char* get_dbtype() const override {
         return "dummy_db";
     }
+
+    size_t dbsize() const override {
+        return 0;
+    }
 };
 
 shared_db db::create_rdb() {
