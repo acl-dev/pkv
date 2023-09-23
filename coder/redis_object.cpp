@@ -430,11 +430,7 @@ const char* redis_object::get_line(const char* data, size_t& len,
     return data;
 }
 
-<<<<<<< HEAD
-bool redis_object::to_string(std::string& out) const {
-=======
 bool redis_object::to_string(std::string& out, bool one_line) const {
->>>>>>> master
 //#define USE_UNIX_CRLF
 #ifdef USE_UNIX_CRLF
 #define CRLF    "\n"
@@ -443,19 +439,12 @@ bool redis_object::to_string(std::string& out, bool one_line) const {
 #endif
 
     if (objs_ && !EMPTY(*objs_)) {
-<<<<<<< HEAD
-        out.append("*").append(std::to_string(objs_->size())).append(CRLF);
-
-        for (const auto& obj : *objs_) {
-            if (!obj->to_string(out)) {
-=======
         if (!one_line) {
             out.append("*").append(std::to_string(objs_->size())).append(CRLF);
         }
 
         for (const auto& obj : *objs_) {
             if (!obj->to_string(out, one_line)) {
->>>>>>> master
                 return false;
             }
         }
@@ -477,14 +466,11 @@ bool redis_object::to_string(std::string& out, bool one_line) const {
     case REDIS_OBJ_STRING:
         if (EMPTY(buf_)) {
             out.append("$-1").append(CRLF);
-<<<<<<< HEAD
-=======
         } else if (one_line) {
             if (EMPTY(out)) {
                 out += " ";
             }
             out.append(buf_.c_str(), buf_.size()).append(CRLF);
->>>>>>> master
         } else {
             out.append("$").append(std::to_string(buf_.size())).append(CRLF)
                 .append(buf_.c_str(), buf_.size()).append(CRLF);

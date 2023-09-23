@@ -62,18 +62,12 @@
 	acl::log::msg6(section, level, __FILE__, __LINE__, __FUNCTION__, fmt, ##args)
 #endif // !_WIN32 && !_WIN64
 
-<<<<<<< HEAD
-=======
 extern char *var_cfg_service_addr;
->>>>>>> master
 extern acl::master_str_tbl var_conf_str_tab[];
 
 extern int var_cfg_disable_serialize;
 extern int var_cfg_disable_save;
-<<<<<<< HEAD
-=======
 extern int var_cfg_cluster_mode;
->>>>>>> master
 extern acl::master_bool_tbl var_conf_bool_tab[];
 
 extern int var_cfg_redis_max_slots;

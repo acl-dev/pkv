@@ -3,19 +3,12 @@
 //
 
 #pragma once
-<<<<<<< HEAD
-=======
 #include "coder/redis_coder.h"
 #include "cluster/cluster_service.h"
->>>>>>> master
 
 namespace pkv {
 
 class redis_handler;
-<<<<<<< HEAD
-class redis_object;
-=======
->>>>>>> master
 
 class redis_command {
 public:
@@ -25,10 +18,6 @@ public:
 protected:
     redis_handler& handler_;
     const redis_object &obj_;
-<<<<<<< HEAD
-};
-
-=======
 
     bool check_cluster_mode(bool on) const;
     bool redirect(const std::string& addr, size_t slot, redis_coder& result);
@@ -55,5 +44,4 @@ protected:
     }                                                                          \
 } while(0)
 
->>>>>>> master
 } // namespace pkv

@@ -8,13 +8,9 @@
 
 namespace pkv {
 
-<<<<<<< HEAD
-class redis_coder;
-=======
 class redis_ocache;
 class redis_coder;
 class cluster_node;
->>>>>>> master
 
 class redis_cluster : public redis_command {
 public:
@@ -24,12 +20,6 @@ public:
     bool exec(const char* cmd, redis_coder& result);
 
 public:
-<<<<<<< HEAD
-    bool addslots(redis_coder& result);
-};
-
-} // namespace pkv
-=======
     bool cluster_slots(redis_coder& result);
     bool cluster_addslots(redis_coder& result);
     bool cluster_nodes(redis_coder& result);
@@ -47,4 +37,3 @@ private:
 };
 
 } // namespace pkv
->>>>>>> master

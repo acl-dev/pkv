@@ -3,11 +3,6 @@
 //
 
 #include "stdafx.h"
-<<<<<<< HEAD
-#include "coder/redis_coder.h"
-#include "coder/redis_object.h"
-=======
->>>>>>> master
 #include "dao/json/json_hash.h"
 
 #include "redis_handler.h"
@@ -29,23 +24,11 @@ redis_hash::~redis_hash() {
 
 struct hash_handler {
     const char* cmd;
-<<<<<<< HEAD
-=======
     bool check_slot;
->>>>>>> master
     bool (redis_hash::*func) (redis_coder&);
 };
 
 static struct hash_handler handlers[] = {
-<<<<<<< HEAD
-    { "HSET",       &redis_hash::hset       },
-    { "HGET",       &redis_hash::hget       },
-    { "HDEL",       &redis_hash::hdel       },
-    { "HMSET",      &redis_hash::hmset      },
-    { "HMGET",      &redis_hash::hmget      },
-    { "HGETALL",    &redis_hash::hgetall    },
-    { nullptr,      nullptr                 },
-=======
     { "HSET",       true,   &redis_hash::hset       },
     { "HGET",       true,   &redis_hash::hget       },
     { "HDEL",       true,   &redis_hash::hdel       },
@@ -53,19 +36,14 @@ static struct hash_handler handlers[] = {
     { "HMGET",      true,   &redis_hash::hmget      },
     { "HGETALL",    true,   &redis_hash::hgetall    },
     { nullptr,      false, nullptr            },
->>>>>>> master
 };
 
 bool redis_hash::exec(const char* cmd, redis_coder& result) {
     for (int i = 0; handlers[i].cmd != nullptr; i++) {
-<<<<<<< HEAD
-        if (EQ(cmd, handlers[i].cmd)) {
-=======
         if (this->check_cluster_mode(handlers[i].check_slot)) {
             if (handlers[i].check_slot) {
                 CHECK_AND_REDIRECT(cmd, obj_, var_cfg_service_addr);
             }
->>>>>>> master
             return (this->*(handlers[i].func))(result);
         }
     }

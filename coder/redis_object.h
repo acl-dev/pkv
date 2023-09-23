@@ -75,16 +75,12 @@ public:
     redis_object& create_child();
     void set_type(redis_obj_t type);
 
-<<<<<<< HEAD
-    bool to_string(std::string& out) const;
-=======
     bool to_string(std::string& out, bool one_line = false) const;
 
 public:
     const std::string& get_buf() const {
         return buf_;
     }
->>>>>>> master
 
 private:
     int status_ = redis_s_begin;
