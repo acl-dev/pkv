@@ -50,6 +50,13 @@ public:
     NODISCARD const char* get_dbtype() const override {
         return "dummy_db";
     }
+<<<<<<< HEAD
+=======
+
+    size_t dbsize() const override {
+        return 0;
+    }
+>>>>>>> master
 };
 
 shared_db db::create_rdb() {
@@ -112,4 +119,8 @@ bool db::scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) {
     }
 }
 
+<<<<<<< HEAD
 } // namespace pkv
+=======
+} // namespace pkv
+>>>>>>> master
