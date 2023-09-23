@@ -21,7 +21,14 @@ private:
     friend class mdb_htable;
     size_t idx_ = 0;
 
+<<<<<<< HEAD
     ACL_HTABLE_ITER iter_{};
 };
 
 } // namespace pkv
+=======
+    ACL_HTABLE_ITER iter_;
+};
+
+} // namespace pkv
+>>>>>>> master
