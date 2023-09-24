@@ -48,6 +48,7 @@ set(src_paths
     ${base_path}/db/mdb
     ${base_path}/cluster
     ${base_path}/cluster/gson
+    ${base_path}/sync
 )
 
 foreach(iter ${src_paths})

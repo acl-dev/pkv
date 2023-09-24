@@ -11,6 +11,7 @@ class db;
 using shared_db = std::shared_ptr<db>;
 
 class db_cursor;
+class db_watcher;
 
 class db {
 public:
@@ -23,7 +24,7 @@ public:
      * @param path The path of the database file.
      * @return true if the database is opened successfully, false otherwise.
      */
-    bool open(const char* path);
+    bool open(const char* path, db_watcher* watcher = NULL);
 
     /**
      * @brief Set the value of a key.
@@ -101,6 +102,9 @@ public:
      * @return The type of the database.
      */
     NODISCARD virtual const char* get_dbtype() const = 0;
+
+private:
+    db_watcher* watcher_ = nullptr;
 
 public:
     /**

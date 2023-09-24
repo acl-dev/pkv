@@ -4,6 +4,7 @@
 #include "coder/redis_coder.h"
 #include "action/redis_handler.h"
 #include "action/redis_service.h"
+#include "sync/sync_watcher.h"
 #include "master_service.h"
 
 static char *var_cfg_dbpath;
@@ -127,20 +128,10 @@ void master_service::proc_on_listen(acl::server_socket& ss) {
 }
 
 void master_service::proc_on_init() {
-    logger(">>>proc_on_init<<<");
     if (strcasecmp(var_cfg_dbtype, "rdb") == 0) {
         db_ = db::create_rdb();
-        if (!db_->open(var_cfg_dbpath)) {
-            logger_error("open db(%s) error %s", var_cfg_dbpath,
-                         acl::last_serror());
-            exit(1);
-        }
     } else if (strcasecmp(var_cfg_dbtype, "wdb") == 0) {
         db_ = db::create_wdb();
-        if (!db_->open(var_cfg_dbpath)) {
-            logger_error("open db(%s) error", var_cfg_dbpath);
-            exit(1);
-        }
     } else if (strcasecmp(var_cfg_dbtype, "mdb") == 0) {
         db_ = db::create_mdb();
     } else if (strcasecmp(var_cfg_dbtype, "mdb_htable") == 0) {
@@ -151,6 +142,12 @@ void master_service::proc_on_init() {
         db_ = db::create_mdb_tbb();
     } else {
         logger_error("unknown dbtype=%s", var_cfg_dbtype);
+        exit(1);
+    }
+
+    sync_ = new sync_watcher;
+    if (!db_->open(var_cfg_dbpath, sync_)) {
+        logger_error("open db(%s) error: %s", var_cfg_dbpath, acl::last_serror());
         exit(1);
     }
 

@@ -15,6 +15,7 @@
 #include "mdb/mdb_tbb.h"
 #endif
 
+#include "db_watcher.h"
 #include "db_cursor.h"
 #include "db.h"
 
@@ -94,20 +95,33 @@ shared_db db::create_mdb_tbb() {
 #endif
 }
 
-bool db::open(const char *path) {
+bool db::open(const char *path, db_watcher* watcher) {
+    watcher_ = watcher;
     return this->dbopen(path);
 }
 
 bool db::set(const std::string &key, const std::string &value) {
-    return this->dbset(key, value);
+    bool ret = this->dbset(key, value);
+    if (watcher_) {
+        watcher_->on_set(key, value, ret);
+    }
+    return ret;
 }
 
 bool db::get(const std::string &key, std::string &value) {
-    return this->dbget(key, value);
+    bool ret = this->dbget(key, value);
+    if (watcher_) {
+        watcher_->on_get(key, value, ret);
+    }
+    return ret;
 }
 
 bool db::del(const std::string &key) {
-    return this->dbdel(key);
+    bool ret = this->dbdel(key);
+    if (watcher_) {
+        watcher_->on_del(key, ret);
+    }
+    return ret;
 }
 
 db_cursor *db::create_cursor() {
