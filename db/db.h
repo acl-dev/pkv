@@ -23,7 +23,7 @@ public:
      * @param path The path of the database file.
      * @return true if the database is opened successfully, false otherwise.
      */
-    virtual bool open(const char* path) = 0;
+    bool open(const char* path);
 
     /**
      * @brief Set the value of a key.
@@ -32,7 +32,7 @@ public:
      * @param value The value.
      * @return true if the value is set successfully, false otherwise.
      */
-    virtual bool set(const std::string& key, const std::string& value) = 0;
+    bool set(const std::string& key, const std::string& value);
 
     /**
      * @brief Get the value of a key.
@@ -41,7 +41,7 @@ public:
      * @param value The value.
      * @return true if the value is retrieved successfully, false otherwise.
      */
-    virtual bool get(const std::string& key, std::string& value) = 0;
+    bool get(const std::string& key, std::string& value);
 
     /**
      * @brief Delete a key.
@@ -49,14 +49,14 @@ public:
      * @param key The key.
      * @return true if the key is deleted successfully, false otherwise.
      */
-    virtual bool del(const std::string& key) = 0;
+    bool del(const std::string& key);
 
     /**
      * @brief Create a cursor for iterating over the keys in the database.
      * 
      * @return A pointer to the cursor.
      */
-    virtual db_cursor* create_cursor() = 0;
+    db_cursor* create_cursor();
 
     /**
      * @brief Scan the database using a cursor.
@@ -69,6 +69,19 @@ public:
     bool scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max);
 
 protected:
+    virtual bool dbopen(const char* path) = 0;
+    virtual bool dbset(const std::string& key, const std::string& value) = 0;
+    virtual bool dbget(const std::string& key, std::string& value) = 0;
+    virtual bool dbdel(const std::string& key) = 0;
+    virtual db_cursor* dbcreate_cursor() = 0;
+
+    /**
+     * @brief Get the size of the database.
+     *
+     * @return The size of the database.
+     */
+    virtual size_t dbsize() const = 0;
+
     /**
      * @brief Scan the database using a cursor.
      * 
@@ -78,15 +91,8 @@ protected:
      * @param max The maximum number of keys to be scanned.
      * @return true if the scan is successful, false otherwise.
      */
-    virtual bool scan(size_t size, db_cursor& cursor,
+    virtual bool dbscan(size_t size, db_cursor& cursor,
                 std::vector<std::string>& keys, size_t max) = 0;
-
-    /**
-     * @brief Get the size of the database.
-     * 
-     * @return The size of the database.
-     */
-    NODISCARD virtual size_t dbsize() const = 0;
 
 public:
     /**

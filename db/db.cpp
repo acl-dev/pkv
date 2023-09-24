@@ -11,7 +11,9 @@
 #include "mdb/mdb.h"
 #include "mdb/mdb_htable.h"
 #include "mdb/mdb_avl.h"
+#ifdef HAS_TBB
 #include "mdb/mdb_tbb.h"
+#endif
 
 #include "db_cursor.h"
 #include "db.h"
@@ -23,27 +25,27 @@ public:
     dummy_db() = default;
     ~dummy_db() override = default;
 
-    bool open(const char*) override {
+    bool dbopen(const char*) override {
         return false;
     }
 
-    bool set(const std::string&, const std::string&) override {
+    bool dbset(const std::string&, const std::string&) override {
         return false;
     }
 
-    bool get(const std::string&, std::string&) override {
+    bool dbget(const std::string&, std::string&) override {
         return false;
     }
 
-    bool del(const std::string&) override {
+    bool dbdel(const std::string&) override {
         return false;
     }
 
-    db_cursor* create_cursor() override {
+    db_cursor* dbcreate_cursor() override {
         return nullptr;
     }
 
-    bool scan(size_t, db_cursor&, std::vector<std::string>&, size_t) override {
+    bool dbscan(size_t, db_cursor&, std::vector<std::string>&, size_t) override {
         return false;
     }
 
@@ -92,6 +94,26 @@ shared_db db::create_mdb_tbb() {
 #endif
 }
 
+bool db::open(const char *path) {
+    return this->dbopen(path);
+}
+
+bool db::set(const std::string &key, const std::string &value) {
+    return this->dbset(key, value);
+}
+
+bool db::get(const std::string &key, std::string &value) {
+    return this->dbget(key, value);
+}
+
+bool db::del(const std::string &key) {
+    return this->dbdel(key);
+}
+
+db_cursor *db::create_cursor() {
+    return this->dbcreate_cursor();
+}
+
 bool db::scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) {
     keys.clear();
 
@@ -101,7 +123,7 @@ bool db::scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max) {
             return true;
         }
 
-        if (!scan(idx, cursor, keys, max)) {
+        if (!this->dbscan(idx, cursor, keys, max)) {
             return false;
         }
 

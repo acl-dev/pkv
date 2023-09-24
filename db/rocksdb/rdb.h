@@ -19,22 +19,22 @@ public:
 
 protected:
     // @override
-    bool open(const char* paths) override;
+    bool dbopen(const char* paths) override;
 
     // @override
-    bool set(const std::string& key, const std::string& value) override;
+    bool dbset(const std::string& key, const std::string& value) override;
 
     // @override
-    bool get(const std::string& key, std::string& value) override;
+    bool dbget(const std::string& key, std::string& value) override;
 
     // @override
-    bool del(const std::string& key) override;
+    bool dbdel(const std::string& key) override;
 
     // @override
-    db_cursor* create_cursor() override;
+    db_cursor* dbcreate_cursor() override;
 
     // @override
-    bool scan(size_t idx, db_cursor& cursor,
+    bool dbscan(size_t idx, db_cursor& cursor,
               std::vector<std::string>& keys, size_t max) override;
 
     // @override

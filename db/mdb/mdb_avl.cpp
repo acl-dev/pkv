@@ -22,11 +22,11 @@ mdb_avl::~mdb_avl() {
     acl_mdb_free(mdb_);
 }
 
-bool mdb_avl::open(const char *) {
+bool mdb_avl::dbopen(const char *) {
     return true;
 }
 
-bool mdb_avl::set(const std::string &key, const std::string &value) {
+bool mdb_avl::dbset(const std::string &key, const std::string &value) {
     const char *key_values[3];
     key_values[0] = key.c_str();
     key_values[1] = "-1";
@@ -37,7 +37,7 @@ bool mdb_avl::set(const std::string &key, const std::string &value) {
     return true;
 }
 
-bool mdb_avl::get(const std::string &key, std::string &value) {
+bool mdb_avl::dbget(const std::string &key, std::string &value) {
     ACL_MDT_RES *res= acl_mdb_find(mdb_, table_name_.c_str(),
        key_names[0], key.c_str(), 0, 0);
     if (res == nullptr) {
@@ -55,13 +55,14 @@ bool mdb_avl::get(const std::string &key, std::string &value) {
     return true;
 }
 
-bool mdb_avl::del(const std::string &key) {
+bool mdb_avl::dbdel(const std::string &key) {
     int n = acl_mdb_del(mdb_, table_name_.c_str(), key_names[0], key.c_str(),
                         nullptr);
     return n > 0;
 }
 
-bool mdb_avl::scan(size_t idx, db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
+bool mdb_avl::dbscan(size_t idx, db_cursor& cursor, std::vector<std::string> &keys,
+      size_t max) {
     return false;
 }
 

@@ -19,7 +19,7 @@ wdb::~wdb() {
     }
 }
 
-bool wdb::open(const char *paths) {
+bool wdb::dbopen(const char *paths) {
     acl::string buf(paths);
     auto& tokens = buf.split2(";, \t");
     for (auto& token : tokens) {
@@ -50,25 +50,26 @@ bool wdb::open_one(const std::string& path) {
     return true;
 }
 
-bool wdb::set(const std::string &key, const std::string &value) {
+bool wdb::dbset(const std::string &key, const std::string &value) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
     auto dbp = dbs_[n];
     return dbp->set(key, value);
 }
 
-bool wdb::get(const std::string &key, std::string &value) {
+bool wdb::dbget(const std::string &key, std::string &value) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
     auto dbp = dbs_[n];
     return dbp->get(key, value);
 }
 
-bool wdb::del(const std::string &key) {
+bool wdb::dbdel(const std::string &key) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
     auto dbp = dbs_[n];
     return dbp->del(key);
 }
 
-bool wdb::scan(size_t idx, db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
+bool wdb::dbscan(size_t idx, db_cursor& cursor, std::vector<std::string> &keys,
+      size_t max) {
     return false;
 }
 

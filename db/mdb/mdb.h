@@ -22,24 +22,24 @@ public:
 
 protected:
     // @override
-    bool open(const char* path) override;
+    bool dbopen(const char* path) override;
 
     // @override
-    bool set(const std::string& key, const std::string& value) override;
+    bool dbset(const std::string& key, const std::string& value) override;
 
     // @override
-    bool get(const std::string& key, std::string& value) override;
+    bool dbget(const std::string& key, std::string& value) override;
 
     // @override
-    bool del(const std::string& key) override;
+    bool dbdel(const std::string& key) override;
 
     // @override
-    db_cursor* create_cursor() override {
+    db_cursor* dbcreate_cursor() override {
         return nullptr;
     }
 
     // @override
-    bool scan(size_t, db_cursor&, std::vector<std::string>&, size_t) override;
+    bool dbscan(size_t, db_cursor&, std::vector<std::string>&, size_t) override;
 
 protected:
     // @override

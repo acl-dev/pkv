@@ -36,11 +36,11 @@ mdb_htable::~mdb_htable() {
     }
 }
 
-bool mdb_htable::open(const char * /* path */) {
+bool mdb_htable::dbopen(const char * /* path */) {
     return true;
 }
 
-bool mdb_htable::set(const std::string &key, const std::string &value) {
+bool mdb_htable::dbset(const std::string &key, const std::string &value) {
     char* buf;
 
     if (slice_) {
@@ -72,7 +72,7 @@ bool mdb_htable::set(const std::string &key, const std::string &value) {
     return true;
 }
 
-bool mdb_htable::get(const std::string &key, std::string &value) {
+bool mdb_htable::dbget(const std::string &key, std::string &value) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
     auto store = dbs_[n];
 
@@ -84,7 +84,7 @@ bool mdb_htable::get(const std::string &key, std::string &value) {
     return true;
 }
 
-bool mdb_htable::del(const std::string &key) {
+bool mdb_htable::dbdel(const std::string &key) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
     auto store = dbs_[n];
 
@@ -92,11 +92,11 @@ bool mdb_htable::del(const std::string &key) {
     return ret == 0;
 }
 
-db_cursor *mdb_htable::create_cursor() {
+db_cursor *mdb_htable::dbcreate_cursor() {
     return new mdb_htable_cursor();
 }
 
-bool mdb_htable::scan(size_t idx, db_cursor& cur,
+bool mdb_htable::dbscan(size_t idx, db_cursor& cur,
       std::vector<std::string>& keys, size_t max) {
 
     if (idx >= dbs_.size()) {
