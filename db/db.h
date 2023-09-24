@@ -78,7 +78,8 @@ protected:
      * @param max The maximum number of keys to be scanned.
      * @return true if the scan is successful, false otherwise.
      */
-    virtual bool scan(size_t size, db_cursor& cursor, std::vector<std::string>& keys, size_t max) = 0;
+    virtual bool scan(size_t size, db_cursor& cursor,
+                std::vector<std::string>& keys, size_t max) = 0;
 
     /**
      * @brief Get the size of the database.
