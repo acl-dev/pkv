@@ -49,6 +49,7 @@ set(src_paths
     ${base_path}/cluster
     ${base_path}/cluster/gson
     ${base_path}/sync
+    ${base_path}/slave
 )
 
 foreach(iter ${src_paths})

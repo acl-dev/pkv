@@ -7,19 +7,15 @@
 
 namespace pkv {
 
-sync_watcher::sync_watcher() {
-}
+sync_watcher::sync_watcher() = default;
 
-sync_watcher::~sync_watcher() {
-}
+sync_watcher::~sync_watcher() = default;
 
-void sync_watcher::on_set(const std::string &key, const std::string &value,
-       bool ok) {
+void sync_watcher::on_set(const std::string &key, const std::string &value, bool ok) {
 
 }
 
-void sync_watcher::on_get(const std::string &key, const std::string &value,
-       bool ok) {
+void sync_watcher::on_get(const std::string &key, const std::string &value, bool ok) {
 
 }
 
