@@ -1,12 +1,15 @@
 //
-// Created by shuxin ¡¡¡¡zheng on 2023/9/26.
+// Created by shuxin zheng on 2023/9/26.
 //
 
 #include "stdafx.h"
 #include "slave/slave_client.h"
+#include "slave/slave_watcher.h"
 #include "cluster_service.h"
 
 namespace pkv {
+
+cluster_service::cluster_service(slave_watcher &watcher) : watcher_(watcher) {}
 
 bool cluster_service::bind(const char *addr) {
     if (!server_->open(addr)) {
@@ -28,9 +31,11 @@ void cluster_service::run() {
         }
 
         // Start one client fiber to handle the connection from other node.
-        go[conn] {
-            std::unique_ptr<slave_client> client(new slave_client(conn));
+        go[this, conn] {
+            shared_client client(new slave_client(conn));
+            watcher_.add_client(client);
             client->run();
+            watcher_.del_client(client);
         };
     }
 }

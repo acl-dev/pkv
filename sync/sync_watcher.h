@@ -14,13 +14,13 @@ public:
 
 protected:
     // @override
-    void on_set(const std::string& key, const std::string& value, bool ok) override;
+    bool on_set(const std::string& key, const std::string& value, bool ok) override;
 
     // @override
-    void on_get(const std::string& key, const std::string& value, bool ok) override;
+    bool on_get(const std::string& key, const std::string& value, bool ok) override;
 
     // @override
-    void on_del(const std::string& key, bool ok) override;
+    bool on_del(const std::string& key, bool ok) override;
 
 private:
     acl::fiber_tbox2<bool> box_;

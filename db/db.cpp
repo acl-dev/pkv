@@ -54,7 +54,7 @@ public:
         return "dummy_db";
     }
 
-    size_t dbsize() const override {
+    NODISCARD size_t dbsize() const override {
         return 0;
     }
 };
@@ -95,31 +95,31 @@ shared_db db::create_mdb_tbb() {
 #endif
 }
 
-bool db::open(const char *path, db_watcher* watcher) {
-    watcher_ = watcher;
+bool db::open(const char *path, db_watchers* watchers) {
+    watchers_ = watchers;
     return this->dbopen(path);
 }
 
 bool db::set(const std::string &key, const std::string &value) {
     bool ret = this->dbset(key, value);
-    if (watcher_) {
-        watcher_->on_set(key, value, ret);
+    if (watchers_) {
+        watchers_->on_set(key, value, ret);
     }
     return ret;
 }
 
 bool db::get(const std::string &key, std::string &value) {
     bool ret = this->dbget(key, value);
-    if (watcher_) {
-        watcher_->on_get(key, value, ret);
+    if (watchers_) {
+        watchers_->on_get(key, value, ret);
     }
     return ret;
 }
 
 bool db::del(const std::string &key) {
     bool ret = this->dbdel(key);
-    if (watcher_) {
-        watcher_->on_del(key, ret);
+    if (watchers_) {
+        watchers_->on_del(key, ret);
     }
     return ret;
 }

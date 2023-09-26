@@ -4,8 +4,9 @@
 #include "coder/redis_coder.h"
 #include "action/redis_handler.h"
 #include "action/redis_service.h"
-#include "sync/sync_watcher.h"
+#include "db/db_watcher.h"
 #include "cluster/cluster_service.h"
+#include "slave/slave_watcher.h"
 #include "master_service.h"
 
 static char *var_cfg_dbpath;
@@ -146,8 +147,10 @@ void master_service::proc_on_init() {
         exit(1);
     }
 
-    sync_ = new sync_watcher;
-    if (!db_->open(var_cfg_dbpath, sync_)) {
+    watchers_ = new db_watchers;
+    if (!db_->open(var_cfg_dbpath, watchers_)) {
+        delete watchers_;
+        watchers_ = nullptr;
         logger_error("open db(%s) error: %s", var_cfg_dbpath, acl::last_serror());
         exit(1);
     }
@@ -172,19 +175,30 @@ bool master_service::proc_on_sighup(acl::string&) {
     return true;
 }
 
+// One thread has one watcher for wartching the changing of db.
+static __thread pkv::slave_watcher *watcher;
+
 void master_service::thread_on_init() {
 #undef __FUNCTION__
 #define __FUNCTION__ "thread_on_init"
 
+    watcher = new slave_watcher;
+    watchers_->add_watcher(watcher);
+
     // Start one server fiber to handle the process betwwen different nodes.
     go[] {
-        auto* service = new pkv::cluster_service();
-        if (!service->bind(var_cfg_rpc_addr)) {
-            logger_error("Bind %s error %s", var_cfg_rpc_addr, acl::last_serror());
-            delete service;
-            return;
-        }
+        pkv::cluster_service service(*watcher);
 
-        service->run();
+        // Bind the local address to accept connection from other nodes.
+        if (!service.bind(var_cfg_rpc_addr)) {
+            logger_error("Bind %s error %s", var_cfg_rpc_addr, acl::last_serror());
+        } else {
+            service.run();
+        }
+    };
+
+    // Start one watcher fiber to wait messages from box.
+    go[] {
+        watcher->run();
     };
 }

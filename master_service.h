@@ -4,7 +4,7 @@
 
 namespace pkv {
     class redis_service;
-    class sync_watcher;
+    class db_watchers;
 } // namespace pkv
 
 class master_service : public acl::master_fiber {
@@ -39,7 +39,7 @@ protected:
 private:
     pkv::shared_db db_ = nullptr;
     pkv::redis_service* service_ = nullptr;
-    pkv::sync_watcher* sync_ = nullptr;
+    pkv::db_watchers* watchers_ = nullptr;
 
     void run(acl::socket_stream& conn, size_t size);
 };
