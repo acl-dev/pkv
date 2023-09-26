@@ -1,24 +1,25 @@
 #include "stdafx.h"
-#include "cluster/cluster_service.h"
+#include "cluster/cluster_manager.h"
 #include "coder/redis_ocache.h"
 #include "coder/redis_coder.h"
 #include "action/redis_handler.h"
 #include "action/redis_service.h"
 #include "sync/sync_watcher.h"
+#include "cluster/cluster_service.h"
 #include "master_service.h"
 
 static char *var_cfg_dbpath;
 static char *var_cfg_dbtype;
 char *var_cfg_service_addr;
 char *var_cfg_rpc_addr;
-static char *var_cfg_dump_path;
+static char *var_cfg_cluster_file;
 
 acl::master_str_tbl var_conf_str_tab[] = {
     { "dbpath",         "./dbpath",         &var_cfg_dbpath         },
     { "dbtype",         "rdb",              &var_cfg_dbtype         },
     { "service",        "127.0.0.1:19001",  &var_cfg_service_addr   },
     { "rpc_addr",       "127.0.0.1:29001",  &var_cfg_rpc_addr       },
-    { "dump_path",      "",                 &var_cfg_dump_path      },
+    { "cluster_file",   "",                 &var_cfg_cluster_file   },
 
     { nullptr,    nullptr,                  nullptr                 }
 };
@@ -151,19 +152,8 @@ void master_service::proc_on_init() {
         exit(1);
     }
 
-    if (!cluster_service::get_instance().bind(var_cfg_rpc_addr,
-          var_cfg_redis_max_slots)) {
-        logger_error("Bind %s error %s", var_cfg_rpc_addr, acl::last_serror());
-    }
-
-    if (var_cfg_cluster_mode && *var_cfg_dump_path) {
-        cluster_service::get_instance().init(var_cfg_dump_path);
-        if (!cluster_service::get_instance().load_nodes()) {
-            logger_error("Load nodes info failed in %s", var_cfg_dump_path);
-        } else {
-            logger_error("Load nodes info ok in %s", var_cfg_dump_path);
-        }
-    }
+    cluster_manager::get_instance().init(var_cfg_redis_max_slots,
+          var_cfg_cluster_mode, var_cfg_cluster_file);
 }
 
 void master_service::close_db() {
@@ -180,4 +170,21 @@ void master_service::proc_on_exit() {
 bool master_service::proc_on_sighup(acl::string&) {
     logger(">>>proc_on_sighup<<<");
     return true;
+}
+
+void master_service::thread_on_init() {
+#undef __FUNCTION__
+#define __FUNCTION__ "thread_on_init"
+
+    // Start one server fiber to handle the process betwwen different nodes.
+    go[] {
+        auto* service = new pkv::cluster_service();
+        if (!service->bind(var_cfg_rpc_addr)) {
+            logger_error("Bind %s error %s", var_cfg_rpc_addr, acl::last_serror());
+            delete service;
+            return;
+        }
+
+        service->run();
+    };
 }

@@ -16,6 +16,7 @@
 #include <acl-lib/acl_cpp/lib_acl.hpp>
 #include <acl-lib/fiber/lib_fiber.h>
 #include <acl-lib/fiber/lib_fiber.hpp>
+#include <acl-lib/fiber/go_fiber.hpp>
 
 #include "c++_patch.h"
 

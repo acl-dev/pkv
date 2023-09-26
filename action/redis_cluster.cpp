@@ -5,7 +5,7 @@
 #include "stdafx.h"
 #include "coder/redis_coder.h"
 #include "coder/redis_object.h"
-#include "cluster/cluster_service.h"
+#include "cluster/cluster_manager.h"
 
 #include "redis_cluster.h"
 
@@ -66,7 +66,7 @@ bool redis_cluster::cluster_slots(redis_coder& result) {
     }
 
     auto& obj = result.create_object();
-    auto& nodes = cluster_service::get_instance().get_nodes();
+    auto& nodes = cluster_manager::get_instance().get_nodes();
 
     for (auto& item : nodes) {
         auto& node = item.second;
@@ -103,8 +103,8 @@ bool redis_cluster::cluster_addslots(redis_coder& result) {
         }
     }
 
-    cluster_service::get_instance().add_slots(var_cfg_service_addr, slots);
-    //cluster_service::get_instance().show_null_slots();
+    cluster_manager::get_instance().add_slots(var_cfg_service_addr, slots);
+    //cluster_manager::get_instance().show_null_slots();
     result.create_object().set_status("OK");
     return true;
 }
@@ -115,14 +115,14 @@ bool redis_cluster::cluster_nodes(redis_coder &result) {
         return false;
     }
 
-    //cluster_service::get_instance().show_null_slots();
+    //cluster_manager::get_instance().show_null_slots();
     build_nodes(result);
     return true;
 }
 
 void redis_cluster::build_nodes(redis_coder& result) {
     std::string buf;
-    auto& nodes = cluster_service::get_instance().get_nodes();
+    auto& nodes = cluster_manager::get_instance().get_nodes();
     for (auto& node : nodes) {
         add_node(buf, *node.second);
     }
@@ -180,7 +180,7 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
     }
 
     // Update mine join time.
-    if (!cluster_service::get_instance().update_join_time(var_cfg_service_addr)) {
+    if (!cluster_manager::get_instance().update_join_time(var_cfg_service_addr)) {
         logger_error("Update the join time error for me=%s", var_cfg_service_addr);
         return false;
     }
@@ -193,14 +193,16 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
     }
 
     // Notify all the others to sync my slots info.
-    auto& all_nodes = cluster_service::get_instance().get_nodes();
+    auto& all_nodes = cluster_manager::get_instance().get_nodes();
     for (const auto& it : all_nodes) {
         auto one_addr = it.second->get_addr();
         sync_slots(result.get_cache(), one_addr, var_cfg_service_addr);
     }
 
     // Save the current nodes info to the disk file.
-    cluster_service::get_instance().save_nodes();
+    if (!cluster_manager::get_instance().save_nodes()) {
+    	logger_error("Save cluster nodes info failed");
+    }
 
     result.create_object().set_status("OK");
     return true;
@@ -208,7 +210,7 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
 
 void redis_cluster::add_nodes(const std::map<acl::string, acl::redis_node*>& nodes) {
     for (auto& it : nodes) {
-        cluster_service::get_instance().add_node(*it.second);
+        cluster_manager::get_instance().add_node(*it.second);
     }
 }
 
@@ -236,7 +238,9 @@ bool redis_cluster::cluster_syncslots(redis_coder& result) {
     add_nodes(*nodes);
 
     // Save the current nodes info to the disk file.
-    cluster_service::get_instance().save_nodes();
+    if (!cluster_manager::get_instance().save_nodes()) {
+        logger_error("Save cluster nodes info failed");
+    }
 
     result.create_object().set_status("OK");
     return true;
