@@ -9,4 +9,5 @@
 # define NORETURN       [[noreturn]]
 #else
 # define NODISCARD
+# define NORETURN
 #endif

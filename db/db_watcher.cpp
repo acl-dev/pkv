@@ -35,8 +35,9 @@ bool db_watchers::on_del(const std::string &key, bool ok) {
 }
 
 void db_watchers::add_watcher(db_watcher* watcher) {
-    std::lock_guard guard(lock_);
+    lock_.lock();
     watchers_.emplace_back(watcher);
+    lock_.unlock();
 }
 
 } // namespace pkv
