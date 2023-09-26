@@ -41,7 +41,7 @@ public:
 
 private:
     shared_server server_ = std::make_shared<acl::server_socket>
-	    (128, acl::OPEN_FLAG_REUSEPORT);
+	    (acl::OPEN_FLAG_REUSEPORT, 128);
     slave_watcher& watcher_;
 };
 
