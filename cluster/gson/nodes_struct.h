@@ -5,6 +5,10 @@ namespace pkv {
 struct slot_range {
     size_t begin;
     size_t end;
+    slot_range() {
+        begin = 0;
+        end = 0;
+    }
 };
 
 struct pkv_node {

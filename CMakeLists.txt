@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 2.8.12)
 project(pkv)
 
 if (${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
@@ -48,6 +48,8 @@ set(src_paths
     ${base_path}/db/mdb
     ${base_path}/cluster
     ${base_path}/cluster/gson
+    ${base_path}/sync
+    ${base_path}/slave
 )
 
 foreach(iter ${src_paths})

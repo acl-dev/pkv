@@ -23,7 +23,7 @@ rdb::~rdb() {
     logger("rdb closed");
 }
 
-bool rdb::open(const char* paths) {
+bool rdb::dbopen(const char* paths) {
     acl::string buf(paths);
     auto& tokens = buf.split2(";, \t");
     for (auto& token : tokens) {
@@ -60,7 +60,7 @@ bool rdb::open_one(const std::string& path) {
     return true;
 }
 
-bool rdb::set(const std::string& key, const std::string& value) {
+bool rdb::dbset(const std::string& key, const std::string& value) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
     auto dbp = dbs_[n];
 
@@ -74,7 +74,7 @@ bool rdb::set(const std::string& key, const std::string& value) {
     return true;
 }
 
-bool rdb::get(const std::string& key, std::string& value) {
+bool rdb::dbget(const std::string& key, std::string& value) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
     auto dbp = dbs_[n];
 
@@ -90,7 +90,7 @@ bool rdb::get(const std::string& key, std::string& value) {
     return true;
 }
 
-bool rdb::del(const std::string& key) {
+bool rdb::dbdel(const std::string& key) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % dbs_.size();
     auto dbp = dbs_[n];
 
@@ -103,11 +103,12 @@ bool rdb::del(const std::string& key) {
     return true;
 }
 
-db_cursor* rdb::create_cursor() {
+db_cursor* rdb::dbcreate_cursor() {
     return new rdb_cursor();
 }
 
-bool rdb::scan(size_t idx, db_cursor& cur, std::vector<std::string>& keys, size_t max) {
+bool rdb::dbscan(size_t idx, db_cursor& cur, std::vector<std::string>& keys,
+      size_t max) {
     if (idx >= dbs_.size()) {
         return false;
     }

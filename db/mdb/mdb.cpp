@@ -24,11 +24,11 @@ mdb::~mdb() {
     }
 }
 
-bool mdb::open(const char * /* path */) {
+bool mdb::dbopen(const char * /* path */) {
     return true;
 }
 
-bool mdb::set(const std::string &key, const std::string &value) {
+bool mdb::dbset(const std::string &key, const std::string &value) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
     auto store = stores_[n];
 
@@ -40,7 +40,7 @@ bool mdb::set(const std::string &key, const std::string &value) {
     return true;
 }
 
-bool mdb::get(const std::string &key, std::string &value) {
+bool mdb::dbget(const std::string &key, std::string &value) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
     auto store = stores_[n];
 
@@ -57,7 +57,7 @@ bool mdb::get(const std::string &key, std::string &value) {
     return true;
 }
 
-bool mdb::del(const std::string &key) {
+bool mdb::dbdel(const std::string &key) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
     auto store = stores_[n];
 
@@ -74,7 +74,8 @@ bool mdb::del(const std::string &key) {
     return true;
 }
 
-bool mdb::scan(size_t idx, db_cursor& cursor, std::vector<std::string> &keys, size_t max) {
+bool mdb::dbscan(size_t idx, db_cursor& cursor, std::vector<std::string> &keys,
+      size_t max) {
     return false;
 }
 

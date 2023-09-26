@@ -75,8 +75,8 @@ bool redis_cluster::cluster_slots(redis_coder& result) {
 
         for (auto slot_pair : slots) {
             auto& child = obj.create_child();
-            child.create_child().set_number(slot_pair.first, true)
-                .create_child().set_number(slot_pair.second);
+            child.create_child().set_number((long long) slot_pair.first, true)
+                .create_child().set_number((long long) slot_pair.second);
             auto& info = child.create_child();
             info.create_child().set_string(node->get_ip(), true)
                 .create_child().set_number(node->get_port(), true)
@@ -124,13 +124,12 @@ void redis_cluster::build_nodes(redis_coder& result) {
     std::string buf;
     auto& nodes = cluster_service::get_instance().get_nodes();
     for (auto& node : nodes) {
-        add_node(buf, node.first, *node.second);
+        add_node(buf, *node.second);
     }
     result.create_object().set_string(buf);
 }
 
-void redis_cluster::add_node(std::string &buf, const std::string &addr,
-       const cluster_node &node) {
+void redis_cluster::add_node(std::string &buf, const cluster_node &node) {
     buf += node.get_id() + " ";
     buf += node.get_addr() + "@39002 ";
     buf += node.get_type() + " - 0 ";
@@ -195,7 +194,7 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
 
     // Notify all the others to sync my slots info.
     auto& all_nodes = cluster_service::get_instance().get_nodes();
-    for (auto it : all_nodes) {
+    for (const auto& it : all_nodes) {
         auto one_addr = it.second->get_addr();
         sync_slots(result.get_cache(), one_addr, var_cfg_service_addr);
     }

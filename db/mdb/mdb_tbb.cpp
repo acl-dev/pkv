@@ -24,11 +24,11 @@ mdb_tbb::~mdb_tbb() {
     }
 }
 
-bool mdb_tbb::open(const char * /* path */) {
+bool mdb_tbb::dbopen(const char * /* path */) {
     return true;
 }
 
-bool mdb_tbb::set(const std::string &key, const std::string &value) {
+bool mdb_tbb::dbset(const std::string &key, const std::string &value) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
     auto store = stores_[n];
 
@@ -38,7 +38,7 @@ bool mdb_tbb::set(const std::string &key, const std::string &value) {
     return true;
 }
 
-bool mdb_tbb::get(const std::string &key, std::string &value) {
+bool mdb_tbb::dbget(const std::string &key, std::string &value) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
     auto store = stores_[n];
 
@@ -51,14 +51,14 @@ bool mdb_tbb::get(const std::string &key, std::string &value) {
     return false;
 }
 
-bool mdb_tbb::del(const std::string &key) {
+bool mdb_tbb::dbdel(const std::string &key) {
     unsigned n = acl_hash_crc32(key.c_str(), key.size()) % stores_.size();
     auto store = stores_[n];
 
     return store->erase(key);
 }
 
-bool mdb_tbb::scan(size_t shard_id, db_cursor& cursor,
+bool mdb_tbb::dbscan(size_t shard_id, db_cursor& cursor,
         std::vector<std::string> &keys, size_t max) {
     auto store = stores_[shard_id];
     Accessor a;
