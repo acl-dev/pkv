@@ -7,7 +7,7 @@
 
 namespace pkv {
 
-class slave_client {
+class slave_client : std::enable_shared_from_this<slave_client> {
 public:
     explicit slave_client(acl::shared_stream conn);
     ~slave_client();

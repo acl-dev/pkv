@@ -13,7 +13,8 @@ slave_client::slave_client(acl::shared_stream conn) : conn_(std::move(conn)) {}
 slave_client::~slave_client() = default;
 
 void slave_client::run() {
-    go[this] {
+    auto self = shared_from_this();
+    go[this, self] {
         while (true) {
             acl::string buf;
             if (conn_->gets(buf)) {
