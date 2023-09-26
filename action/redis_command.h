@@ -4,7 +4,7 @@
 
 #pragma once
 #include "coder/redis_coder.h"
-#include "cluster/cluster_service.h"
+#include "cluster/cluster_manager.h"
 
 namespace pkv {
 
@@ -34,7 +34,7 @@ protected:
         return false;                                                          \
     }                                                                          \
     size_t slot;                                                               \
-    auto node = cluster_service::get_instance().get_node(key, slot);           \
+    auto node = cluster_manager::get_instance().get_node(key, slot);           \
     if (node == nullptr) {                                                     \
         return false;                                                          \
     }                                                                          \

@@ -5,7 +5,8 @@
 #pragma once
 
 #if __cplusplus >=  201703L
-# define NODISCARD    [[nodiscard]]
+# define NODISCARD      [[nodiscard]]
+# define NORETURN       [[noreturn]]
 #else
 # define NODISCARD
 #endif

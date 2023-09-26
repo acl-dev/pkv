@@ -33,6 +33,9 @@ protected:
     // @override
     bool proc_on_sighup(acl::string&) override;
 
+    // @override
+    void thread_on_init() override;
+
 private:
     pkv::shared_db db_ = nullptr;
     pkv::redis_service* service_ = nullptr;
