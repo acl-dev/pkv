@@ -24,6 +24,7 @@ public:
     bool cluster_addslots(redis_coder& result);
     bool cluster_nodes(redis_coder& result);
     bool cluster_meet(redis_coder& result);
+    bool cluster_replicate(redis_coder& result);
 
     bool cluster_syncslots(redis_coder& result);
 

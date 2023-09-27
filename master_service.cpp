@@ -22,7 +22,7 @@ acl::master_str_tbl var_conf_str_tab[] = {
     { "rpc_addr",       "127.0.0.1:29001",  &var_cfg_rpc_addr       },
     { "cluster_file",   "",                 &var_cfg_cluster_file   },
 
-    { nullptr,    nullptr,                  nullptr                 }
+    { nullptr,          nullptr,            nullptr                 },
 };
 
 int var_cfg_disable_serialize;
@@ -34,7 +34,7 @@ acl::master_bool_tbl var_conf_bool_tab[] = {
     { "disable_save",       0,  &var_cfg_disable_save       },
     { "cluster_mode",       0,  &var_cfg_cluster_mode       },
 
-    { nullptr,              0,  nullptr                     }
+    { nullptr,              0,  nullptr                     },
 };
 
 static int  var_cfg_io_timeout;
@@ -48,7 +48,7 @@ acl::master_int_tbl var_conf_int_tab[] = {
     { "ocache_max",     10000,  &var_cfg_ocache_max,        0,  0   },
     { "redis_max_slots", 16384, &var_cfg_redis_max_slots,   0,  0   },
 
-    { nullptr,          0 ,     nullptr ,                   0,  0   }
+    { nullptr,          0 ,     nullptr ,                   0,  0   },
 };
 
 acl::master_int64_tbl var_conf_int64_tab[] = {

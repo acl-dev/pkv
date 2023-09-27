@@ -40,9 +40,12 @@ public:
      * 
      * @param addr The address of the node.
      * @param slots The slots to add.
+     * @param type The type of the node.
+     * @param myself If the node added is myself.
      * @return {bool}
      */
-    bool add_slots(const std::string& addr, const std::vector<size_t>& slots);
+    bool add_slots(const std::string& addr, const std::vector<size_t>& slots,
+            const std::string& type, bool myself);
 
     /**
      * Add one node and its all slots belong.

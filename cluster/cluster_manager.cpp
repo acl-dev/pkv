@@ -34,7 +34,7 @@ void cluster_manager::init(size_t max_slots, bool cluster_mode, const char* save
 }
 
 bool cluster_manager::add_slots(const std::string &addr,
-      const std::vector<size_t> &slots) {
+      const std::vector<size_t> &slots, const std::string& type, bool myself) {
     if (slots.size() > slots_.size()) {
         logger_error("Slots overflow, capacity=%zd, adding=%zd",
                 slots_.size(), slots.size());
@@ -45,6 +45,8 @@ bool cluster_manager::add_slots(const std::string &addr,
     auto it = nodes_.find(addr);
     if (it == nodes_.end()) {
         node = std::make_shared<cluster_node>(addr.c_str());
+        node->set_type(type);
+        node->set_myself(myself);
         nodes_[addr] = node;
     } else {
         node = it->second;

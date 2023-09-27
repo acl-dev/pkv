@@ -10,7 +10,7 @@
 namespace pkv {
 
 cluster_node::cluster_node(const char* addr)
-: addr_(addr)
+: myself_(false), addr_(addr)
 {
     slots_ = acl_dlink_create(10);
     struct timeval now = { 0, 0 };
@@ -24,7 +24,12 @@ cluster_node::cluster_node(const char* addr)
     if (port) {
         *port++ = 0;
         ip_ = buf.c_str();
-        port_ = std::atoi(port);
+
+        char* end;
+        port_ = (int) std::strtol(port, &end, 10);
+        if (*end != 0) {
+            logger_error("Invalid port=%d, addr=%s", port_, addr);
+        }
     } else {
         logger_error("Invalid addr=%s", addr);
     }
@@ -32,6 +37,11 @@ cluster_node::cluster_node(const char* addr)
 
 cluster_node::~cluster_node() {
     acl_dlink_free(slots_);
+}
+
+cluster_node& cluster_node::set_myself(bool yes) {
+    myself_ = yes;
+    return *this;
 }
 
 cluster_node& cluster_node::set_id(const std::string& id) {

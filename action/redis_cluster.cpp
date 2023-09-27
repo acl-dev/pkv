@@ -30,6 +30,7 @@ static struct cluster_handler handlers[] = {
     { "NODES",      &redis_cluster::cluster_nodes           },
     { "ADDSLOTS",   &redis_cluster::cluster_addslots        },
     { "MEET",       &redis_cluster::cluster_meet            },
+    { "REPLICATE",  &redis_cluster::cluster_replicate       },
 
     // My extention of redis cluster commands.
     { "SYNCSLOTS",  &redis_cluster::cluster_syncslots       },
@@ -95,16 +96,27 @@ bool redis_cluster::cluster_addslots(redis_coder& result) {
 
     std::vector<size_t> slots;
     for (size_t i = 2; i < obj_.size() && (int) i < var_cfg_redis_max_slots; i++) {
-        int slot = std::atoi(obj_[i]);
-        if (slot >= 0 && slot < var_cfg_redis_max_slots) {
+        char* end;
+        int slot = (int) std::strtol(obj_[i], &end, 10);
+        if (*end == 0 && slot >= 0 && slot < var_cfg_redis_max_slots) {
             slots.push_back((size_t) slot);
         } else {
-            logger_error("Invalid slot: %d", slot);
+            logger_error("Invalid slot: %d, left=%s", slot, end);
         }
     }
 
-    cluster_manager::get_instance().add_slots(var_cfg_service_addr, slots);
+    cluster_manager::get_instance().add_slots(var_cfg_service_addr, slots,
+                "master", true);
     //cluster_manager::get_instance().show_null_slots();
+    result.create_object().set_status("OK");
+    return true;
+}
+
+bool redis_cluster::cluster_replicate(redis_coder& result) {
+    if (obj_.size() < 3) {
+        logger_error("Invalid CLUSTER REPLICATE params: %zd", obj_.size());
+        return false;
+    }
     result.create_object().set_status("OK");
     return true;
 }
@@ -132,6 +144,10 @@ void redis_cluster::build_nodes(redis_coder& result) {
 void redis_cluster::add_node(std::string &buf, const cluster_node &node) {
     buf += node.get_id() + " ";
     buf += node.get_addr() + "@39002 ";
+    if (node.is_myself()) {
+        buf += "myself,";
+    }
+
     buf += node.get_type() + " - 0 ";
     buf += std::to_string(node.get_join_time()) + " ";
     buf += std::to_string(node.get_idx()) + " ";
@@ -161,9 +177,11 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
         logger_error("PORT null");
         return false;
     }
-    int port = std::atoi(port_s);
-    if (port <= 0 || port >= 65535) {
-        logger_error("Invalid port=%d", port);
+
+    char* end;
+    int port = (int) std::strtol(port_s, &end, 10);
+    if (*end != 0 || port <= 0 || port >= 65535) {
+        logger_error("Invalid port=%d, %s, end=%s", port, port_s, end);
         return false;
     }
 
@@ -182,7 +200,7 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
     // Update mine join time.
     if (!cluster_manager::get_instance().update_join_time(var_cfg_service_addr)) {
         logger_error("Update the join time error for me=%s", var_cfg_service_addr);
-        return false;
+        //return false;
     }
 
     add_nodes(*nodes);

@@ -28,6 +28,13 @@ public:
     ~cluster_node();
 
     /**
+     * @brief Sets myself lable.
+     * @param yes True if it's myself, false or else.
+     * @return A reference to the modified cluster_node object.
+     */
+    cluster_node& set_myself(bool yes);
+
+    /**
      * @brief Sets the id of the node.
      * 
      * @param id The id of the node.
@@ -75,6 +82,10 @@ public:
     void add_slots(const std::vector<size_t> &slots);
 
 public:
+    NODISCARD bool is_myself() const {
+        return myself_;
+    }
+
     /**
      * @brief Returns the address of the node.
      * 
@@ -155,11 +166,12 @@ public:
     NODISCARD std::vector<std::pair<size_t, size_t>> get_slots() const;
 
 private:
+    bool myself_;
     std::string id_; /**< The id of the node. */
     std::string addr_; /**< The address of the node. */
     std::string ip_; /**< The IP address of the node. */
     int port_ = 0; /**< The port number of the node. */
-    std::string type_ = "myself,master"; /**< The type of the node. */
+    std::string type_ = "unknown"; /**< The type of the node. */
     long long join_time_ = 0; /**< The time of joining the cluster. */
     int idx_ = 0; /**< The index of the node. */
     bool connected_ = true; /**< The connected status of the node. */
