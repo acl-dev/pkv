@@ -32,8 +32,7 @@ void cluster_service::run() {
 
         // Start one client fiber to handle the connection from other node.
         go[this, conn] {
-            //shared_client client(new slave_client(conn));
-            shared_client client = std::make_shared<slave_client>(conn);
+            shared_client client(new slave_client(conn));
             watcher_.add_client(client);
             client->run();
             watcher_.del_client(client);

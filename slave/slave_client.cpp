@@ -3,6 +3,7 @@
 //
 
 #include "stdafx.h"
+#include "rpc/rpc_sender.h"
 #include "slave_client.h"
 
 #include <utility>
@@ -13,6 +14,8 @@ slave_client::slave_client(acl::shared_stream conn) : conn_(std::move(conn)) {}
 slave_client::~slave_client() = default;
 
 void slave_client::run() {
+    conn_->set_rw_timeout(-1);
+
     auto self = shared_from_this();
     go[this, self] {
         while (true) {
@@ -42,6 +45,7 @@ void slave_client::run() {
             break;
         }
 
+#if 0
         std::string buf;
         buf += "key: ";
         buf += message->get_key();
@@ -52,6 +56,12 @@ void slave_client::run() {
         buf += "\r\n";
         if (conn_->write(buf.c_str(), buf.size()) == -1) {
             logger_error("Send message to watcher error!");
+            break;
+        }
+#endif
+
+        if (!rpc_sender::send(conn_, message)) {
+            logger_error("Send message error, peer=%s", conn_->get_peer());
             break;
         }
     }
