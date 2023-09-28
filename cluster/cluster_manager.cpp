@@ -6,11 +6,18 @@
 #include "gson/nodes_struct.h"
 #include "gson/nodes_struct.gson.h"
 #include <acl-lib/acl_cpp/serialize/serialize.hpp>
+#include <utility>
+#include "cluster_client.h"
 #include "cluster_manager.h"
 
 namespace pkv {
 
-void cluster_manager::init(size_t max_slots, bool cluster_mode, const char* save_path) {
+void cluster_manager::init(size_t max_slots, bool cluster_mode,
+        const char* save_path, const std::string& service_ip,
+        int service_port, int rpc_port, shared_db db)
+{
+    db_ = db;
+
     if (max_slots > 0) {
         max_slots_ = max_slots;
     }
@@ -31,14 +38,30 @@ void cluster_manager::init(size_t max_slots, bool cluster_mode, const char* save
             logger_error("Load nodes info ok in %s", save_filepath_.c_str());
         }
     }
+
+    service_ip_ = service_ip;
+    service_port_ = service_port;
+    rpc_port_ = rpc_port;
 }
 
-bool cluster_manager::add_slots(const std::string &addr,
-      const std::vector<size_t> &slots) {
+void cluster_manager::set_me(shared_node node) {
+    me_ = std::move(node);
+}
+
+void cluster_manager::set_master(shared_node &master) {
+    master_ = master;
+}
+
+void cluster_manager::set_master_mode(bool yes) {
+    is_master_ = yes;
+}
+
+shared_node cluster_manager::add_slots(const std::string &addr,
+      const std::vector<size_t> &slots, bool master) {
     if (slots.size() > slots_.size()) {
         logger_error("Slots overflow, capacity=%zd, adding=%zd",
                 slots_.size(), slots.size());
-        return false;
+        return nullptr;
     }
 
     shared_node node;
@@ -52,33 +75,33 @@ bool cluster_manager::add_slots(const std::string &addr,
 
     node->add_slots(slots);
 
-    size_t max = 0;
-    for (auto slot : slots) {
-        slots_[slot] = node;
-        if (slot > max) max = slot;
+    if (master) {
+        for (auto slot : slots) {
+            slots_[slot] = node;
+        }
     }
 
     //show_null_slots();
-    return true;
+    return node;
 }
 
-bool cluster_manager::add_node(const acl::redis_node& node) {
+shared_node cluster_manager::add_node(const acl::redis_node& node, bool master) {
     auto addr = node.get_addr();
     if (addr == nullptr || *addr == 0) {
         logger_error("Addr null");
-        return false;
+        return nullptr;
     }
 
     auto id = node.get_id();
     if (id == nullptr || *id == 0) {
         logger_error("ID empty");
-        return false;
+        return nullptr;
     }
 
     auto type = node.get_type();
     if (type == nullptr || *type == 0) {
         logger_error("TYPE empty");
-        return false;
+        return nullptr;
     }
 
     long long join_time = get_stamp();
@@ -90,6 +113,11 @@ bool cluster_manager::add_node(const acl::redis_node& node) {
     if (it == nodes_.end()) {
         snode = std::make_shared<cluster_node>(addr);
         nodes_[addr] = snode;
+
+        // Bind my master node.
+        if (node.is_master() && node.is_myself()) {
+            master_ = snode;
+        }
     } else {
         snode = it->second;
     }
@@ -107,29 +135,19 @@ bool cluster_manager::add_node(const acl::redis_node& node) {
 
     snode->add_slots(slots);
 
-    for (auto slot : slots) {
-        slots_[slot] = snode;
+    if (master) {
+        for (auto slot : slots) {
+            slots_[slot] = snode;
+        }
     }
 
     //show_null_slots();
-    return true;
+    return snode;
 }
 
 shared_node cluster_manager::get_node(const std::string &addr) const {
     auto it = nodes_.find(addr);
     return it == nodes_.end() ? nullptr : it->second;
-}
-
-bool cluster_manager::update_join_time(const std::string &addr) const {
-    auto node = get_node(addr);
-    if (node == nullptr) {
-        logger_error("Not found the node with addr=%s", addr.c_str());
-        return false;
-    }
-
-    long long now = get_stamp();
-    node->set_join_time(now);
-    return true;
 }
 
 shared_node cluster_manager::get_node(const char *key, size_t& slot) {
@@ -178,11 +196,13 @@ bool cluster_manager::save_nodes() const {
         node.addr = item.second->get_addr();
         node.mana_port = 0;
         node.type = item.second->get_type();
+        node.myself = item.second->is_myself();
         node.idx = item.second->get_idx();
         node.join_time = item.second->get_join_time();
         node.connected = item.second->is_connected();
 
-        auto slots = item.second->get_slots();
+        std::vector<std::pair<size_t, size_t>> slots;
+        item.second->get_slots(slots);
         for (auto& it : slots) {
             struct slot_range range;
             range.begin = it.first;
@@ -249,8 +269,12 @@ void cluster_manager::add_node(const struct pkv_node& node) {
         snode = it->second;
     }
 
-    (*snode).set_id(node.id).set_type(node.type).set_join_time(node.join_time)
-        .set_idx(node.idx).set_connected(node.connected);
+    (*snode).set_id(node.id)
+        .set_myself(node.myself)
+        .set_type(node.type)
+        .set_join_time(node.join_time)
+        .set_idx(node.idx)
+        .set_connected(node.connected);
 
     std::vector<size_t> slots;
     for (auto &item : node.slots) {
@@ -264,6 +288,21 @@ void cluster_manager::add_node(const struct pkv_node& node) {
     for (auto slot : slots) {
         slots_[slot] = snode;
     }
+}
+
+bool cluster_manager::connect_master(const std::string &addr) {
+    if (sync_ == nullptr) {
+        sync_ = std::make_shared<cluster_client>(addr, db_);
+        if (!sync_->open()) {
+            sync_ = nullptr;
+            return false;
+        }
+
+        go[this] {
+            sync_->run();
+        };
+    }
+    return true;
 }
 
 } // namespace pkv

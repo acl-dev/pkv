@@ -84,6 +84,7 @@ const char* redis_object::get_str() const {
         return buf_.c_str();
     }
 
+    logger_warn("Not STRING type, type=%d", (int) type_);
     return nullptr;
 }
 

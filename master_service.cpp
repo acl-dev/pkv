@@ -4,24 +4,23 @@
 #include "coder/redis_coder.h"
 #include "action/redis_handler.h"
 #include "action/redis_service.h"
-#include "sync/sync_watcher.h"
+#include "db/db_watcher.h"
 #include "cluster/cluster_service.h"
+#include "slave/slave_watcher.h"
 #include "master_service.h"
 
 static char *var_cfg_dbpath;
 static char *var_cfg_dbtype;
 char *var_cfg_service_addr;
-char *var_cfg_rpc_addr;
 static char *var_cfg_cluster_file;
 
 acl::master_str_tbl var_conf_str_tab[] = {
     { "dbpath",         "./dbpath",         &var_cfg_dbpath         },
     { "dbtype",         "rdb",              &var_cfg_dbtype         },
     { "service",        "127.0.0.1:19001",  &var_cfg_service_addr   },
-    { "rpc_addr",       "127.0.0.1:29001",  &var_cfg_rpc_addr       },
     { "cluster_file",   "",                 &var_cfg_cluster_file   },
 
-    { nullptr,    nullptr,                  nullptr                 }
+    { nullptr,          nullptr,            nullptr                 },
 };
 
 int var_cfg_disable_serialize;
@@ -33,7 +32,7 @@ acl::master_bool_tbl var_conf_bool_tab[] = {
     { "disable_save",       0,  &var_cfg_disable_save       },
     { "cluster_mode",       0,  &var_cfg_cluster_mode       },
 
-    { nullptr,              0,  nullptr                     }
+    { nullptr,              0,  nullptr                     },
 };
 
 static int  var_cfg_io_timeout;
@@ -47,7 +46,7 @@ acl::master_int_tbl var_conf_int_tab[] = {
     { "ocache_max",     10000,  &var_cfg_ocache_max,        0,  0   },
     { "redis_max_slots", 16384, &var_cfg_redis_max_slots,   0,  0   },
 
-    { nullptr,          0 ,     nullptr ,                   0,  0   }
+    { nullptr,          0 ,     nullptr ,                   0,  0   },
 };
 
 acl::master_int64_tbl var_conf_int64_tab[] = {
@@ -59,7 +58,9 @@ acl::master_int64_tbl var_conf_int64_tab[] = {
 
 using namespace pkv;
 
-master_service::master_service() {
+master_service::master_service()
+: manager_(cluster_manager::get_instance())
+{
     service_ = new pkv::redis_service;
 }
 
@@ -146,14 +147,36 @@ void master_service::proc_on_init() {
         exit(1);
     }
 
-    sync_ = new sync_watcher;
-    if (!db_->open(var_cfg_dbpath, sync_)) {
+    watchers_ = new db_watchers;
+    if (!db_->open(var_cfg_dbpath, watchers_)) {
+        delete watchers_;
+        watchers_ = nullptr;
         logger_error("open db(%s) error: %s", var_cfg_dbpath, acl::last_serror());
         exit(1);
     }
 
-    cluster_manager::get_instance().init(var_cfg_redis_max_slots,
-          var_cfg_cluster_mode, var_cfg_cluster_file);
+    acl::string buf(var_cfg_service_addr);
+    auto& tokens = buf.split2(":|");
+    if (tokens.size() != 2) {
+        logger_error("Invalid service=%s", var_cfg_service_addr);
+        exit(1);
+    }
+
+    char* end;
+    int service_port = (int) std::strtol(tokens[1].c_str(), &end, 10);
+    if (*end != 0) {
+        logger_error("Invalid port=%s, service addr=%s", end, var_cfg_service_addr);
+    }
+    if (service_port <= 0 || service_port >= 60000) {
+        logger_error("Invalid port=%d, service addr=%s",
+            service_port, var_cfg_service_addr);
+    }
+
+    int rpc_port = service_port + 10000;
+
+    manager_.init(var_cfg_redis_max_slots, var_cfg_cluster_mode,
+                  var_cfg_cluster_file, tokens[0].c_str(),
+                  service_port, rpc_port, db_);
 }
 
 void master_service::close_db() {
@@ -172,19 +195,32 @@ bool master_service::proc_on_sighup(acl::string&) {
     return true;
 }
 
+// One thread has one watcher for wartching the changing of db.
+static __thread pkv::slave_watcher *watcher;
+
 void master_service::thread_on_init() {
 #undef __FUNCTION__
 #define __FUNCTION__ "thread_on_init"
 
-    // Start one server fiber to handle the process betwwen different nodes.
-    go[] {
-        auto* service = new pkv::cluster_service();
-        if (!service->bind(var_cfg_rpc_addr)) {
-            logger_error("Bind %s error %s", var_cfg_rpc_addr, acl::last_serror());
-            delete service;
-            return;
-        }
+    watcher = new slave_watcher;
+    watchers_->add_watcher(watcher);
 
-        service->run();
+    // Start one server fiber to handle the process betwwen different nodes.
+    go[this] {
+        pkv::cluster_service service(*watcher);
+        acl::string addr;
+        addr.format("%s:%d", manager_.get_service_ip(), manager_.get_rpc_port());
+        // Bind the local address to accept connection from other nodes.
+        if (!service.bind(addr)) {
+            logger_error("Bind %s error %s", addr.c_str(), acl::last_serror());
+        } else {
+            logger("Bind rpc addr=%s ok", addr.c_str());
+            service.run();
+        }
+    };
+
+    // Start one watcher fiber to wait messages from box.
+    go[] {
+        watcher->run();
     };
 }

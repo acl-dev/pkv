@@ -8,6 +8,7 @@
 //#include <iostream>
 //#include <tchar.h>
 #include <memory>
+#include <utility>
 #include <unordered_map>
 
 // TODO: 在此处引用程序要求的附加头文件
@@ -74,6 +75,8 @@ extern acl::master_bool_tbl var_conf_bool_tab[];
 extern int var_cfg_redis_max_slots;
 extern acl::master_int_tbl var_conf_int_tab[];
 extern acl::master_int64_tbl var_conf_int64_tab[];
+
+#define SERVICE_RPC_PORT_ADD    10000
 
 #ifndef HAS_ROCKSDB
 # define HAS_ROCKSDB

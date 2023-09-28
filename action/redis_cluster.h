@@ -11,6 +11,7 @@ namespace pkv {
 class redis_ocache;
 class redis_coder;
 class cluster_node;
+class cluster_manager;
 
 class redis_cluster : public redis_command {
 public:
@@ -24,15 +25,29 @@ public:
     bool cluster_addslots(redis_coder& result);
     bool cluster_nodes(redis_coder& result);
     bool cluster_meet(redis_coder& result);
+    bool cluster_replicate(redis_coder& result);
 
     bool cluster_syncslots(redis_coder& result);
+    bool cluster_addslave(redis_coder& result);
 
 private:
+    void add_nodes(const std::map<acl::string, acl::redis_node*>& nodes);
+    void build_nodes(redis_coder& result);
+
+    void notify_nodes(redis_ocache& ocache);
+    bool bind_master(redis_ocache& ocache, acl::socket_stream& conn,
+            const std::string& master_addr, const std::string& rpc_addr,
+            const std::string& myaddr);
+
     static void add_node(std::string &buf, const cluster_node &node);
-    static void add_nodes(const std::map<acl::string, acl::redis_node*>& nodes);
-    static void build_nodes(redis_coder& result);
     static bool sync_slots(redis_ocache& ocache, const std::string& addr,
             const char* myaddr);
+
+private:
+    static bool read_status(acl::socket_stream& conn, redis_coder& coder);
+
+private:
+    cluster_manager& manager_;
 };
 
 } // namespace pkv

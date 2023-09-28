@@ -15,7 +15,8 @@ struct pkv_node {
     std::string id;
     std::string addr;
     int mana_port;
-    std::string type;
+    int type;
+    bool myself;
     int idx;
     long long join_time;
     bool connected;
