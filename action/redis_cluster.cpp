@@ -213,8 +213,10 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
     // Notify all the others to sync my slots info.
     auto& all_nodes = cluster_manager::get_instance().get_nodes();
     for (const auto& it : all_nodes) {
-        auto one_addr = it.second->get_addr();
-        sync_slots(result.get_cache(), one_addr, var_cfg_service_addr);
+        if (!it.second->is_myself()) {
+            auto one_addr = it.second->get_addr();
+            sync_slots(result.get_cache(), one_addr, var_cfg_service_addr);
+        }
     }
 
     // Save the current nodes info to the disk file.

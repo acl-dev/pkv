@@ -110,7 +110,14 @@ bool redis_key::expire(pkv::redis_coder &result) {
         logger_error("expire time null");
         return false;
     }
-    int n = std::atoi(ptr);
+
+    char* end;
+    int n = (int) std::strtol(ptr, &end, 10);
+    if (*end != 0) {
+        logger_error("Invalid expire=%s, left=%s", ptr, end);
+        return false;
+    }
+
     if (!dao_->expire(handler_.get_db(), key, n)) {
         result.create_object().set_number(0);
     } else {
@@ -142,11 +149,16 @@ bool redis_key::ttl(pkv::redis_coder &result) {
 
 bool redis_key::scan(db_cursor& cursor, redis_coder& result) {
     if (obj_.size() < 2) {
-        logger_error("invalid SCAN params' size=%zd", obj_.size());
+        logger_error("Invalid SCAN params' size=%zd", obj_.size());
         return false;
     }
 
-    int ncursor = std::atoi(obj_[1]);
+    char* end;
+    int ncursor = (int) std::strtol(obj_[1], &end, 10);
+    if (*end != 0) {
+        logger_error("Invalid ncursor=%s, left=%s", obj_[1], end);
+        return false;
+    }
     if (ncursor <= 0) {  // Scan again.
         cursor.reset();
     }
@@ -158,7 +170,11 @@ bool redis_key::scan(db_cursor& cursor, redis_coder& result) {
         if (strcasecmp(obj_[2], "MATCH") == 0) {
             pattern = obj_[3];
         } else if (strcasecmp(obj_[2], "COUNT") == 0) {
-            count = (size_t) std::atoi(obj_[3]);
+            count = (size_t) std::strtol(obj_[3], &end, 10);
+            if (*end != 0) {
+                logger_error("Invalid COUNT=%s, left=%s", obj_[3], end);
+                return false;
+            }
         }
     }
 
@@ -167,7 +183,11 @@ bool redis_key::scan(db_cursor& cursor, redis_coder& result) {
             pattern = obj_[3];
         }
         if (strcasecmp(obj_[4], "COUNT") == 0) {
-            count = (size_t) std::atoi(obj_[5]);
+            count = (size_t) std::strtol(obj_[5], &end, 10);
+            if (*end != 0) {
+                logger_error("Invalid COUNT=%s, left=%s", obj_[5], end);
+                return false;
+            }
         }
     }
 
