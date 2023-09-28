@@ -25,7 +25,12 @@ namespace acl
         if (check_nullptr($obj.type))
             $node.add_null("type");
         else
-            $node.add_text("type", acl::get_value($obj.type));
+            $node.add_number("type", acl::get_value($obj.type));
+
+        if (check_nullptr($obj.myself))
+            $node.add_null("myself");
+        else
+            $node.add_bool("myself", acl::get_value($obj.myself));
 
         if (check_nullptr($obj.idx))
             $node.add_null("idx");
@@ -71,6 +76,7 @@ namespace acl
         acl::json_node *addr = $node["addr"];
         acl::json_node *mana_port = $node["mana_port"];
         acl::json_node *type = $node["type"];
+        acl::json_node *myself = $node["myself"];
         acl::json_node *idx = $node["idx"];
         acl::json_node *join_time = $node["join_time"];
         acl::json_node *connected = $node["connected"];
@@ -88,6 +94,9 @@ namespace acl
      
         if(!type ||!($result = gson(*type, &$obj.type), $result.first))
             return std::make_pair(false, "required [pkv::pkv_node.type] failed:{"+$result.second+"}");
+     
+        if(!myself ||!($result = gson(*myself, &$obj.myself), $result.first))
+            return std::make_pair(false, "required [pkv::pkv_node.myself] failed:{"+$result.second+"}");
      
         if(!idx ||!($result = gson(*idx, &$obj.idx), $result.first))
             return std::make_pair(false, "required [pkv::pkv_node.idx] failed:{"+$result.second+"}");

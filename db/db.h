@@ -86,7 +86,7 @@ public:
      */
     bool scan(db_cursor& cursor, std::vector<std::string>& keys, size_t max);
 
-protected:
+public:
     /**
      * @brief Open the database.
      * 

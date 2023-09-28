@@ -3,11 +3,14 @@
 //
 
 #pragma once
+#include "db/db.h"
 #include "cluster_node.h"
 
 namespace pkv {
 
 struct pkv_node;
+class cluster_client;
+using shared_cluster_client = std::shared_ptr<cluster_client>;
 
 /**
  * @brief The cluster_manager class is a singleton class that manages the cluster nodes and slots.
@@ -33,26 +36,80 @@ public:
      * @param cluster_mode If the service is in cluster mode.
      * @param save_path The path to dump the nodes info.
      */
-    void init(size_t max_slots, bool cluster_mode, const char* save_path);
+    void init(size_t max_slots, bool cluster_mode, const char* save_path,
+              const std::string& service_ip, int service_port, int rpc_port,
+              shared_db db);
+
+    const char* get_service_ip() const {
+        return service_ip_.c_str();
+    }
+
+    int get_service_port() const {
+        return service_port_;
+    }
+
+    int get_rpc_port() const {
+        return rpc_port_;
+    }
 
     /**
      * @brief Adds slots to the cluster.
      * 
      * @param addr The address of the node.
      * @param slots The slots to add.
-     * @param type The type of the node.
-     * @param myself If the node added is myself.
-     * @return {bool}
+     * @return {shared_node}
      */
-    bool add_slots(const std::string& addr, const std::vector<size_t>& slots,
-            const std::string& type, bool myself);
+    shared_node add_slots(const std::string& addr,
+               const std::vector<size_t>& slots, bool master);
+
+    /**
+     * Set the current node for me
+     * @param node
+     */
+    void set_me(shared_node node);
+
+    /**
+     * Get the current pkv node.
+     * @return {shared_node}
+     */
+    NODISCARD shared_node get_me() const {
+        return me_;
+    }
+
+    /**
+     * Set my master node when I'm a slave node.
+     * @param master
+     */
+    void set_master(shared_node& master);
+
+    /**
+     * Get my master node if I'm the slave node.
+     * @return {shared_node}
+     */
+    NODISCARD shared_node get_master() const {
+        return master_;
+    }
 
     /**
      * Add one node and its all slots belong.
      * @param node {const acl::redis_node&}
      * @return {bool}
      */
-    bool add_node(const acl::redis_node& node);
+    shared_node add_node(const acl::redis_node& node, bool master);
+
+    /**
+     * Set if the current node is in master mode.
+     * @param yes
+     */
+    void set_master_mode(bool yes);
+
+    /**
+     * Check if the current node is master.
+     * @return {bool}
+     */
+    NODISCARD bool is_master_mode() const {
+        return is_master_;
+    }
 
     /**
      * Get all the slots with all the nodes.
@@ -78,13 +135,6 @@ public:
     NODISCARD shared_node get_node(const std::string& addr) const;
 
     /**
-     * Update the join time of the node with the address
-     * @param addr {const std::string&}
-     * @return {bool}
-     */
-    NODISCARD bool update_join_time(const std::string& addr) const;
-
-    /**
      * Get the node for holding the slot of the given key.
      * @param key {const char*}
      * @param slot {size_t} will store the hash slot of the key.
@@ -100,6 +150,9 @@ public:
     NODISCARD size_t hash_slot(const char* key) const;
 
 public:
+    bool connect_master(const std::string& addr);
+
+public:
     NODISCARD bool save_nodes() const;
     bool load_nodes(const char* filepath);
 
@@ -107,9 +160,23 @@ public:
 
 private:
     std::string save_filepath_;
+    bool is_master_ = false; /**< If the current pkv node is one master node */
+
+    std::string service_ip_;
+    int service_port_ = -1;
+    int rpc_port_ = -1;
+
+    shared_node me_; /**< My node object */
+    shared_node master_; /**< My master node */
+    std::vector<shared_node> slaves_; /** All my slave nodes */
+
     std::map<std::string, shared_node> nodes_; /**< The map of nodes in the cluster. */
+
     std::vector<shared_node> slots_; /**< The vector of slots in the cluster. */
     size_t max_slots_ = 16384; /**< The maximum number of slots in the cluster. */
+
+    shared_db db_;
+    shared_cluster_client sync_;
 
     void add_node(const struct pkv_node& node);
 

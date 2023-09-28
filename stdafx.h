@@ -76,6 +76,8 @@ extern int var_cfg_redis_max_slots;
 extern acl::master_int_tbl var_conf_int_tab[];
 extern acl::master_int64_tbl var_conf_int64_tab[];
 
+#define SERVICE_RPC_PORT_ADD    10000
+
 #ifndef HAS_ROCKSDB
 # define HAS_ROCKSDB
 #endif

@@ -10,7 +10,7 @@
 namespace pkv {
 
 cluster_node::cluster_node(const char* addr)
-: myself_(false), addr_(addr)
+: addr_(addr)
 {
     slots_ = acl_dlink_create(10);
     struct timeval now = { 0, 0 };
@@ -29,6 +29,8 @@ cluster_node::cluster_node(const char* addr)
         port_ = (int) std::strtol(port, &end, 10);
         if (*end != 0) {
             logger_error("Invalid port=%d, addr=%s", port_, addr);
+        } else {
+            rpc_port_ = port_ + SERVICE_RPC_PORT_ADD;
         }
     } else {
         logger_error("Invalid addr=%s", addr);
@@ -49,8 +51,36 @@ cluster_node& cluster_node::set_id(const std::string& id) {
     return *this;
 }
 
+cluster_node & cluster_node::set_master_id(const std::string &id) {
+    master_id_ = id;
+    return *this;
+}
+
 cluster_node& cluster_node::set_type(const std::string& type) {
-    type_ = type;
+    acl::string buf(type.c_str());
+    auto& tokens = buf.split2(",; \t");
+    if (tokens.size() >= 2) {
+        if (tokens[0].equal("myself", true)) {
+            myself_ = true;
+        }
+        if (tokens[1].equal("master", true)) {
+            type_ = node_type_master;
+        }
+    } else if (tokens[0].equal("master", true)) {
+        type_ = node_type_master;
+    }
+
+    return *this;
+}
+
+cluster_node& cluster_node::set_type(int type) {
+    if (type == (int) node_type_master) {
+        type_ = node_type_master;
+    } else if (type == (int) node_type_slave) {
+        type_ = node_type_slave;
+    } else {
+        type_ = node_type_unknown;
+    }
     return *this;
 }
 
@@ -75,14 +105,26 @@ void cluster_node::add_slots(const std::vector<size_t> &slots) {
     }
 }
 
-std::vector<std::pair<size_t, size_t>> cluster_node::get_slots() const {
-    std::vector<std::pair<size_t, size_t>> slots;
+void cluster_node::get_slots(std::vector<std::pair<size_t, size_t>>& out) const {
+    out.clear();
+
     ACL_ITER iter;
     acl_foreach(iter, slots_) {
         auto* item = (ACL_DITEM*) iter.data;
-        slots.emplace_back((size_t) item->begin, (size_t) item->end);
+        out.emplace_back((size_t) item->begin, (size_t) item->end);
     }
-    return slots;
+}
+
+void cluster_node::get_slots(std::vector<size_t> &out) const {
+    out.clear();
+
+    ACL_ITER iter;
+    acl_foreach(iter, slots_) {
+        auto* item = (ACL_DITEM*) iter.data;
+        for (auto i = (size_t) item->begin; i <= (size_t) item->end; ++i) {
+            out.push_back(i);
+        }
+    }
 }
 
 } // namespace pkv

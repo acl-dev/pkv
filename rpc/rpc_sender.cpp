@@ -30,8 +30,8 @@ bool rpc_sender::send(acl::shared_stream &conn, shared_message &message) {
         if (!val.empty()) {
             v[2].iov_base = (void *) val.c_str();
             v[2].iov_len = val.size();
+            n++;
         }
-        n++;
     }
     if (conn->writev(v, n) == -1) {
         return false;
