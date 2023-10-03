@@ -103,7 +103,7 @@ bool redis_cluster::cluster_addslots(redis_coder& result) {
     }
 
     std::vector<size_t> slots;
-    for (size_t i = 2; i < obj_.size() && (int) i < var_cfg_redis_max_slots; i++) {
+    for (size_t i = 2; i < obj_.size(); i++) {
         char* end;
         int slot = (int) std::strtol(obj_[i], &end, 10);
         if (*end == 0 && slot >= 0 && slot < var_cfg_redis_max_slots) {
@@ -163,7 +163,7 @@ void redis_cluster::build_nodes(redis_coder& result) {
         add_node(buf, *node.second);
     }
     result.create_object().set_string(buf);
-    printf(">>>%s\r\n", buf.c_str());
+    //printf(">>>%s\r\n", buf.c_str());
 }
 
 void redis_cluster::add_node(std::string &buf, const cluster_node &node) {
@@ -269,8 +269,8 @@ bool redis_cluster::cluster_meet(redis_coder& result) {
         acl::string rpc_addr;
         int rpc_port = port + SERVICE_RPC_PORT_ADD;  // XXX
         rpc_addr.format("%s:%d", ip, rpc_port);
-        if (!bind_master(result.get_cache(), *ss, addr,
-                  rpc_addr, var_cfg_service_addr)) {
+        if (!link_master(result.get_cache(), *ss,
+                rpc_addr, var_cfg_service_addr)) {
             logger_error("Bind master failed, master=%s, rpc=%s",
                          addr.c_str(), rpc_addr.c_str());
             return false;
@@ -306,9 +306,8 @@ void redis_cluster::notify_nodes(redis_ocache& ocache) {
     }
 }
 
-bool redis_cluster::bind_master(redis_ocache& ocache, acl::socket_stream& conn,
-      const std::string& master_addr, const std::string& rpc_addr,
-      const std::string& myaddr) {
+bool redis_cluster::link_master(redis_ocache& ocache, acl::socket_stream& conn,
+      const std::string& rpc_addr, const std::string& myaddr) {
 
     redis_coder coder(ocache);
     coder.create_object().create_child().set_string("CLUSTER", true)
@@ -331,7 +330,7 @@ bool redis_cluster::bind_master(redis_ocache& ocache, acl::socket_stream& conn,
         return false;
     }
 
-    if (!manager_.connect_master(rpc_addr)) {
+    if (!manager_.sync_open(rpc_addr)) {
         logger_error("Connect master(%s) error", rpc_addr.c_str());
         return false;
     }

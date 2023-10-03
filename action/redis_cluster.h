@@ -35,9 +35,8 @@ private:
     void build_nodes(redis_coder& result);
 
     void notify_nodes(redis_ocache& ocache);
-    bool bind_master(redis_ocache& ocache, acl::socket_stream& conn,
-            const std::string& master_addr, const std::string& rpc_addr,
-            const std::string& myaddr);
+    bool link_master(redis_ocache& ocache, acl::socket_stream& conn,
+            const std::string& rpc_addr, const std::string& myaddr);
 
     static void add_node(std::string &buf, const cluster_node &node);
     static bool sync_slots(redis_ocache& ocache, const std::string& addr,

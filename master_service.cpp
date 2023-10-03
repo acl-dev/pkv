@@ -12,13 +12,13 @@
 static char *var_cfg_dbpath;
 static char *var_cfg_dbtype;
 char *var_cfg_service_addr;
-static char *var_cfg_cluster_file;
+static char *var_cfg_cluster_path;
 
 acl::master_str_tbl var_conf_str_tab[] = {
     { "dbpath",         "./dbpath",         &var_cfg_dbpath         },
     { "dbtype",         "rdb",              &var_cfg_dbtype         },
     { "service",        "127.0.0.1:19001",  &var_cfg_service_addr   },
-    { "cluster_file",   "",                 &var_cfg_cluster_file   },
+    { "cluster_path",   "",                 &var_cfg_cluster_path   },
 
     { nullptr,          nullptr,            nullptr                 },
 };
@@ -62,10 +62,14 @@ master_service::master_service()
 : manager_(cluster_manager::get_instance())
 {
     service_ = new pkv::redis_service;
+    assert(service_);
+    watchers_ = new db_watchers;
+    assert(watchers_);
 }
 
 master_service::~master_service() {
     delete service_;
+    delete watchers_;
 }
 
 void master_service::on_accept(acl::socket_stream& conn) {
@@ -77,18 +81,10 @@ void master_service::on_accept(acl::socket_stream& conn) {
     //logger("Disconnect from peer, fd=%d", conn.sock_handle());
 }
 
-static __thread redis_ocache* ocache = nullptr;
+// The cache object for each thread which has been created in thread_on_init.
+static __thread redis_ocache* ocache;
 
 void master_service::run(acl::socket_stream& conn, size_t size) {
-    if (ocache == nullptr) {
-        ocache = new redis_ocache(var_cfg_ocache_max);
-        assert(ocache);
-        for (int i = 0; i < var_cfg_ocache_max; i++) {
-            auto o = new pkv::redis_object(*ocache);
-            ocache->put(o);
-        }
-    }
-
     pkv::redis_coder parser(*ocache);
     pkv::redis_handler handler(*service_, db_, parser, conn);
     char buf[size];
@@ -147,10 +143,7 @@ void master_service::proc_on_init() {
         exit(1);
     }
 
-    watchers_ = new db_watchers;
     if (!db_->open(var_cfg_dbpath, watchers_)) {
-        delete watchers_;
-        watchers_ = nullptr;
         logger_error("open db(%s) error: %s", var_cfg_dbpath, acl::last_serror());
         exit(1);
     }
@@ -172,10 +165,10 @@ void master_service::proc_on_init() {
             service_port, var_cfg_service_addr);
     }
 
-    int rpc_port = service_port + 10000;
+    int rpc_port = service_port + SERVICE_RPC_PORT_ADD;
 
     manager_.init(var_cfg_redis_max_slots, var_cfg_cluster_mode,
-                  var_cfg_cluster_file, tokens[0].c_str(),
+                  var_cfg_cluster_path, tokens[0].c_str(),
                   service_port, rpc_port, db_);
 }
 
@@ -202,7 +195,16 @@ void master_service::thread_on_init() {
 #undef __FUNCTION__
 #define __FUNCTION__ "thread_on_init"
 
+    // Prepare the cache object first for each thread.
+    ocache = new redis_ocache(var_cfg_ocache_max);
+    assert(ocache);
+    for (int i = 0; i < var_cfg_ocache_max; i++) {
+        auto o = new pkv::redis_object(*ocache);
+        ocache->put(o);
+    }
+
     watcher = new slave_watcher;
+    assert(watcher);
     watchers_->add_watcher(watcher);
 
     // Start one server fiber to handle the process betwwen different nodes.

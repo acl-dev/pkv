@@ -184,8 +184,8 @@ void cluster_manager::show_null_slots() const {
 
 bool cluster_manager::save_nodes() const {
     if (save_filepath_.empty()) {
-        logger_error("save_path_ empty, call init first!");
-        return false;
+        logger("save_path_ empty, needn't save!");
+        return true;
     }
 
     struct pkv_nodes nodes;
@@ -290,7 +290,7 @@ void cluster_manager::add_node(const struct pkv_node& node) {
     }
 }
 
-bool cluster_manager::connect_master(const std::string &addr) {
+bool cluster_manager::sync_open(const std::string &addr) {
     if (sync_ == nullptr) {
         sync_ = std::make_shared<cluster_client>(addr, db_);
         if (!sync_->open()) {
