@@ -29,48 +29,67 @@ void slave_client::run() {
             }
         }
 
+        eof_ = true;
+
         // Notify the box_ to exit now.
-        shared_message dummy;
-        box_.push(dummy);
+        box_.push(nullptr);
     };
+
+    std::vector<kv_message*> messages;
+    int timeout = -1;
+    bool success;
 
     // Wait and handle the messsge from box been putting by slave_watcher.
     while (true) {
-        shared_message message;
-        if (!box_.pop(message)) {
-            logger_error("Pop message failed");
-            break;
-        }
-
+        kv_message* message = box_.pop(timeout, &success);
         if (message == nullptr) {
-            logger("Pop null message and exit");
-            break;
+            if (!success) {
+                logger("Pop null message and exit");
+                break;
+            }
+            if (eof_) {
+                logger("EOF and exit");
+                break;
+            }
+
+            if (!flush(messages)) {
+                logger_error("flush to client error %s", acl::last_serror());
+                break;
+            }
+
+            messages.clear();
+            timeout = -1;
+            continue;
         }
 
-#if 0
-        std::string buf;
-        buf += "key: ";
-        buf += message->get_key();
-        buf += "; value: ";
-        buf += message->get_value();
-        buf += "; type: ";
-        buf += message->get_type_s();
-        buf += "\r\n";
-        if (conn_->write(buf.c_str(), buf.size()) == -1) {
-            logger_error("Send message to watcher error!");
-            break;
+        messages.push_back(message);
+        if (messages.size() >= (size_t) var_cfg_slave_messages_flush) {
+            if (!flush(messages)) {
+                logger_error("flush to client error %s", acl::last_serror());
+                break;
+            }
+            messages.clear();
+            timeout = -1;
+        } else {
+            timeout = 0;
         }
-#endif
+    }
 
-        if (!rpc_sender::send(conn_, message)) {
-            logger_error("Send message error, peer=%s", conn_->get_peer());
-            break;
-        }
+    for (auto it : messages) {
+        it->unrefer();
     }
 }
 
-void slave_client::push(shared_message message) {
-    box_.push(std::move(message));
+bool slave_client::flush(std::vector<kv_message*>& messages) {
+    bool ret = rpc_sender::send(conn_, messages);
+    for (auto it : messages) {
+        it->unrefer();
+    }
+    return ret;
+}
+
+void slave_client::push(kv_message* message) {
+    box_.push(message);
 }
 
 } // namespace pkv

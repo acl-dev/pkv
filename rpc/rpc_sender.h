@@ -12,7 +12,9 @@ public:
     rpc_sender() = default;
     ~rpc_sender() = default;
 
-    static bool send(acl::shared_stream& conn, shared_message& message);
+    static bool send(acl::shared_stream&, kv_message*);
+    static bool send(acl::shared_stream&, const std::vector<kv_message*>&);
+    static bool send(acl::shared_stream&, const std::vector<kv_message*>&, size_t);
 };
 
 } // namespace pkv

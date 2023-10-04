@@ -39,14 +39,18 @@ static int  var_cfg_io_timeout;
 static int  var_cfg_buf_size;
 static int  var_cfg_ocache_max;
 int var_cfg_redis_max_slots;
+int var_cfg_slave_messages_flush;
+int var_cfg_slave_client_stack;
 
 acl::master_int_tbl var_conf_int_tab[] = {
-    { "io_timeout",     120,    &var_cfg_io_timeout,        0,  0   },
-    { "buf_size",       8192,   &var_cfg_buf_size,          0,  0   },
-    { "ocache_max",     10000,  &var_cfg_ocache_max,        0,  0   },
-    { "redis_max_slots", 16384, &var_cfg_redis_max_slots,   0,  0   },
+    { "io_timeout",           120,     &var_cfg_io_timeout,           0, 0 },
+    { "buf_size",             8192,    &var_cfg_buf_size,             0, 0 },
+    { "ocache_max",           10000,   &var_cfg_ocache_max,           0, 0 },
+    { "redis_max_slots",      16384,   &var_cfg_redis_max_slots,      0, 0 },
+    { "slave_messages_flush", 500,     &var_cfg_slave_messages_flush, 0, 0 },
+    { "slave_client_stack",   1024000, &var_cfg_slave_client_stack,   0, 0 },
 
-    { nullptr,          0 ,     nullptr ,                   0,  0   },
+    { nullptr,                0 ,    nullptr ,                      0, 0 },
 };
 
 acl::master_int64_tbl var_conf_int64_tab[] = {
@@ -107,7 +111,9 @@ void master_service::run(acl::socket_stream& conn, size_t size) {
             break;
         }
 
-        assert(*data == '\0' && len == 0);
+        if (*data != 0 || len != 0) {
+            abort();
+        }
 
         if (!handler.handle()) {
             break;
@@ -188,42 +194,61 @@ bool master_service::proc_on_sighup(acl::string&) {
     return true;
 }
 
-// One thread has one watcher for wartching the changing of db.
-static __thread pkv::slave_watcher *watcher;
+std::once_flag watch_once;
 
 void master_service::thread_on_init() {
-#undef __FUNCTION__
-#define __FUNCTION__ "thread_on_init"
-
     // Prepare the cache object first for each thread.
     ocache = new redis_ocache(var_cfg_ocache_max);
     assert(ocache);
+
     for (int i = 0; i < var_cfg_ocache_max; i++) {
         auto o = new pkv::redis_object(*ocache);
         ocache->put(o);
     }
 
+    std::call_once(watch_once, [this] { start_watcher(); });
+}
+
+void master_service::start_watcher() {
+#undef __FUNCTION__
+#define __FUNCTION__ "start_watcher"
+
+    // One thread has one watcher for wartching the changing of db.
+    pkv::slave_watcher *watcher;
+
     watcher = new slave_watcher;
     assert(watcher);
     watchers_->add_watcher(watcher);
 
-    // Start one server fiber for every thread to handle the process
-    // betwwen different nodes.
-    go[this] {
-        pkv::cluster_service service(*watcher);
-        acl::string addr;
-        addr.format("%s:%d", manager_.get_service_ip(), manager_.get_rpc_port());
-        // Bind the local address to accept connection from other nodes.
-        if (!service.bind(addr)) {
-            logger_error("Bind %s error %s", addr.c_str(), acl::last_serror());
-        } else {
-            logger("Bind rpc addr=%s ok", addr.c_str());
-            service.run();
-        }
-    };
+    // Start one thread for acceptint connection from other nodes.
+    std::thread thr1([this, watcher] {
+        // Start one server fiber for every thread to handle the process
+        // betwwen different nodes.
+        go[this, watcher] {
+            pkv::cluster_service service(*watcher);
+            acl::string addr;
+            addr.format("%s:%d", manager_.get_service_ip(), manager_.get_rpc_port());
+            // Bind the local address to accept connection from other nodes.
+            if (!service.bind(addr)) {
+                logger_error("Bind %s error %s", addr.c_str(), acl::last_serror());
+            } else {
+                logger("Bind rpc addr=%s ok", addr.c_str());
+                service.run();
+            }
+        };
+    
+        acl::fiber::schedule();
+    });
+    thr1.detach();
 
-    // Start one watcher fiber to wait messages from box.
-    go[] {
-        watcher->run();
-    };
+    // Start one thread to wait db messages and forward them to the clients.
+    std::thread thr2([watcher] {
+        // Start one watcher fiber to wait messages from box.
+        go[watcher] {
+            watcher->run();
+        };
+
+        acl::fiber::schedule();
+    });
+    thr2.detach();
 }

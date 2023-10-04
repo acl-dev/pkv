@@ -14,11 +14,18 @@ public:
 
     void run();
 
-    void push(shared_message message);
+    void push(kv_message* message);
+
+    acl::shared_stream& get_conn() {
+        return conn_;
+    }
 
 private:
     acl::shared_stream conn_;
-    acl::fiber_tbox2<shared_message> box_;
+    acl::mbox<kv_message> box_;
+    bool eof_ = false;
+
+    bool flush(std::vector<kv_message*>& messages);
 };
 
 using shared_client = std::shared_ptr<slave_client>;

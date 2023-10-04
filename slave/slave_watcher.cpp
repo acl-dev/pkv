@@ -7,42 +7,62 @@
 
 namespace pkv {
 
+static acl::atomic_long __count;
+
 bool slave_watcher::on_set(const std::string &key, const std::string &value, bool ok) {
-    shared_message message(new kv_message(key, value, message_oper_set));
+    if (clients_.empty()) {
+        return true;
+    }
+
+    kv_message* message = new kv_message(key, value, message_oper_set);
     box_.push(message);
     return true;
 }
 
 bool slave_watcher::on_get(const std::string &key, const std::string &value, bool ok) {
-    shared_message message(new kv_message(key, value, message_oper_get));
+    if (clients_.empty()) {
+        return true;
+    }
+
+    kv_message* message = new kv_message(key, value, message_oper_get);
+    ++__count;
     box_.push(message);
     return true;
 }
 
 bool slave_watcher::on_del(const std::string &key, bool ok) {
-    shared_message message(new kv_message(key, "", message_oper_del));
+    if (clients_.empty()) {
+        return true;
+    }
+
+    kv_message* message = new kv_message(key, "", message_oper_del);
     box_.push(message);
     return true;
 }
 
 void slave_watcher::run() {
+    go[] {
+        while (true) {
+            ::sleep(1);
+            printf(">>>count=%lld\r\n", __count.value());
+        }
+    };
+
     while (true) {
-        shared_message message;
-        if (!box_.pop(message)) {
-            logger_error("Pop message failed!");
-            break;
+        kv_message* message = box_.pop(-1);
+        if (message == nullptr) {
+            continue;
         }
 
-        if (message == nullptr) {
-            logger("Pop null message and exit now!");
-            break;
-        }
+        --__count;
 
         forward_message(message);
+        message->unrefer();
     }
 }
 
-void slave_watcher::forward_message(const shared_message& message) {
+void slave_watcher::forward_message(kv_message* message) {
+    message->refer(clients_.size());
     for (auto& client : clients_) {
         client->push(message);
     }

@@ -44,4 +44,5 @@ private:
     pkv::cluster_manager& manager_;
 
     void run(acl::socket_stream& conn, size_t size);
+    void start_watcher();
 };

@@ -58,20 +58,20 @@ void cluster_client::handle_message(shared_message &message) {
         if (!db_->dbset(key, val)) {
             logger_error("dbset error, key=%s, val=%s", key.c_str(), val.c_str());
         } else {
-            printf(">>>%s: set ok, key=%s, val=%s\r\n", __func__, key.c_str(),
-                   val.c_str());
+        //    printf(">>>%s: set ok, key=%s, val=%s\r\n", __func__, key.c_str(),
+        //           val.c_str());
         }
         break;
     case message_oper_del:
         if (!db_->dbdel(key)) {
             logger_error("dbdel error, key=%s", key.c_str());
         } else {
-            printf(">>>%s: del ok, key=%s, val=%s\r\n", __func__, key.c_str(),
-                   val.c_str());
+        //    printf(">>>%s: del ok, key=%s, val=%s\r\n", __func__, key.c_str(),
+        //           val.c_str());
         }
         break;
     case message_oper_get:
-        printf(">>>%s: get, key=%s, val=%s\r\n", __func__, key.c_str(), val.c_str());
+        //printf(">>>%s: get, key=%s, val=%s\r\n", __func__, key.c_str(), val.c_str());
         break;
     default:
         break;
