@@ -12,7 +12,7 @@ class mdb_htable_cursor;
 
 class mdb_htable : public db {
 public:
-    mdb_htable();
+    mdb_htable(size_t count);
     ~mdb_htable() override;
 
 protected:

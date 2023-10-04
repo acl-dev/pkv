@@ -124,10 +124,10 @@ service pkv
 #	应用自己的配置选项
 
 	buf_size = 8192
-	dbpath = ./data
-	dbtype = mdb_tbb
-    rpc_addr = 29002
-    service = 127.0.0.1:19002
-    cluster_mode = 0
-    cluster_path = ./run/node2
+	dbpath = ./data/n2
+	dbtype = mdb_htable
+	rpc_addr = 29002
+	service = 127.0.0.1:19002
+	cluster_mode = 0
+	cluster_path = ./run/node2
 }

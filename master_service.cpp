@@ -38,6 +38,7 @@ acl::master_bool_tbl var_conf_bool_tab[] = {
 static int  var_cfg_io_timeout;
 static int  var_cfg_buf_size;
 static int  var_cfg_ocache_max;
+static int  var_cfg_db_count;
 int var_cfg_redis_max_slots;
 int var_cfg_slave_messages_flush;
 int var_cfg_slave_client_stack;
@@ -47,6 +48,7 @@ acl::master_int_tbl var_conf_int_tab[] = {
     { "buf_size",             8192,    &var_cfg_buf_size,             0, 0 },
     { "ocache_max",           10000,   &var_cfg_ocache_max,           0, 0 },
     { "redis_max_slots",      16384,   &var_cfg_redis_max_slots,      0, 0 },
+    { "db_count",             256,     &var_cfg_db_count,             0, 0 },
     { "slave_messages_flush", 500,     &var_cfg_slave_messages_flush, 0, 0 },
     { "slave_client_stack",   1024000, &var_cfg_slave_client_stack,   0, 0 },
 
@@ -137,13 +139,13 @@ void master_service::proc_on_init() {
     } else if (strcasecmp(var_cfg_dbtype, "wdb") == 0) {
         db_ = db::create_wdb();
     } else if (strcasecmp(var_cfg_dbtype, "mdb") == 0) {
-        db_ = db::create_mdb();
+        db_ = db::create_mdb(var_cfg_db_count);
     } else if (strcasecmp(var_cfg_dbtype, "mdb_htable") == 0) {
-        db_ = db::create_mdb_htable();
+        db_ = db::create_mdb_htable(var_cfg_db_count);
     } else if (strcasecmp(var_cfg_dbtype, "mdb_avl") == 0) {
         db_ = db::create_mdb_avl();
     } else if (strcasecmp(var_cfg_dbtype, "mdb_tbb") == 0) {
-        db_ = db::create_mdb_tbb();
+        db_ = db::create_mdb_tbb(var_cfg_db_count);
     } else {
         logger_error("unknown dbtype=%s", var_cfg_dbtype);
         exit(1);

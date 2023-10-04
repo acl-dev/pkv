@@ -11,8 +11,8 @@ using Accessor = tbb::concurrent_hash_map<string_t, string_t>::accessor;
 
 namespace pkv {
 
-mdb_tbb::mdb_tbb() {
-    for (size_t i = 0; i < 128; i++) {
+mdb_tbb::mdb_tbb(size_t count) {
+    for (size_t i = 0; i < count; i++) {
         auto store = new atomic_map_t;
         stores_.push_back(store);
     }
