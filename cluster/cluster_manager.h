@@ -150,7 +150,7 @@ public:
     NODISCARD size_t hash_slot(const char* key) const;
 
 public:
-    bool connect_master(const std::string& addr);
+    bool sync_open(const std::string& addr);
 
 public:
     NODISCARD bool save_nodes() const;

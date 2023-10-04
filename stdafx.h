@@ -9,6 +9,8 @@
 //#include <tchar.h>
 #include <memory>
 #include <utility>
+#include <thread>
+#include <mutex>
 #include <unordered_map>
 
 // TODO: 在此处引用程序要求的附加头文件
@@ -73,6 +75,8 @@ extern int var_cfg_cluster_mode;
 extern acl::master_bool_tbl var_conf_bool_tab[];
 
 extern int var_cfg_redis_max_slots;
+extern int var_cfg_slave_client_stack;
+extern int var_cfg_slave_messages_flush;
 extern acl::master_int_tbl var_conf_int_tab[];
 extern acl::master_int64_tbl var_conf_int64_tab[];
 

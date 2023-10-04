@@ -39,9 +39,10 @@ protected:
 
 private:
     pkv::shared_db db_ = nullptr;
-    pkv::redis_service* service_ = nullptr;
-    pkv::db_watchers* watchers_ = nullptr;
+    pkv::redis_service* service_;
+    pkv::db_watchers* watchers_;
     pkv::cluster_manager& manager_;
 
     void run(acl::socket_stream& conn, size_t size);
+    void start_watcher();
 };

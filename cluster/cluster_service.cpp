@@ -22,6 +22,8 @@ bool cluster_service::bind(const char *addr) {
 }
 
 void cluster_service::run() {
+    // Loop waiting connection from client and create fiber for each connection
+    // to forward messages to them.
     while (true) {
         auto conn = server_->shared_accept();
         if (conn == nullptr) {
@@ -31,10 +33,13 @@ void cluster_service::run() {
         }
 
         // Start one client fiber to handle the connection from other node.
-        go[this, conn] {
+        go_stack(var_cfg_slave_client_stack) [this, conn] {
             shared_client client(new slave_client(conn));
             watcher_.add_client(client);
             client->run();
+            auto& c = client->get_conn();
+            logger("Disconnected from client %d, %s", c->sock_handle(),
+                    c->get_peer(true));
             watcher_.del_client(client);
         };
     }

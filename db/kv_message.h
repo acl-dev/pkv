@@ -1,4 +1,5 @@
 #include <utility>
+#include <atomic>
 
 //
 // Created by shuxin zheng on 2023/9/26.
@@ -20,9 +21,9 @@ typedef enum {
 class kv_message {
 public:
     kv_message(std::string key, std::string value, message_oper_t oper)
-    : key_(std::move(key)), value_(std::move(value)), oper_(oper) {}
-
-    ~kv_message() = default;
+    : key_(std::move(key)), value_(std::move(value)), oper_(oper) {
+        refers_ = 1;
+    }
 
     NODISCARD const std::string &get_key() const {
         return key_;
@@ -49,10 +50,25 @@ public:
         }
     }
 
+    void refer(size_t n) {
+        refers_ += n;
+    }
+
+    void unrefer() {
+        if (--refers_ == 0) {
+            delete this;
+        }
+    }
+
 private:
     std::string key_;
     std::string value_;
     message_oper_t oper_;
+
+    std::atomic<int> refers_;
+
+public:
+    ~kv_message() = default;
 };
 
 using shared_message = std::shared_ptr<kv_message>;

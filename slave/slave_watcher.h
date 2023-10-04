@@ -7,6 +7,10 @@
 #include "db/db_watcher.h"
 #include "slave_client.h"
 
+#ifdef USE_TBB_BOX
+#include "tbb_box.h"
+#endif
+
 namespace pkv {
 
 class slave_client;
@@ -34,9 +38,18 @@ protected:
 
 private:
     std::vector<shared_client> clients_;
-    acl::fiber_tbox2<shared_message> box_;
 
-    void forward_message(const shared_message& message);
+    // In the current benchmark testing, acl::mbox is the most quickly.
+
+#ifdef USE_TBB_BOX
+    tbb_box box_;
+#elif defined(USE_TBOX)
+    acl::tbox<kv_message> box_;
+#else
+    acl::mbox<kv_message> box_;
+#endif
+
+    void forward_message(kv_message* message);
 };
 
 } // namespace pkv

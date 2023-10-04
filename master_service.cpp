@@ -12,13 +12,13 @@
 static char *var_cfg_dbpath;
 static char *var_cfg_dbtype;
 char *var_cfg_service_addr;
-static char *var_cfg_cluster_file;
+static char *var_cfg_cluster_path;
 
 acl::master_str_tbl var_conf_str_tab[] = {
     { "dbpath",         "./dbpath",         &var_cfg_dbpath         },
     { "dbtype",         "rdb",              &var_cfg_dbtype         },
     { "service",        "127.0.0.1:19001",  &var_cfg_service_addr   },
-    { "cluster_file",   "",                 &var_cfg_cluster_file   },
+    { "cluster_path",   "",                 &var_cfg_cluster_path   },
 
     { nullptr,          nullptr,            nullptr                 },
 };
@@ -39,14 +39,18 @@ static int  var_cfg_io_timeout;
 static int  var_cfg_buf_size;
 static int  var_cfg_ocache_max;
 int var_cfg_redis_max_slots;
+int var_cfg_slave_messages_flush;
+int var_cfg_slave_client_stack;
 
 acl::master_int_tbl var_conf_int_tab[] = {
-    { "io_timeout",     120,    &var_cfg_io_timeout,        0,  0   },
-    { "buf_size",       8192,   &var_cfg_buf_size,          0,  0   },
-    { "ocache_max",     10000,  &var_cfg_ocache_max,        0,  0   },
-    { "redis_max_slots", 16384, &var_cfg_redis_max_slots,   0,  0   },
+    { "io_timeout",           120,     &var_cfg_io_timeout,           0, 0 },
+    { "buf_size",             8192,    &var_cfg_buf_size,             0, 0 },
+    { "ocache_max",           10000,   &var_cfg_ocache_max,           0, 0 },
+    { "redis_max_slots",      16384,   &var_cfg_redis_max_slots,      0, 0 },
+    { "slave_messages_flush", 500,     &var_cfg_slave_messages_flush, 0, 0 },
+    { "slave_client_stack",   1024000, &var_cfg_slave_client_stack,   0, 0 },
 
-    { nullptr,          0 ,     nullptr ,                   0,  0   },
+    { nullptr,                0 ,    nullptr ,                      0, 0 },
 };
 
 acl::master_int64_tbl var_conf_int64_tab[] = {
@@ -62,10 +66,14 @@ master_service::master_service()
 : manager_(cluster_manager::get_instance())
 {
     service_ = new pkv::redis_service;
+    assert(service_);
+    watchers_ = new db_watchers;
+    assert(watchers_);
 }
 
 master_service::~master_service() {
     delete service_;
+    delete watchers_;
 }
 
 void master_service::on_accept(acl::socket_stream& conn) {
@@ -77,18 +85,10 @@ void master_service::on_accept(acl::socket_stream& conn) {
     //logger("Disconnect from peer, fd=%d", conn.sock_handle());
 }
 
-static __thread redis_ocache* ocache = nullptr;
+// The cache object for each thread which has been created in thread_on_init.
+static __thread redis_ocache* ocache;
 
 void master_service::run(acl::socket_stream& conn, size_t size) {
-    if (ocache == nullptr) {
-        ocache = new redis_ocache(var_cfg_ocache_max);
-        assert(ocache);
-        for (int i = 0; i < var_cfg_ocache_max; i++) {
-            auto o = new pkv::redis_object(*ocache);
-            ocache->put(o);
-        }
-    }
-
     pkv::redis_coder parser(*ocache);
     pkv::redis_handler handler(*service_, db_, parser, conn);
     char buf[size];
@@ -111,7 +111,9 @@ void master_service::run(acl::socket_stream& conn, size_t size) {
             break;
         }
 
-        assert(*data == '\0' && len == 0);
+        if (*data != 0 || len != 0) {
+            abort();
+        }
 
         if (!handler.handle()) {
             break;
@@ -147,10 +149,7 @@ void master_service::proc_on_init() {
         exit(1);
     }
 
-    watchers_ = new db_watchers;
     if (!db_->open(var_cfg_dbpath, watchers_)) {
-        delete watchers_;
-        watchers_ = nullptr;
         logger_error("open db(%s) error: %s", var_cfg_dbpath, acl::last_serror());
         exit(1);
     }
@@ -172,10 +171,10 @@ void master_service::proc_on_init() {
             service_port, var_cfg_service_addr);
     }
 
-    int rpc_port = service_port + 10000;
+    int rpc_port = service_port + SERVICE_RPC_PORT_ADD;
 
     manager_.init(var_cfg_redis_max_slots, var_cfg_cluster_mode,
-                  var_cfg_cluster_file, tokens[0].c_str(),
+                  var_cfg_cluster_path, tokens[0].c_str(),
                   service_port, rpc_port, db_);
 }
 
@@ -195,32 +194,61 @@ bool master_service::proc_on_sighup(acl::string&) {
     return true;
 }
 
-// One thread has one watcher for wartching the changing of db.
-static __thread pkv::slave_watcher *watcher;
+std::once_flag watch_once;
 
 void master_service::thread_on_init() {
+    // Prepare the cache object first for each thread.
+    ocache = new redis_ocache(var_cfg_ocache_max);
+    assert(ocache);
+
+    for (int i = 0; i < var_cfg_ocache_max; i++) {
+        auto o = new pkv::redis_object(*ocache);
+        ocache->put(o);
+    }
+
+    std::call_once(watch_once, [this] { start_watcher(); });
+}
+
+void master_service::start_watcher() {
 #undef __FUNCTION__
-#define __FUNCTION__ "thread_on_init"
+#define __FUNCTION__ "start_watcher"
+
+    // One thread has one watcher for wartching the changing of db.
+    pkv::slave_watcher *watcher;
 
     watcher = new slave_watcher;
+    assert(watcher);
     watchers_->add_watcher(watcher);
 
-    // Start one server fiber to handle the process betwwen different nodes.
-    go[this] {
-        pkv::cluster_service service(*watcher);
-        acl::string addr;
-        addr.format("%s:%d", manager_.get_service_ip(), manager_.get_rpc_port());
-        // Bind the local address to accept connection from other nodes.
-        if (!service.bind(addr)) {
-            logger_error("Bind %s error %s", addr.c_str(), acl::last_serror());
-        } else {
-            logger("Bind rpc addr=%s ok", addr.c_str());
-            service.run();
-        }
-    };
+    // Start one thread for acceptint connection from other nodes.
+    std::thread thr1([this, watcher] {
+        // Start one server fiber for every thread to handle the process
+        // betwwen different nodes.
+        go[this, watcher] {
+            pkv::cluster_service service(*watcher);
+            acl::string addr;
+            addr.format("%s:%d", manager_.get_service_ip(), manager_.get_rpc_port());
+            // Bind the local address to accept connection from other nodes.
+            if (!service.bind(addr)) {
+                logger_error("Bind %s error %s", addr.c_str(), acl::last_serror());
+            } else {
+                logger("Bind rpc addr=%s ok", addr.c_str());
+                service.run();
+            }
+        };
+    
+        acl::fiber::schedule();
+    });
+    thr1.detach();
 
-    // Start one watcher fiber to wait messages from box.
-    go[] {
-        watcher->run();
-    };
+    // Start one thread to wait db messages and forward them to the clients.
+    std::thread thr2([watcher] {
+        // Start one watcher fiber to wait messages from box.
+        go[watcher] {
+            watcher->run();
+        };
+
+        acl::fiber::schedule();
+    });
+    thr2.detach();
 }
