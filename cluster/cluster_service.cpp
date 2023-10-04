@@ -22,6 +22,8 @@ bool cluster_service::bind(const char *addr) {
 }
 
 void cluster_service::run() {
+    // Loop waiting connection from client and create fiber for each connection
+    // to forward messages to them.
     while (true) {
         auto conn = server_->shared_accept();
         if (conn == nullptr) {

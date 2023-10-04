@@ -17,6 +17,7 @@ void slave_client::run() {
     conn_->set_rw_timeout(-1);
 
     auto self = shared_from_this();
+    // Start one fiber to handle message from peer client.
     go[this, self] {
         while (true) {
             acl::string buf;
@@ -33,6 +34,7 @@ void slave_client::run() {
         box_.push(dummy);
     };
 
+    // Wait and handle the messsge from box been putting by slave_watcher.
     while (true) {
         shared_message message;
         if (!box_.pop(message)) {

@@ -207,7 +207,8 @@ void master_service::thread_on_init() {
     assert(watcher);
     watchers_->add_watcher(watcher);
 
-    // Start one server fiber to handle the process betwwen different nodes.
+    // Start one server fiber for every thread to handle the process
+    // betwwen different nodes.
     go[this] {
         pkv::cluster_service service(*watcher);
         acl::string addr;
