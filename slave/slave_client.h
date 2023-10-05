@@ -3,7 +3,7 @@
 //
 
 #pragma once
-#include "common/kv_message.h"
+#include "common/message_box.h"
 
 namespace pkv {
 
@@ -22,7 +22,7 @@ public:
 
 private:
     acl::shared_stream conn_;
-    acl::mbox<kv_message> box_;
+    message_box box_;
     bool eof_ = false;
 
     bool flush(std::vector<kv_message*>& messages);

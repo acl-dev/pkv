@@ -20,8 +20,9 @@ public:
 
 private:
     // In the current benchmark testing, acl::mbox is the most quickly.
+//#define USE_TBOX
 #if defined(USE_TBOX)
-    acl::tbox<T> box_;
+    acl::fiber_tbox<T> box_;
 #else
     acl::mbox<T> box_;
 #endif

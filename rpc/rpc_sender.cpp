@@ -47,28 +47,40 @@ bool rpc_sender::send(acl::shared_stream& conn,
     for (auto it : messages) {
         len += sizeof(rpc_message_hdr);
         len += it->get_key().size();
-        len += it->get_value().size();
+	if (!it->get_key().empty()) {
+            len += it->get_value().size();
+	}
     }
 
     if (len == 0) {
         return true;
     }
-    return send(conn, messages, len);
+
+#if 0
+    if (messages.size() >= 100) {
+        printf("messages size=%zd, len=%zd\n", messages.size(), len);
+    }
+#endif
+
+    return send(conn, messages, len + len % 4);
 }
 
 bool rpc_sender:: send(acl::shared_stream& conn,
         const std::vector<kv_message*>& messages, size_t len) {
-    char buf[len + len % 4], *ptr = buf;
+    char buf[len], *ptr = buf;
 
     rpc_message_hdr hdr;
+
     for (auto it : messages) {
         auto& key = it->get_key();
         auto& val = it->get_value();
+
         hdr.oper = (unsigned) it->get_oper();
         hdr.klen = (unsigned) key.size();
         hdr.vlen = (unsigned) val.size();
         hdr.flag = 0;
         hdr.cmd  = 0;
+
         memcpy(ptr, &hdr, sizeof(hdr));
         ptr += sizeof(hdr);
 

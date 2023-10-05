@@ -86,8 +86,9 @@ void slave_watcher::run() {
                         message->unrefer();
                     }
                 }
-            };
-        }
+            }; // End go.
+        } // End box
+
         if (eof_) {
             break;
         }

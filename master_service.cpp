@@ -50,7 +50,7 @@ acl::master_int_tbl var_conf_int_tab[] = {
     { "ocache_max",           10000,   &var_cfg_ocache_max,           0, 0 },
     { "redis_max_slots",      16384,   &var_cfg_redis_max_slots,      0, 0 },
     { "db_count",             256,     &var_cfg_db_count,             0, 0 },
-    { "slave_messages_flush", 500,     &var_cfg_slave_messages_flush, 0, 0 },
+    { "slave_messages_flush", 100,     &var_cfg_slave_messages_flush, 0, 0 },
     { "slave_client_stack",   1024000, &var_cfg_slave_client_stack,   0, 0 },
 
     { nullptr,                0 ,    nullptr ,                      0, 0 },
