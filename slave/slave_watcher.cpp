@@ -40,6 +40,10 @@ bool slave_watcher::on_del(const std::string &key, bool ok) {
     return true;
 }
 
+void slave_watcher::stop() {
+    eof_ = true;
+}
+
 void slave_watcher::run() {
     go[] {
         while (true) {
@@ -51,13 +55,15 @@ void slave_watcher::run() {
     while (true) {
         kv_message* message = box_.pop(-1);
         if (message == nullptr) {
-            continue;
+            if (eof_) {
+                break;
+            }
+        } else {
+            --__count;
+
+            forward_message(message);
+            message->unrefer();
         }
-
-        --__count;
-
-        forward_message(message);
-        message->unrefer();
     }
 }
 
