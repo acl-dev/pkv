@@ -3,19 +3,28 @@
 //
 
 #include "stdafx.h"
+#include "common/message_box.h"
 #include "slave_watcher.h"
 
 namespace pkv {
 
-static acl::atomic_long __count;
+static acl::atomic_long count;
+static __thread message_box* current_box;
+
+void slave_watcher::set_box(slave_watcher& watcher, message_box *box) {
+    current_box = box;
+    watcher.box_.push(box);
+}
 
 bool slave_watcher::on_set(const std::string &key, const std::string &value, bool ok) {
     if (clients_.empty()) {
         return true;
     }
 
-    kv_message* message = new kv_message(key, value, message_oper_set);
-    box_.push(message);
+    assert(current_box);
+
+    auto message = new kv_message(key, value, message_oper_set);
+    current_box->push(message);
     return true;
 }
 
@@ -24,9 +33,11 @@ bool slave_watcher::on_get(const std::string &key, const std::string &value, boo
         return true;
     }
 
-    kv_message* message = new kv_message(key, value, message_oper_get);
-    ++__count;
-    box_.push(message);
+    assert(current_box);
+
+    auto message = new kv_message(key, value, message_oper_get);
+    ++count;
+    current_box->push(message);
     return true;
 }
 
@@ -35,34 +46,50 @@ bool slave_watcher::on_del(const std::string &key, bool ok) {
         return true;
     }
 
-    kv_message* message = new kv_message(key, "", message_oper_del);
-    box_.push(message);
+    assert(current_box);
+
+    auto message = new kv_message(key, "", message_oper_del);
+    current_box->push(message);
     return true;
 }
 
 void slave_watcher::stop() {
     eof_ = true;
+    for (auto it : boxes_) {
+        it->push(nullptr);
+    }
 }
 
 void slave_watcher::run() {
     go[] {
         while (true) {
             ::sleep(1);
-            printf(">>>count=%lld\r\n", __count.value());
+            printf(">>>count=%lld\r\n", count.value());
         }
     };
 
     while (true) {
-        kv_message* message = box_.pop(-1);
-        if (message == nullptr) {
-            if (eof_) {
-                break;
-            }
-        } else {
-            --__count;
+        auto box = box_.pop();
+        if (box) {
+            boxes_.push_back(box);
 
-            forward_message(message);
-            message->unrefer();
+            go [this, box] {
+                while (true) {
+                    auto message = box->pop(-1);
+                    if (message == nullptr) {
+                        if (eof_) {
+                            break;
+                        }
+                    } else {
+                        --count;
+                        forward_message(message);
+                        message->unrefer();
+                    }
+                }
+            };
+        }
+        if (eof_) {
+            break;
         }
     }
 }

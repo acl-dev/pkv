@@ -19,6 +19,7 @@ public:
     }
 
 private:
+    // In the current benchmark testing, acl::mbox is the most quickly.
 #if defined(USE_TBOX)
     acl::tbox<T> box_;
 #else

@@ -7,6 +7,7 @@
 #include "db/db_watcher.h"
 #include "cluster/cluster_service.h"
 #include "slave/slave_watcher.h"
+#include "common/message_box.h"
 #include "master_service.h"
 
 static char *var_cfg_dbpath;
@@ -196,7 +197,11 @@ bool master_service::proc_on_sighup(acl::string&) {
     return true;
 }
 
+static __thread message_box* box;
 std::once_flag watch_once;
+
+// One watcher for wartching the changing of db.
+pkv::slave_watcher *watcher;
 
 void master_service::thread_on_init() {
     // Prepare the cache object first for each thread.
@@ -209,24 +214,26 @@ void master_service::thread_on_init() {
     }
 
     std::call_once(watch_once, [this] { start_watcher(); });
+
+    assert(watcher);
+
+    // Create one box for the current thread and bind it in the thread.
+    box = new message_box;
+    slave_watcher::set_box(*watcher, box);
 }
 
 void master_service::start_watcher() {
 #undef __FUNCTION__
 #define __FUNCTION__ "start_watcher"
-
-    // One thread has one watcher for wartching the changing of db.
-    pkv::slave_watcher *watcher;
-
     watcher = new slave_watcher;
     assert(watcher);
     watchers_->add_watcher(watcher);
 
     // Start one thread for acceptint connection from other nodes.
-    std::thread thr1([this, watcher] {
+    std::thread thr1([this] {
         // Start one server fiber for every thread to handle the process
         // betwwen different nodes.
-        go[this, watcher] {
+        go[this] {
             pkv::cluster_service service(*watcher);
             acl::string addr;
             addr.format("%s:%d", manager_.get_service_ip(), manager_.get_rpc_port());
@@ -244,9 +251,9 @@ void master_service::start_watcher() {
     thr1.detach();
 
     // Start one thread to wait db messages and forward them to the clients.
-    std::thread thr2([watcher] {
+    std::thread thr2([] {
         // Start one watcher fiber to wait messages from box.
-        go[watcher] {
+        go[] {
             watcher->run();
         };
 
