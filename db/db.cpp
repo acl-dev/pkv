@@ -75,22 +75,23 @@ shared_db db::create_wdb() {
 #endif
 }
 
-shared_db db::create_mdb() {
-    return std::make_shared<mdb>();
+shared_db db::create_mdb(size_t count) {
+    return std::make_shared<mdb>(count);
 }
 
-shared_db db::create_mdb_htable() {
-    return std::make_shared<mdb_htable>();
+shared_db db::create_mdb_htable(size_t count) {
+    return std::make_shared<mdb_htable>(count);
 }
 
 shared_db db::create_mdb_avl() {
     return std::make_shared<mdb_avl>();
 }
 
-shared_db db::create_mdb_tbb() {
+shared_db db::create_mdb_tbb(size_t count) {
 #ifdef HAS_TBB
-    return std::make_shared<mdb_tbb>();
+    return std::make_shared<mdb_tbb>(count);
 #else
+    (void) count;
     return std::make_shared<dummy_db>();
 #endif
 }

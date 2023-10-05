@@ -6,8 +6,6 @@
 #include "rpc/rpc_sender.h"
 #include "slave_client.h"
 
-#include <utility>
-
 namespace pkv {
 
 slave_client::slave_client(acl::shared_stream conn) : conn_(std::move(conn)) {}
@@ -37,16 +35,11 @@ void slave_client::run() {
 
     std::vector<kv_message*> messages;
     int timeout = -1;
-    bool success;
 
     // Wait and handle the messsge from box been putting by slave_watcher.
     while (true) {
-        kv_message* message = box_.pop(timeout, &success);
+        auto message = box_.pop(timeout);
         if (message == nullptr) {
-            if (!success) {
-                logger("Pop null message and exit");
-                break;
-            }
             if (eof_) {
                 logger("EOF and exit");
                 break;

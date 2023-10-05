@@ -4,7 +4,7 @@
 
 #pragma once
 #include "db/db.h"
-#include "db/kv_message.h"
+#include "common/kv_message.h"
 
 namespace pkv {
 

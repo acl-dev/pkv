@@ -17,7 +17,7 @@ using map_t  = std::unordered_map<kstring, kstring>;
 
 class mdb : public db {
 public:
-    mdb();
+    mdb(size_t count);
     ~mdb() override;
 
 protected:

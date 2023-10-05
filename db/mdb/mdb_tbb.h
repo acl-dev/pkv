@@ -19,7 +19,7 @@ using atomic_map_t = tbb::concurrent_hash_map<string_t, string_t>;
 
 class mdb_tbb : public db {
 public:
-    mdb_tbb();
+    mdb_tbb(size_t count);
     ~mdb_tbb() override;
 
 protected:

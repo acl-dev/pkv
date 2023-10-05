@@ -7,8 +7,8 @@
 
 namespace pkv {
 
-mdb::mdb() {
-    for (size_t i = 0; i < 1024; i++) {
+mdb::mdb(size_t count) {
+    for (size_t i = 0; i < count; i++) {
         auto lock = new lock_t;
 	locks_.push_back(lock);
 

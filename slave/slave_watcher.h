@@ -3,13 +3,10 @@
 //
 
 #pragma once
-#include "db/kv_message.h"
+#include "common/kv_message.h"
 #include "db/db_watcher.h"
 #include "slave_client.h"
-
-#ifdef USE_TBB_BOX
-#include "tbb_box.h"
-#endif
+#include "common/message_box.h"
 
 namespace pkv {
 
@@ -21,7 +18,11 @@ public:
     ~slave_watcher() override = default;
 
 public:
+    static void set_box(slave_watcher& watcher, message_box* box);
+
+public:
     void run();
+    void stop();
 
     void add_client(const shared_client& client);
     bool del_client(const shared_client& client);
@@ -38,16 +39,9 @@ protected:
 
 private:
     std::vector<shared_client> clients_;
-
-    // In the current benchmark testing, acl::mbox is the most quickly.
-
-#ifdef USE_TBB_BOX
-    tbb_box box_;
-#elif defined(USE_TBOX)
-    acl::tbox<kv_message> box_;
-#else
-    acl::mbox<kv_message> box_;
-#endif
+    bool eof_ = false;
+    acl::fiber_tbox<message_box> box_;
+    std::vector<message_box*> boxes_;
 
     void forward_message(kv_message* message);
 };

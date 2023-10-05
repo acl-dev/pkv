@@ -1,5 +1,5 @@
 #pragma once
-#include "db/kv_message.h"
+#include "common/kv_message.h"
 # include <tbb/concurrent_queue.h>
 
 namespace pkv {

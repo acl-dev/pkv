@@ -8,7 +8,7 @@
 
 namespace pkv {
 
-mdb_htable::mdb_htable() {
+mdb_htable::mdb_htable(size_t count) {
 # ifdef USE_MEM_SLICE
     slice_ = acl_slice_pool_create(4, 10000,
             ACL_SLICE_FLAG_GC2 | ACL_SLICE_FLAG_RTGC_OFF);
@@ -18,7 +18,7 @@ mdb_htable::mdb_htable() {
 
     unsigned flags = ACL_HTABLE_FLAG_USE_LOCK;
 
-    for (size_t i = 0; i < 256; i++) {
+    for (size_t i = 0; i < count; i++) {
         auto store = acl_htable_create3(100000, flags, slice_);
         acl_htable_ctl(store, ACL_HTABLE_CTL_HASH_FN, acl_hash_func5,
             ACL_HTABLE_CTL_END);

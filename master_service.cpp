@@ -7,6 +7,7 @@
 #include "db/db_watcher.h"
 #include "cluster/cluster_service.h"
 #include "slave/slave_watcher.h"
+#include "common/message_box.h"
 #include "master_service.h"
 
 static char *var_cfg_dbpath;
@@ -38,6 +39,7 @@ acl::master_bool_tbl var_conf_bool_tab[] = {
 static int  var_cfg_io_timeout;
 static int  var_cfg_buf_size;
 static int  var_cfg_ocache_max;
+static int  var_cfg_db_count;
 int var_cfg_redis_max_slots;
 int var_cfg_slave_messages_flush;
 int var_cfg_slave_client_stack;
@@ -47,7 +49,8 @@ acl::master_int_tbl var_conf_int_tab[] = {
     { "buf_size",             8192,    &var_cfg_buf_size,             0, 0 },
     { "ocache_max",           10000,   &var_cfg_ocache_max,           0, 0 },
     { "redis_max_slots",      16384,   &var_cfg_redis_max_slots,      0, 0 },
-    { "slave_messages_flush", 500,     &var_cfg_slave_messages_flush, 0, 0 },
+    { "db_count",             256,     &var_cfg_db_count,             0, 0 },
+    { "slave_messages_flush", 100,     &var_cfg_slave_messages_flush, 0, 0 },
     { "slave_client_stack",   1024000, &var_cfg_slave_client_stack,   0, 0 },
 
     { nullptr,                0 ,    nullptr ,                      0, 0 },
@@ -137,13 +140,13 @@ void master_service::proc_on_init() {
     } else if (strcasecmp(var_cfg_dbtype, "wdb") == 0) {
         db_ = db::create_wdb();
     } else if (strcasecmp(var_cfg_dbtype, "mdb") == 0) {
-        db_ = db::create_mdb();
+        db_ = db::create_mdb(var_cfg_db_count);
     } else if (strcasecmp(var_cfg_dbtype, "mdb_htable") == 0) {
-        db_ = db::create_mdb_htable();
+        db_ = db::create_mdb_htable(var_cfg_db_count);
     } else if (strcasecmp(var_cfg_dbtype, "mdb_avl") == 0) {
         db_ = db::create_mdb_avl();
     } else if (strcasecmp(var_cfg_dbtype, "mdb_tbb") == 0) {
-        db_ = db::create_mdb_tbb();
+        db_ = db::create_mdb_tbb(var_cfg_db_count);
     } else {
         logger_error("unknown dbtype=%s", var_cfg_dbtype);
         exit(1);
@@ -194,7 +197,11 @@ bool master_service::proc_on_sighup(acl::string&) {
     return true;
 }
 
+static __thread message_box* box;
 std::once_flag watch_once;
+
+// One watcher for wartching the changing of db.
+pkv::slave_watcher *watcher;
 
 void master_service::thread_on_init() {
     // Prepare the cache object first for each thread.
@@ -207,24 +214,26 @@ void master_service::thread_on_init() {
     }
 
     std::call_once(watch_once, [this] { start_watcher(); });
+
+    assert(watcher);
+
+    // Create one box for the current thread and bind it in the thread.
+    box = new message_box;
+    slave_watcher::set_box(*watcher, box);
 }
 
 void master_service::start_watcher() {
 #undef __FUNCTION__
 #define __FUNCTION__ "start_watcher"
-
-    // One thread has one watcher for wartching the changing of db.
-    pkv::slave_watcher *watcher;
-
     watcher = new slave_watcher;
     assert(watcher);
     watchers_->add_watcher(watcher);
 
     // Start one thread for acceptint connection from other nodes.
-    std::thread thr1([this, watcher] {
+    std::thread thr1([this] {
         // Start one server fiber for every thread to handle the process
         // betwwen different nodes.
-        go[this, watcher] {
+        go[this] {
             pkv::cluster_service service(*watcher);
             acl::string addr;
             addr.format("%s:%d", manager_.get_service_ip(), manager_.get_rpc_port());
@@ -242,9 +251,9 @@ void master_service::start_watcher() {
     thr1.detach();
 
     // Start one thread to wait db messages and forward them to the clients.
-    std::thread thr2([watcher] {
+    std::thread thr2([] {
         // Start one watcher fiber to wait messages from box.
-        go[watcher] {
+        go[] {
             watcher->run();
         };
 

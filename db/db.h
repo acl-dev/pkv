@@ -194,14 +194,14 @@ public:
      * 
      * @return A shared pointer to the memory-mapped database.
      */
-    static shared_db create_mdb();
+    static shared_db create_mdb(size_t count);
 
     /**
      * @brief Create a memory-mapped database with hash table.
      * 
      * @return A shared pointer to the memory-mapped database with hash table.
      */
-    static shared_db create_mdb_htable();
+    static shared_db create_mdb_htable(size_t count);
 
     /**
      * @brief Create a memory-mapped database with AVL tree.
@@ -215,7 +215,7 @@ public:
      * 
      * @return A shared pointer to the memory-mapped database with TBB tree.
      */
-    static shared_db create_mdb_tbb();
+    static shared_db create_mdb_tbb(size_t count);
 };
 
 } // namespace pkv
