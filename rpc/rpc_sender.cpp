@@ -47,9 +47,9 @@ bool rpc_sender::send(acl::shared_stream& conn,
     for (auto it : messages) {
         len += sizeof(rpc_message_hdr);
         len += it->get_key().size();
-	if (!it->get_key().empty()) {
+        if (!it->get_key().empty()) {
             len += it->get_value().size();
-	}
+        }
     }
 
     if (len == 0) {

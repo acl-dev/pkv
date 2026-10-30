@@ -132,7 +132,7 @@ bool json_hash::hgetall(shared_db& db, const std::string& key) {
 int json_hash::hmset(shared_db &db, const std::string &key,
      const std::map<std::string, std::string> &fields) {
     (void) hgetall(db, key);
-    for (auto field : fields) {
+    for (auto& field : fields) {
         fields_[field.first] = field.second;
     }
 
@@ -148,7 +148,7 @@ bool json_hash::hmget(shared_db &db, const std::string &key,
      std::map<std::string, std::string>& result) {
 
     (void) hgetall(db, key);
-    for (auto name : names) {
+    for (auto& name : names) {
         auto it = fields_.find(name);
         if (it != fields_.end()) {
             result[name] = it->second;

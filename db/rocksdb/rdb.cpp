@@ -17,7 +17,7 @@ rdb::~rdb() {
     size_t i = 0;
     for (auto dbp : dbs_) {
         delete dbp;
-	logger("db(%s) closed", paths_[i++].c_str());
+        logger("db(%s) closed", paths_[i++].c_str());
     }
 
     logger("rdb closed");
