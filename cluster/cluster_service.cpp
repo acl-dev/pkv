@@ -6,10 +6,13 @@
 #include "slave/slave_client.h"
 #include "slave/slave_watcher.h"
 #include "cluster_service.h"
+#include "rpc/password_handshake.h"
 
 namespace pkv {
 
-cluster_service::cluster_service(slave_watcher &watcher) : watcher_(watcher) {}
+cluster_service::cluster_service(slave_watcher& watcher,
+    const password_policy* passwords)
+    : watcher_(watcher), passwords_(passwords) {}
 
 bool cluster_service::bind(const char *addr) {
     if (!server_->open(addr)) {
@@ -34,7 +37,12 @@ void cluster_service::run() {
 
         // Start one client fiber to handle the connection from other node.
         go_stack(var_cfg_slave_client_stack) [this, conn] {
-            shared_client client(new slave_client(conn));
+            if (passwords_ && !accept_password(conn, *passwords_)) {
+                conn->close(); return;
+            }
+            shared_client client(new slave_client(conn,
+                var_cfg_replica_output_buffer_limit,
+                var_cfg_replica_pending_messages));
             watcher_.add_client(client);
             client->run();
             auto& c = client->get_conn();

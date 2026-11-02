@@ -1,0 +1,197 @@
+{
+  "total_passed": 648,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 72,
+      "elapsed_seconds": 98.22,
+      "log": "/tmp/pkv-client-memory-full.log",
+      "details": "/tmp/pkv-client-memory-full-details.log",
+      "log_sha256": "4dc496fd40955f1a71dc55d9d5c9434ab52f5b16cb7c1e4978026c5b29d83dc3",
+      "details_sha256": "ba72296c09ed0954ec0deff4b19e7ebea3b90d84f98dc9b89b540b053e5c1786",
+      "build_log": "/tmp/pkv-client-memory-full-build.log",
+      "build_log_sha256": "77e119afe5e151d56561db3eec1597d0711e1309cbb7a1e46a892db36f9e47f2",
+      "redis_cli_executed": true,
+      "common_protocol_assertions": 141
+    },
+    {
+      "build": "c11",
+      "passed": 72,
+      "elapsed_seconds": 82.27,
+      "log": "/tmp/pkv-client-c11-full.log",
+      "details": "/tmp/pkv-client-c11-full-details.log",
+      "log_sha256": "30f941d558d249ee01801c2cb110af6486b3fe8f1067c36d80e9c1d239209bf4",
+      "details_sha256": "e99d8f51107a5bc3db09badea072e885275f7662e829a3511722c3bf228dd42a",
+      "build_log": "/tmp/pkv-client-c11-full-build.log",
+      "build_log_sha256": "c4d661b848dea01ae72b518a3cf414a4ab8fe63273a9ef33e53965da613a55ff",
+      "redis_cli_executed": true,
+      "common_protocol_assertions": 141
+    },
+    {
+      "build": "tbb",
+      "passed": 80,
+      "elapsed_seconds": 100.66,
+      "log": "/tmp/pkv-client-tbb-full.log",
+      "details": "/tmp/pkv-client-tbb-full-details.log",
+      "log_sha256": "73c7e4d86f1462cf62ca6f67e243476d0b362a32677e299ca8c74f389fd9e4ba",
+      "details_sha256": "a6d57b1493118e6ce7e665fd6ab33125478097639c61c92cf06ee29dc5af4a02",
+      "build_log": "/tmp/pkv-client-tbb-full-build.log",
+      "build_log_sha256": "e7f8968300ee284df363e3babfa4c98c220d2b873b55a5b1d2591b10634be7c7",
+      "redis_cli_executed": true,
+      "common_protocol_assertions": 141
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 80,
+      "elapsed_seconds": 81.06,
+      "log": "/tmp/pkv-client-tbb-c11-full.log",
+      "details": "/tmp/pkv-client-tbb-c11-full-details.log",
+      "log_sha256": "7a7593a1473c828db541c7e36bc20b039e04cffdd9eff27201597ab19b582543",
+      "details_sha256": "0d58b6f6804dc75f6a2f5b3c1b95cf1b82479d22649100ddccbc52f3a175a2fc",
+      "build_log": "/tmp/pkv-client-tbb-c11-full-build.log",
+      "build_log_sha256": "b1f76f9b90e2c5572f33ce95162c6b83b04943e20ceb162fa7fadcd74ff2e986",
+      "redis_cli_executed": true,
+      "common_protocol_assertions": 141
+    },
+    {
+      "build": "rocks",
+      "passed": 86,
+      "elapsed_seconds": 117.51,
+      "log": "/tmp/pkv-client-rocks-full.log",
+      "details": "/tmp/pkv-client-rocks-full-details.log",
+      "log_sha256": "e3b4212b71316d520a4ed0308fec06ae4d87dc8a64a95ac367acb33e5443d694",
+      "details_sha256": "a0d2bd87957cd1539395c54c24c38512be238579a9c03dfd1e2d31f0061b9b04",
+      "build_log": "/tmp/pkv-client-rocks-full-build.log",
+      "build_log_sha256": "2c69f794be9cc43846bf4851ac650061382c302b7661a973384dacc5652ad6bd",
+      "redis_cli_executed": true,
+      "common_protocol_assertions": 141
+    },
+    {
+      "build": "rocks-release",
+      "passed": 86,
+      "elapsed_seconds": 97.82,
+      "log": "/tmp/pkv-client-rocks-release-full.log",
+      "details": "/tmp/pkv-client-rocks-release-full-details.log",
+      "log_sha256": "8f6a3b5f15651180481a1573050c3cbeb0c693e3cd4b90305779b5da1b97c19d",
+      "details_sha256": "123f0a1a3ab6ae6ac262902de0851de7b3ad25e4f7a929848dc9b8661037e961",
+      "build_log": "/tmp/pkv-client-rocks-release-full-build.log",
+      "build_log_sha256": "c53e1b00301bf8dab93393560e6c37d61ea1cd57759fcbeeaa2081feee6cf301",
+      "redis_cli_executed": true,
+      "common_protocol_assertions": 141
+    },
+    {
+      "build": "wt",
+      "passed": 86,
+      "elapsed_seconds": 257.72,
+      "log": "/tmp/pkv-client-wt-full.log",
+      "details": "/tmp/pkv-client-wt-full-details.log",
+      "log_sha256": "3e406ba186cbd254028838b29b979f79675c0d3a5568467ee39af6e2467e2c35",
+      "details_sha256": "a926fb80d4bf92f53527920cad919c2bdae228f7d50c1ef31cff726f0e462722",
+      "build_log": "/tmp/pkv-client-wt-full-build.log",
+      "build_log_sha256": "33a4481bdd228fbddd6014a7de801c962ef94a46376cbcd308fdc3e729b86d33",
+      "redis_cli_executed": true,
+      "common_protocol_assertions": 141
+    },
+    {
+      "build": "wt-c11",
+      "passed": 86,
+      "elapsed_seconds": 229.93,
+      "log": "/tmp/pkv-client-wt-c11-full.log",
+      "details": "/tmp/pkv-client-wt-c11-full-details.log",
+      "log_sha256": "41244f8da77a27d65d2d7fa6dd87f92649af7c7749e8a9e575ba7086aac31f01",
+      "details_sha256": "becdfa7bf676ac1f1652e12e2d218eeb0c31cbebf1b54709ca0345245553c5c1",
+      "build_log": "/tmp/pkv-client-wt-c11-full-build.log",
+      "build_log_sha256": "187dd3ee005b1145452c6a9154165c540bbdc5536cd58eafb3cc759b3a203de0",
+      "redis_cli_executed": true,
+      "common_protocol_assertions": 141
+    }
+  ],
+  "all_sessions_terminal": true,
+  "wt_isolated": true,
+  "final_schedule": [
+    [
+      "memory",
+      "c11"
+    ],
+    [
+      "tbb",
+      "tbb-c11"
+    ],
+    [
+      "rocks",
+      "rocks-release"
+    ],
+    [
+      "wt"
+    ],
+    [
+      "wt-c11"
+    ]
+  ],
+  "internal_concurrency_timeouts_and_durability_unchanged": true,
+  "common_protocol_assertions_per_build": 141,
+  "separate_assertions": [
+    "NUL strictness",
+    "WATCH reset",
+    "pipeline framing",
+    "concurrent unique IDs",
+    "cluster routing",
+    "redis-cli integration",
+    "256-byte validation",
+    "allocation failure preservation",
+    "RESET ID and library retention",
+    "8000 concurrent IDs"
+  ],
+  "reference": {
+    "binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+    "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a",
+    "version": "local modified Redis 8.6.2",
+    "stock_upstream": false
+  },
+  "redis_cli": {
+    "binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-cli",
+    "sha256": "b1b3088e4241107f90af0511025dbd64bb38096f35346fcecc42ee95f548d7ca"
+  },
+  "source_sha256": {
+    "CMakeLists.txt": "469a494c271a914c4877f0a875ed22cd9295ff9cd25b5fad8a53bb21785fcfc6",
+    "common/client_state.h": "7cf1a0fdc26bc882190bfadc8fcfc4adf4f6a002e90b0a9edac4e31f6df40542",
+    "common/client_state.cpp": "1c9e46697dee028f51a6ac62cbfc7fc432074b82a21e95a7fca3a0fcc6c67e58",
+    "action/redis_client.cpp": "8092318159521b934099c1370a85fc0ec4c5a7fe6e343ecd5e5a440850dbdd15",
+    "action/redis_handler.cpp": "d2e4669db82e1db896c13d8b31456b4ef8fcb1bdd09fc21bf4f39c94def9b469",
+    "action/redis_handler.h": "7706e071c7d1c385647d56f5a85ca166ef014423038537e8598d5d8c019bf289",
+    "action/redis_server.cpp": "9a28ebc82296416e824cebc3bea74ce4b9d975807b770ef8dc99261a18745fe3",
+    "action/redis_server.h": "0faa4169612ec3d470246b5ffb44d0f5769bb308c70a5e623aaea3e723ce9b21",
+    "action/redis_service.cpp": "21744161e5ef8b3be8160dbb05fcb03eee54c0d98b8e45a07b6b9e8b87fd28da",
+    "action/redis_transaction.cpp": "767cc838ad25cc399399e909ab4bbd067e6d7c4b348c3a1a3a3118f4b0083f88",
+    "common/command_keys.cpp": "78fc697e93d7a0a88a6810dc6dba73ff5a4cb03c4fd91ff21697817dccc12b17",
+    "common/transaction_database.cpp": "6a6a9a0af4f0ed8fb18c2c5133f25138303ca41d726506fea089c974650054da",
+    "common/command_catalog_data.inc": "f5108333e629d1e9ab9e0c181083a811e4a60d99bfad9145908d009fba4cf4c0",
+    "tools/generate_command_catalog.py": "a6dd3d2e7149384d47ecb2eaefc81bb96527aa6bbd46275d910942cad024c89d",
+    "tests/client_state_test.cpp": "81a8db1b8b4e64c1c9a1c975368ec616086417771a3f9fcf074b145097a48149",
+    "tests/client_test.py": "1e45055c5a9489d0d578bc910a6e213d9bd8375d26e76f16df856f5b17e9d62c"
+  },
+  "sanitizers": {
+    "builds": [
+      "memory",
+      "tbb",
+      "rocks",
+      "wt"
+    ],
+    "enabled": [
+      "ASan",
+      "UBSan"
+    ],
+    "external_libraries_sanitized": false
+  },
+  "code_style": {
+    "maximum_line_length": 80,
+    "maximum_function_lines": 200
+  },
+  "scope": "CLIENT ID/GETNAME/SETNAME/SETINFO/HELP and RESP2 RESET only",
+  "limitations": [
+    "No CLIENT INFO/LIST/KILL/PAUSE/TRACKING",
+    "No HELLO/RESP3/authentication added",
+    "No complete compatibility or throughput claim",
+    "No whole-server race-freedom or crash-safety claim"
+  ]
+}

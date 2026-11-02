@@ -8,6 +8,8 @@
 
 #include "redis_handler.h"
 #include "redis_server.h"
+#include "common/redis_integer.h"
+#include <climits>
 
 namespace pkv {
 
@@ -23,7 +25,18 @@ struct server_handler {
 };
 
 static struct server_handler handlers[] = {
+    { "DBSIZE",     &redis_server::dbsize   },
+    { "TIME",       &redis_server::time     },
+    { "SELECT",     &redis_server::select   },
+    { "PING",       &redis_server::ping     },
+    { "ECHO",       &redis_server::echo     },
+    { "INFO",       &redis_server::info     },
     { "CONFIG",     &redis_server::config   },
+    { "COMMAND",    &redis_server::command  },
+    { "ACL",        &redis_server::acl      },
+    { "AUTH",       &redis_server::auth     },
+    { "HELLO",      &redis_server::hello    },
+    { "CLIENT",     &redis_server::client   },
     { nullptr,      nullptr                 },
 };
 
@@ -38,51 +51,40 @@ bool redis_server::exec(const char* cmd, redis_coder& result) {
     return false;
 }
 
-bool redis_server::config(redis_coder &result) {
-    if (obj_.size() < 3) {
-        logger_error("invalid CONFIG command's size=%zd < 3", obj_.size());
-        return false;
+bool redis_server::select(redis_coder& result) {
+    long long index;
+    auto& reply = result.create_object();
+    if (!parse_redis_integer(*obj_.argument(1), index)) {
+        reply.set_error("ERR value is not an integer or out of range");
+    } else if (index < INT_MIN || index > INT_MAX) {
+        reply.set_error("ERR value is out of range, value must between -2147483648 and 2147483647");
+    } else if (var_cfg_cluster_mode && index != 0) {
+        reply.set_error("ERR SELECT is not allowed in cluster mode");
+    } else if (index < 0 || static_cast<unsigned long long>(index) >= handler_.database_count()) {
+        reply.set_error("ERR DB index is out of range");
+    } else if (!handler_.select_database(static_cast<size_t>(index))) {
+        reply.set_error("ERR storage operation failed");
+    } else {
+        reply.set_status("OK");
     }
-
-    auto oper = obj_[1];
-    if (oper == nullptr || *oper == 0) {
-        logger_error("key null");
-        return false;
-    }
-
-    auto name = obj_[2];
-    if (name == nullptr || *name == 0) {
-        logger_error("name null");
-        return false;
-    }
-
-    if (EQ(oper, "GET")) {
-        return config_get(name, result);
-    }
-
-    return false;
-}
-
-bool redis_server::config_get(const char *name, redis_coder &result) {
-    if (EQ(name, "save")) {
-        return config_get_save(result);
-    } else if (EQ(name, "appendonly")) {
-        return config_get_appendonly(result);
-    }
-
-    result.create_object().set_error("unkown config entry");
-    return false;
-}
-
-bool redis_server::config_get_save(redis_coder &result) {
-    result.create_object().create_child().set_string("save", true)
-        .create_child().set_string("3600 1 300 100 60 10000");
     return true;
 }
 
-bool redis_server::config_get_appendonly(redis_coder &result) {
-    result.create_object().create_child().set_string("appendonly", true)
-        .create_child().set_string("no");
+bool redis_server::ping(redis_coder& result) {
+    if (handler_.client().protocol() == 2 && handler_.subscribed()) {
+        auto& reply = result.create_object();
+        reply.set_type(REDIS_OBJ_ARRAY);
+        reply.create_child().set_string("pong");
+        reply.create_child().set_string(obj_.size() == 1 ? "" :
+            *obj_.argument(1));
+    } else if (obj_.size() == 1)
+        result.create_object().set_status("PONG");
+    else result.create_object().set_string(*obj_.argument(1));
+    return true;
+}
+
+bool redis_server::echo(redis_coder& result) {
+    result.create_object().set_string(*obj_.argument(1));
     return true;
 }
 

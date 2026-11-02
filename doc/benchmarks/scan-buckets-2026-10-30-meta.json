@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-30",
+  "platform": "macOS-26.3.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "compiler": "Apple clang version 17.0.0 (clang-1700.6.3.2)",
+  "build": "C++11 Release, -O3 -DNDEBUG, sanitizers disabled, ACL and yyjson 0.7.0",
+  "measurement": "Local exploratory comparison of uncommitted worktree binaries, not a Redis benchmark.",
+  "before_binary_sha256": "1041e073ade7934e6e22e44d6e6ed1abb45e27f2f5eb352efff306f3c23bb4f9",
+  "after_binary_sha256": "2743bedb7afbe946472d7f146f5f2101ee2bbc9975120abfedbbc3fa90bdf334",
+  "parameters": {
+    "keys": 30000,
+    "count": 10,
+    "rounds": 5,
+    "operations": 10000,
+    "workers": 2,
+    "logical_shards": 16,
+    "value_bytes": 128,
+    "pipeline_depth": 128
+  },
+  "order": "before/after order alternates by round; fresh temporary server and data for each measurement",
+  "limits": "No concurrent builds/tests. Client parsing and local socket overhead included. Before binary was saved locally before editing; no committed source revision identifies that snapshot."
+}

@@ -1,0 +1,942 @@
+{
+  "date": "2026-11-01",
+  "tested_platform": "macOS-26.3.1-arm64-arm-64bit",
+  "full_matrix_passed": 986,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 112,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "wait_backend_exercises": 1,
+      "list_ready_backend_exercises": 1,
+      "list_store_budgets": [
+        {
+          "failed": 46,
+          "succeeded": 82,
+          "preflight": 24,
+          "native": 22
+        }
+      ],
+      "reader_startup_budgets": [
+        {
+          "failed": 2,
+          "succeeded": 30
+        }
+      ],
+      "wait_allocation_budgets": [
+        {
+          "failed": 89,
+          "succeeded": 167
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-memory-build/pkv",
+        "sha256": "6253f0760bbd0cf3841b9972fe1d30353de8c2da03f4c25dd4f19bb7c8e2b076"
+      },
+      "flags": {
+        "path": "/tmp/pkv-memory-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "bff4360120cb79e4d86388717c671d8b52718ff0d9fa5674c24a0b973a553a95"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-blocking-final-memory-configure.log",
+        "sha256": "40a854366ed80d4e9cacb1b63e88b6ba82c8ded3617f2550306751ea4553a5b3"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-blocking-final-memory-build.log",
+        "sha256": "45b43eb16f7c2c6e9ffff07895855777c66617385e5c24efc6661d1217bb9748"
+      },
+      "log": {
+        "path": "/tmp/pkv-blocking-final-memory-full.log",
+        "sha256": "67c119e29efd527288fa86324a6564e21e97f3edd4468263fd0ec5a4ceef0420"
+      },
+      "details": {
+        "path": "/tmp/pkv-blocking-final-memory-full-details.log",
+        "sha256": "ec9a2d8e6735ef99cc917f9a972f5e055385e0d6eac055aa70844abdb844288c"
+      },
+      "elapsed_seconds": 94.05
+    },
+    {
+      "build": "c11",
+      "passed": 112,
+      "configuration": {
+        "BUILD_WITH_C11": "YES",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "wait_backend_exercises": 1,
+      "list_ready_backend_exercises": 1,
+      "list_store_budgets": [
+        {
+          "failed": 46,
+          "succeeded": 82,
+          "preflight": 24,
+          "native": 22
+        }
+      ],
+      "reader_startup_budgets": [
+        {
+          "failed": 2,
+          "succeeded": 30
+        }
+      ],
+      "wait_allocation_budgets": [
+        {
+          "failed": 89,
+          "succeeded": 167
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-c11-build/pkv",
+        "sha256": "3eecbd4acecd9e5280d1c54dab66233cab3aa01d6f375458ec82a730c5719090"
+      },
+      "flags": {
+        "path": "/tmp/pkv-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "292c4614092f47cf791c7dc3a9340e25c7f138c026dc2d76d3a715fd001aaed7"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-blocking-final-c11-configure.log",
+        "sha256": "1d156687889c5879914a03327477be17eb92d464940475e98f9044848a1f3aed"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-blocking-final-c11-build.log",
+        "sha256": "02e598fd56e668815d99b815b50fc582ea371244281f0ad48950fa8d4c62bd80"
+      },
+      "log": {
+        "path": "/tmp/pkv-blocking-final-c11-full.log",
+        "sha256": "fe907c607ed35f0da84e0063c65a3ee5e900da19683e86c4de3f25bdec14612a"
+      },
+      "details": {
+        "path": "/tmp/pkv-blocking-final-c11-full-details.log",
+        "sha256": "6747e3ed65e61992341313f10ce7cbdd7bca6f45ba9383e66dfd3fe7f0079a61"
+      },
+      "elapsed_seconds": 68.81
+    },
+    {
+      "build": "tbb",
+      "passed": 123,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        },
+        {
+          "backend": "mdb_tbb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        },
+        {
+          "failed": 115,
+          "succeeded": 397,
+          "backend": "mdb_tbb"
+        }
+      ],
+      "wait_backend_exercises": 2,
+      "list_ready_backend_exercises": 2,
+      "list_store_budgets": [
+        {
+          "failed": 46,
+          "succeeded": 82,
+          "preflight": 24,
+          "native": 22
+        }
+      ],
+      "reader_startup_budgets": [
+        {
+          "failed": 2,
+          "succeeded": 30
+        }
+      ],
+      "wait_allocation_budgets": [
+        {
+          "failed": 89,
+          "succeeded": 167
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-tbb-build/pkv",
+        "sha256": "61b8af52623d904371f529ad66c7455cf9bcd798be980e6651971596baa60e79"
+      },
+      "flags": {
+        "path": "/tmp/pkv-tbb-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "eee081ff7b839e1e2677648e33a8045d964801e171da91e19aad286ca7d3e034"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-blocking-final-tbb-configure.log",
+        "sha256": "b6249cec47323d9eb9a544326ffa84ab1cb83d73cad5d0f4e3d4e8acbf1d365e"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-blocking-final-tbb-build.log",
+        "sha256": "547bf6c0a5206c588c3e2d0b441476c1ea900e5849f840513bdd37f25a7f3a25"
+      },
+      "log": {
+        "path": "/tmp/pkv-blocking-final-tbb-full.log",
+        "sha256": "28c7ae69ceb50e873953558b45efd4719c6ac1dfe04c5b93863e5afa7b744a90"
+      },
+      "details": {
+        "path": "/tmp/pkv-blocking-final-tbb-full-details.log",
+        "sha256": "054b65c547dcb5227b6fca7d454f0615030a55d18ec8345409e6eac2e6109cee"
+      },
+      "elapsed_seconds": 136.17
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 123,
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        },
+        {
+          "backend": "mdb_tbb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        },
+        {
+          "failed": 115,
+          "succeeded": 397,
+          "backend": "mdb_tbb"
+        }
+      ],
+      "wait_backend_exercises": 2,
+      "list_ready_backend_exercises": 2,
+      "list_store_budgets": [
+        {
+          "failed": 46,
+          "succeeded": 82,
+          "preflight": 24,
+          "native": 22
+        }
+      ],
+      "reader_startup_budgets": [
+        {
+          "failed": 2,
+          "succeeded": 30
+        }
+      ],
+      "wait_allocation_budgets": [
+        {
+          "failed": 89,
+          "succeeded": 167
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-tbb-c11-build/pkv",
+        "sha256": "3f3656b6b53baa928eafdaf6c13b37ae89e6f99a032126e7f245f17704f13ba5"
+      },
+      "flags": {
+        "path": "/tmp/pkv-tbb-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "cbfc84c956be80a93b19f7000642bd7ad7d52b9e9ea2a8b614d311d96f013646"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-blocking-final-tbb-c11-configure.log",
+        "sha256": "b1256cbab211c127114c50a471bcdc0528e7babbedd84c8712fdcd1f1c23c42d"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-blocking-final-tbb-c11-build.log",
+        "sha256": "814937fc1c4ee4f438a86ae7b5e819d6e7ecbf800df9dcf9a686ab0c1e2bc43f"
+      },
+      "log": {
+        "path": "/tmp/pkv-blocking-final-tbb-c11-full.log",
+        "sha256": "3575144304475fc347eead66da635da8bf356923d8fbb2d68ae2e7b36c1459c5"
+      },
+      "details": {
+        "path": "/tmp/pkv-blocking-final-tbb-c11-full-details.log",
+        "sha256": "520cc83d3d13690236e50d2898e4fc535afa8d90ed846e9a807868c0d24fcbda"
+      },
+      "elapsed_seconds": 105.81
+    },
+    {
+      "build": "rocks",
+      "passed": 129,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "wait_backend_exercises": 2,
+      "list_ready_backend_exercises": 2,
+      "list_store_budgets": [
+        {
+          "failed": 46,
+          "succeeded": 82,
+          "preflight": 24,
+          "native": 22
+        }
+      ],
+      "reader_startup_budgets": [
+        {
+          "failed": 2,
+          "succeeded": 30
+        }
+      ],
+      "wait_allocation_budgets": [
+        {
+          "failed": 89,
+          "succeeded": 167
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-rocks-build/pkv",
+        "sha256": "0b8464a21304d01e8ed1eeaca416bba105480b1267d979ddba1b4ff2f959eb2f"
+      },
+      "flags": {
+        "path": "/tmp/pkv-rocks-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "55cc4ad2d8bc4debbcc33772444457f54a89d921b6a630daeac3bf197561757d"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-blocking-final-rocks-configure.log",
+        "sha256": "6044da1975fc58c94e685d1e8c9b53bfa784c8caf5b2c400aed198d730ad4d7c"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-blocking-final-rocks-build.log",
+        "sha256": "713b05a5ce75510b1543fefbe9ed68bc2031daeac8fa53cdd6c3373a566cff1e"
+      },
+      "log": {
+        "path": "/tmp/pkv-blocking-final-rocks-full.log",
+        "sha256": "3e5c5332839ee67cd5c4eb094d6d0f00abb721c0ab481c0bab74303b2220fece"
+      },
+      "details": {
+        "path": "/tmp/pkv-blocking-final-rocks-full-details.log",
+        "sha256": "5505b729fa3bddffca035b5393fa8d3feaaf059c32b7255dd807c04c15e3db85"
+      },
+      "elapsed_seconds": 175.77
+    },
+    {
+      "build": "rocks-release",
+      "passed": 129,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "wait_backend_exercises": 2,
+      "list_ready_backend_exercises": 2,
+      "list_store_budgets": [
+        {
+          "failed": 46,
+          "succeeded": 82,
+          "preflight": 24,
+          "native": 22
+        }
+      ],
+      "reader_startup_budgets": [
+        {
+          "failed": 2,
+          "succeeded": 30
+        }
+      ],
+      "wait_allocation_budgets": [
+        {
+          "failed": 89,
+          "succeeded": 167
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-rocks-release-build/pkv",
+        "sha256": "dd8df7503c336987c663ac164f2bd98ee33ed546a549f076dc3175c09a5a9a76"
+      },
+      "flags": {
+        "path": "/tmp/pkv-rocks-release-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "9ecac0f9b31e4517d2ff3d1211a5921bf749da23fa9f9e8924de6e2ed34e4781"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-blocking-final-rocks-release-configure.log",
+        "sha256": "15d8dc07955d45eaf9550911d79af34190f9ae917220bfdd4b27659af03dc6be"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-blocking-final-rocks-release-build.log",
+        "sha256": "069eb214f4c3ab1e72326df4affee53c5143957c899b585ee40fa1206d529ed8"
+      },
+      "log": {
+        "path": "/tmp/pkv-blocking-final-rocks-release-full.log",
+        "sha256": "06c4d40d5109c1bce8b8cbed6b49d6274f6334e1df2b4b642205e6d1f6de60e8"
+      },
+      "details": {
+        "path": "/tmp/pkv-blocking-final-rocks-release-full-details.log",
+        "sha256": "4b9ebeefb11564e88081c055a4a3f3ac20c53a18a2a37b02e063103cae798d10"
+      },
+      "elapsed_seconds": 145.01
+    },
+    {
+      "build": "wt",
+      "passed": 129,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "wait_backend_exercises": 2,
+      "list_ready_backend_exercises": 2,
+      "list_store_budgets": [
+        {
+          "failed": 46,
+          "succeeded": 82,
+          "preflight": 24,
+          "native": 22
+        }
+      ],
+      "reader_startup_budgets": [
+        {
+          "failed": 2,
+          "succeeded": 30
+        }
+      ],
+      "wait_allocation_budgets": [
+        {
+          "failed": 89,
+          "succeeded": 167
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-wt-build/pkv",
+        "sha256": "f74ba7c30693ae531af824e7d751a6d802d4a46ddd836b692df0a80d65622a35"
+      },
+      "flags": {
+        "path": "/tmp/pkv-wt-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "934865e863df237dd72842b308b144930a2068b5aa7761f1f23bf7aea740d5dc"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-blocking-final-wt-configure.log",
+        "sha256": "3fde818e64b48bf5b8cb68ab0bdb5ee20aaf49852e36148f27f72118f5b3c540"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-blocking-final-wt-build.log",
+        "sha256": "cb4177ae2d4dcc0a4811ae141aad6401519c2c9b9a53d81318afa22b02653f0f"
+      },
+      "log": {
+        "path": "/tmp/pkv-blocking-final-wt-full.log",
+        "sha256": "2b97e03c5630d848e0e72c036688dbd796515e26d86d94678042bbbeab143236"
+      },
+      "details": {
+        "path": "/tmp/pkv-blocking-final-wt-full-details.log",
+        "sha256": "661624cf5b97c57ae57e06fead3f4db14a055beb14c5a2847b265d3cf6f9f029"
+      },
+      "elapsed_seconds": 332.38
+    },
+    {
+      "build": "wt-c11",
+      "passed": 129,
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "wait_backend_exercises": 2,
+      "list_ready_backend_exercises": 2,
+      "list_store_budgets": [
+        {
+          "failed": 46,
+          "succeeded": 82,
+          "preflight": 24,
+          "native": 22
+        }
+      ],
+      "reader_startup_budgets": [
+        {
+          "failed": 2,
+          "succeeded": 30
+        }
+      ],
+      "wait_allocation_budgets": [
+        {
+          "failed": 89,
+          "succeeded": 167
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-wt-c11-build/pkv",
+        "sha256": "e81db22db5fcc91d8b7c4d2dfd4d2c8e1514908ac5a0e372ba5764cbaa0b11dc"
+      },
+      "flags": {
+        "path": "/tmp/pkv-wt-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "f2c567333a6c283c7049294043e3cfbb559c8d929dcebeeda4434604cd18833b"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-blocking-final-wt-c11-configure.log",
+        "sha256": "4cfdeefb7211f67c8880ae0a7d2f2f2b37c24228fed43f9bace569d5bb333b19"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-blocking-final-wt-c11-build.log",
+        "sha256": "3f089509a5f0a9c754a5fd50abc31664f35efb540b334f34c19cd3a6903b174a"
+      },
+      "log": {
+        "path": "/tmp/pkv-blocking-final-wt-c11-full.log",
+        "sha256": "4fe94d462538787af204444652ebf11d88923d65a4526913070ff28f994477da"
+      },
+      "details": {
+        "path": "/tmp/pkv-blocking-final-wt-c11-full-details.log",
+        "sha256": "ba85ed53960d24a6024ca22d79e4850d01d5f1c3cd5407ba1fa913b6e17adf37"
+      },
+      "elapsed_seconds": 298.99
+    }
+  ],
+  "source_fingerprints": {
+    "CMakeLists.txt": "469a494c271a914c4877f0a875ed22cd9295ff9cd25b5fad8a53bb21785fcfc6",
+    "action/geo_search_parser.cpp": "4a8096f532df8d4e88849f276000e8e22e8fb52bf718f8c6dd36fef4ff8d7def",
+    "action/geo_search_parser.h": "e02b912a272f53b7b65c8e1745bb4f31ae43b92050db128ee7f289bffef3dab8",
+    "action/redis_acl.cpp": "b0cacba77517843a6b5536d111e9679580749b4583125ce1459a26fbb93a35f8",
+    "action/redis_acl_file.cpp": "d12dd9b25044250845e6f886c91da8834e28fe65a98b7b249faa309ca954eaa6",
+    "action/redis_acl_log.cpp": "6b930e3395c33efacdb4fb09da235e51a31a6f794584d4f3bc47a8ec279a2df5",
+    "action/redis_auth.cpp": "e390c43617cfdec02e434973581aaa8106c6b4150b8e01350c75e00791396770",
+    "action/redis_blocking_input.cpp": "812a3e6560dfc6dad6ae15ffd8e4779530ecf6279eefa72021b08b1361addbaf",
+    "action/redis_client.cpp": "6eb955af5c2bb5fc50c793af2667fd9bf4a521c00ea6d6391bdf8c69ff59e668",
+    "action/redis_client_activity.cpp": "9ed890cd9b0e14ef9d22c88139e9ca6ff361b94e358057428149faf1f4477d49",
+    "action/redis_client_info.cpp": "7bc95f6169a0a9dacb5047333cdc8a8597694c86b39d65038208576e8f3fea45",
+    "action/redis_client_kill.cpp": "819a6a85db17dcb10f0840dddf354f301549f86dad06f75449de928d8da8f388",
+    "action/redis_client_unblock.cpp": "25ba4a75f5033e406f7d525a736a3ec6a00c6a64b109f80dabcd4da6fc1928bb",
+    "action/redis_configuration.cpp": "9c1639a32a126ca898903053bc40a6aceea69f48e39af5cbefb59db63318a30b",
+    "action/redis_geo.cpp": "d5c43074691766fbc3a2bc8b48beecbbca522e9071d27c27003ae495a8c521d3",
+    "action/redis_geo.h": "5e0577b1022eba62feb1a6b9b2a0089e43f6fe002c6e94d71fd1a42f6ea96165",
+    "action/redis_geo_search.cpp": "adea374406d5cb7cf6991138e10a6fb8b2cb02418b100019365efee7786a3614",
+    "action/redis_handler.cpp": "cadd2dc0e15def9153e1c4b99c1c2d190f1e74f82aa6749329b589f4a1be3791",
+    "action/redis_handler.h": "81e26d640bb3541c0ca643c2de1db9130a33359614f0bf1a7862558682ac6911",
+    "action/redis_handler_acl.cpp": "315acdb2fd5510b320a0d2d3bb3b21b4ae828e4372743bd324b3079ccd5e9e4a",
+    "action/redis_hello.cpp": "7f52af14dcb80c38f2ec81a762c2b7f629eb8b92b90dd9b7854db7bf679419ca",
+    "action/redis_hyperloglog.cpp": "a958fb83cde7f9b9e20c7ebc1423532a5fc67d8b00ad706e06e4d1ff2760e8d6",
+    "action/redis_hyperloglog.h": "498508276815ed2688aede2eec2e067f2e7b5e07a14df1e26cb9e5524e5e1327",
+    "action/redis_info.cpp": "2f74ae05d61f6f4f52b01e2ba4814a5c1a1bd19a36ec1cdc5974dba2891bc50f",
+    "action/redis_list.cpp": "dcaabb06e569b41132cc5398429d24d334484bb13bae5bc285f78225f2595b69",
+    "action/redis_list.h": "8820fa94431ad7910e90e51e5b6cd89a7e7927a35e2cf0d344d9bd939de41d87",
+    "action/redis_list_blocking.cpp": "a90d9e0683a88363a7532ce3a62d93211d9da4a0a5f9c34b0d91d8e7239455ec",
+    "action/redis_readonly.cpp": "92f4696ccb46e08083d0c0b752d376a4c7b7d15525bdbf37ad151acf5f8d3c20",
+    "action/redis_server.cpp": "8b66fb3ea720aeab30c5cb6a4325e00bf9d3b33cbb6520bc57f154cdfd31e07b",
+    "action/redis_server.h": "f6b0594543a39740653b6ccad11cff2f5fab5561adc7ead67136992854966a4a",
+    "action/redis_service.cpp": "37d7b11fae2253cfcf8362cb8d9919d5970bdde26de96a63724a5bc5306db743",
+    "action/redis_service.h": "c1561f83eab05a1e24ae2d478933cc6658e4bff6dd8d7f4da44c16c5a923de0d",
+    "action/redis_statistics.cpp": "4ebbb4aad58beb32f7a435af149b9892423d203781e23461f606d1ea895cc21f",
+    "action/redis_transaction.cpp": "c11e1a75707e56dff155c9d0866cb52c290f42ddfad374b97b8d07ca3a19e3e3",
+    "action/transaction_workspace.cpp": "bfa5b076d0ce8917958f061b2d7d3f349e339fa349d6defa3c76074095cba305",
+    "common/acl_audit.cpp": "2560809b243b000e1a2e699866550419586f5580a55a60874912308610337e44",
+    "common/acl_audit.h": "02e3c64d69a1373c084206ad5a94efcfe1d1c61e1c7162a2dea23740853cd958",
+    "common/acl_description.cpp": "bb9b599e40a126296a833550be2b609cf70b95ff448b7279a2882733f4afe7af",
+    "common/acl_digest.cpp": "fb07d2c249aab4d9e4a93657803bef4a52063ecfe188af82b564d62e6505380f",
+    "common/acl_file.cpp": "dd94ccd9fee6e15746d942b0d9ab1183571ff7ddd200b9ed227d55ef63406b58",
+    "common/acl_file.h": "795f29161e31377435cd54c2dad4e109528d3a2fea27c5468529c56b35c7c0a7",
+    "common/acl_index.cpp": "8d3a6fd4ad8eeead0b688ec618e540a3534ecbf637d5b573aa14a5481f3cc14e",
+    "common/acl_internal.h": "8b5064d1911265c5db8b424a41b88c2e96864b4f9b702ea48fcbe5428f3231f1",
+    "common/acl_policy.cpp": "83a9bdca13f4a8e8cfbd35b695f2d1289d1f50a5d9444bb6dc9e04496c08c1b3",
+    "common/acl_policy.h": "116e321316bdddbcbda538e6f4fa7b49e50ef2919ef8a7def171470b4903d70c",
+    "common/acl_reload.cpp": "c46a170d7eb5dea353b56b33a11e2455308e7aa7c0a744dc83c2b7637530ebf5",
+    "common/acl_rules.cpp": "d2fb06ea553a7b32ff5e4d2f2de34bbf2f8d6eb3e97b1a95ff20f88eca6ea2e9",
+    "common/acl_tokens.cpp": "8b8f288da8cdf7767ae52c30af0733b0c986818cd9591ad28e05ab433387464b",
+    "common/blocked_client.cpp": "6ac66e85e1e2cb74ffd96f850d3012a88380c3326eae9332d168d67f9272efea",
+    "common/blocked_client.h": "8d7c8dd50232f3866c03f789bc33faefe2cefabe5ea649ef8778edd0467887fe",
+    "common/client_activity.cpp": "28139a08fd791d532946430dc2c2936d47607ea17fa41c63c9a75bea92089268",
+    "common/client_activity.h": "3334bc4d83c67c912fb58f4312350ac9e1423142db25c07e8d16434d41680b03",
+    "common/client_description.cpp": "5f61563f22fb365fbca78f13bf3ac2b86e41d487d12f4c8f607e1c3ba2c34aa2",
+    "common/client_description.h": "9557a0fd131543fa942843d0b56d88ca73a383c02ab6f3d207f086779eb12b70",
+    "common/client_memory.h": "aa59abff48d681f94d30a03d8ad17ceedbdb76f8c76f525080ea5e1626d25255",
+    "common/client_registry.cpp": "98e44b27b536de3fff5dd020400b650fa06978cdaffc0f8bbb15445e5b1240e1",
+    "common/client_registry.h": "02e68eddd7a9f3a84759277544aa3e269db8d631a5ee9bdfa4af0bcda6d401e4",
+    "common/client_state.cpp": "334fa580432ede21893ee2faf5ecb96286383fc34fc22d18c094bb3c72a9a028",
+    "common/client_state.h": "3a648d1def7804b047ad126570b870a3b74afec1189b7ac77f5694e1e69a1f7f",
+    "common/command_catalog.cpp": "31f0d6a5513e9d865d085efe74c42e5eaaa9103ce65dce6537ed64fd77268991",
+    "common/command_catalog.h": "b1f759fd0673ec2366063251c6bf16751d9d0ec14fd677711bedfb8933e4262f",
+    "common/command_catalog_data.inc": "36616a1c71e15cf629a1d406d3a1a004e1bc1c1010208ada6886aec55cc0aa13",
+    "common/command_keys.cpp": "b459f4e87708d61fa45ed8809ffe551608cdaf59ff67021257bdd9e3d1cf2305",
+    "common/configuration.cpp": "88b59c4953e6f09a3b9b3a37f05e0d5faa6b4a8034bb6929d37736449e5b327d",
+    "common/configuration.h": "18393f9203bf99a8a135626708267993cb379ea3c5a86cdbf61da69c2a877421",
+    "common/connection_input.cpp": "a4bf805c16074555795444239f030120a2e246cf717911d13071f3ac5c9651d8",
+    "common/connection_input.h": "ee700cf4468ee5d9914dead57b825ab8ecf721377033ab4a5a6563a5a1bd61b5",
+    "common/execution_gate.cpp": "46a564196968a412afaeca18074c9232aaa6a6c43b8e99528414c9d5470e2eef",
+    "common/execution_gate.h": "461a4a11991f6614e44e4819e3b649bb24d7ad2ea4f4dc05ed6b72c6a877fa19",
+    "common/geo_cells.cpp": "e8a05cafcc971fe40c95f7e19a7921c231420f16c041c21998c14c7f7d86d9d0",
+    "common/geo_format.cpp": "96aafe89993b5d95c47cd6596eb47e276b041587292a6d6ea4ad7d7350abe728",
+    "common/geo_radius.cpp": "7b06a6b1288678d21b0731900dd0e5de253c15051fa539c3e56ad5edbfd182e0",
+    "common/geo_radius.h": "31d5fa27f9d50e0437cbfc9d82e9544d7fc17576ad852977b17b4fdf4da6a058",
+    "common/geo_search.h": "78386301d916e43b048dae54a607a825be98bd7330650b747a5e6997e4503b7e",
+    "common/info_format.cpp": "069fba3d72fc4b7b71a85cdceb182f99c324761bb6dfb576ca74a9290acf08e2",
+    "common/info_format.h": "518e8aaeb22179a4c0f1c7be467eb2f201abb6f396747c53029175aecf964798",
+    "common/key_wait.cpp": "d7819aad2f89b07c9c81130e8aebb95732947d19c9ef22166c7b32e3a3191be7",
+    "common/key_wait.h": "0d82c4ea2ab192e90457255df064925d60fc21f178ead52396fe22c83b6ab335",
+    "common/list_block.cpp": "628f164f35cc0b2987bd1757b29f532c19c39a765a886da52c6f9820eef1e9d5",
+    "common/list_block.h": "c9d4c0403f1c01213948c77bec304aef6e9ac8f4e8909dcb9faa83f424bc9115",
+    "common/password_policy.cpp": "a02bd490ac12dfa00ebd3314cd36d662814987a9ece74fb1ab6a3eac90d1c9cd",
+    "common/password_policy.h": "189c9edc539a278de4619b6f4a2bbb92630848355c6c5dfa0e9678bfbf2d273d",
+    "common/process_info.cpp": "d8755f208f3ce4ec24172be1309c48312d165b8c6e53ae48c124eac3360e86b2",
+    "common/process_info.h": "92864d78a5c0c734edcafd52e18684196fd0bdffc0537d7b0e7a9e6363903a88",
+    "common/redis_geo.cpp": "e93ce2d132d56a6e220af833b8efb61e6afc45008291897a3dcb85d9de327f23",
+    "common/redis_geo.h": "c62cdf09abfac8fe24551d725ad062f6db5219617f6e305216cbb244fef003d8",
+    "common/redis_hll.h": "df05993e165d5a9cdfc0a952b0dc8adf260a4e4c89fd656ccbf507ed0965c0c9",
+    "common/redis_hll_codec.cpp": "91da77485802f9d024e66a9215bb362a0d1a40db0f0ad384f79d7c17250d74c4",
+    "common/redis_hll_count.cpp": "65f94e2896a19671c7785efff4a006f87785f6ab98a330e31c0d54cbbc6a623e",
+    "common/redis_hll_hash.cpp": "3877f7ca2255dd5bdd2d9904fc32b66d0da9e2af915302dbe85ff8ed29015ea7",
+    "common/redis_hll_update.cpp": "00540c11899e6352a0ab806b2689091d431bfa0cd20226d8abdb76ebc8433c9b",
+    "common/server_statistics.cpp": "10995b17dc13ec7839c94fd033d3376dabdaced993cc1e769417485f59319147",
+    "common/server_statistics.h": "a6cbb310c519b6aaecd0c6c8d238174d9e6562cd9dcad9f25662a0aabe3da9d1",
+    "common/transaction_database.cpp": "22c094c530b77662ccbc7307f0a17434cf7e4efa42029901fbf78f63d08cf4e7",
+    "common/transaction_database.h": "28bde43fc54ef6a4ab2f15cafeb2c1ffd36952a9eaab74e233558f0a1756a546",
+    "dao/dao_base.cpp": "f1e6ca8f21482d3c74d35d3421d7c98f051d75eb44ea7cea648c71052b4b353f",
+    "dao/dao_base.h": "d9ef7272a1796222ceb655ffc42768d876c3a6a3de344d2baef8d3134cf47c22",
+    "dao/paged_string.cpp": "d6fdf7027ae989d7f0f5db641dd5dc9d5306671b6b59b4575a16ed5da196ca61",
+    "dao/paged_string.h": "87719973e6d503b5373d180246e6183ee2c51e23ddb1d97c4ea7aea1d1ef5eb0",
+    "dao/paged_string_hll.cpp": "f5416cc7cab7452d55520814078959dbaab4ade51365d9561fe934f63ed721e1",
+    "dao/paged_string_hll_merge.cpp": "8d8afa4a7d2c55db7b324ab8b0c658472d5b0479424cd53e728ac50584c195e8",
+    "dao/paged_zset.h": "94603253a130e2cdab4fd545723b0091a2b2ea12a8f6066eda1827948f843ab6",
+    "dao/paged_zset_geo.cpp": "c53e024b9c966719f436ec2e528fcaae2ca6fa10576103c6250fbbe04491e97b",
+    "dao/string_bitop_source.cpp": "6402d61bd1e266ba46bbb04ba5fb34d7971b3597ec7735337aeb74d05bf2fd89",
+    "dao/string_bitop_source.h": "84ff702e63b6de191b4e64f3da1396c6433c101c94eb4d516e2c269faf685dc5",
+    "db/database_pool.cpp": "98ed333294e61fb77775faf3ef066892770ad60b319677f10fa8f1ef8e3c99d6",
+    "db/database_pool.h": "97b8cae836f518710a0bede1dad5af5bedc79879a5ad90d96d1098a9d168e766",
+    "db/db.cpp": "9f9c479637243f7fcb40ceabd543ea3673f0970080f690dcb478a413e6fed679",
+    "db/db.h": "6d92adafc9d7e917c214f7836060eba5597b41f44cb3a8281fd42aa9dbe776ca",
+    "db/db_ready.cpp": "1f005261fba220196f998f622eb061ae683cfa954b5597a99794ba01841ecfd4",
+    "db/expiry_index.h": "6d938615f9d5c633d6448be4001f551b08fd630daaefe176217697b5e9235fbb",
+    "db/expiry_snapshot.cpp": "1afd54b392f25201ece0621cf8b0a224f5d7fc98f117602f5f8f198dbc5a92e5",
+    "db/keyspace_statistics.cpp": "59a1a02cf737740f17b73f6b29553056072306c51dd74e7ad832a91d6b39338a",
+    "db/list_ready.cpp": "1775d536f78e33da49e14e18b9ffd61ca0316f8c61bec5d6c63577a038c25b43",
+    "db/mdb/mdb.cpp": "0ea57eafd65f35b86a1122cbe7ca97aba134e9489c12221aed39c87603d870cb",
+    "db/mdb/mdb.h": "9cdf13602a31f6fb16fc22e44339a572b5a455b4cc8a590380dab88235a6c758",
+    "db/mdb/mdb_tbb.cpp": "b5f3ace3d5ae29f38dae545e01156c7369086d15301a4f2e2c45b033e3f32d0a",
+    "db/mdb/mdb_tbb.h": "727a1bb82642f767ffe2c7527a60bd1a268fda948d06aebffe59ed6038527008",
+    "db/replica_pages.cpp": "b6a56254293277cec364e3aa09c0cac4a5e112b9fdbdc29d20dd92b1e36f90e0",
+    "db/workspace_commit.cpp": "2172203d880d15a02e67dc14bb03107c073c57bf92b7be3ae14852eba614991c",
+    "db/zset_range.cpp": "a6cc47c63df621ef2634c325a59a9b51ce0ea6bac12ce8542d69026588ccbf1a",
+    "db/zset_store.h": "05d427222fde3668908c41700b0deb180eccdc90f555379d00da5ebc53a0996a",
+    "master_service.cpp": "a604849c7e1edfb1501196e089b5e9d40392a5fd15b7c16efc552e007a8eac79",
+    "master_service.h": "4b2d109ac544631136a50d1b52fb1e9c53774a62d5f29a4f1028ad6d34a78f75",
+    "tests/CMakeLists.txt": "f283bb778f8ceb9465ed6064d5d2dac7ee1b0482f8b67bd344fbfa352851ef60",
+    "tests/acl_audit_test.cpp": "475215bdb863a9568c53a3ab07678bb187a246b685274480a6cb3bb48b3a24f3",
+    "tests/acl_file_test.cpp": "b2f12769ac72d740dc702e8e0fd2591ee9921f12a68b90e5fc24fd38b1a60626",
+    "tests/acl_file_test.py": "1b231d337ea90ff0ae4fdc124f76d0140b0edb52f340ef672cf448b65af27715",
+    "tests/acl_log_test.py": "cdcfd3a238c81657daebc07b6a10fba10b44dd07dbe2585abeded570c0b13c53",
+    "tests/acl_policy_test.cpp": "717034b734251b124fd22866f966dc02be565dfb0b32bafe07197030e4bcbba9",
+    "tests/acl_test.py": "3e4cd1ffe17fa0ca265cd3995d9776ab9ee95079a202b90a93b5875b5168ed29",
+    "tests/active_expiry_socket_test.py": "4dfa35f1680b753c44bf867c7cadb1358d2e4647e4479d75f5f2505c59502846",
+    "tests/auth_test.py": "26852fa6979116a67a71c3e0780cd892d2c49fc488b4e40d677dca36af215919",
+    "tests/blocking_io_test.cpp": "6c673d8e98f6460a33c8a05b87d4a2e6dec5944ca5c46e797ff838761419894a",
+    "tests/blocking_list_test.py": "c051d36d90a1ecc60e035e8232875f59e81ba1020da59345c13b7a3ff1dc2cca",
+    "tests/client_info_test.py": "86edaca479d12bcba23c4f49da1bb23b3a6fe4410df612a9eb17ced8a780c608",
+    "tests/client_kill_test.py": "93f61782861875c06da7c986e989c79b972e7ef0e55d0b6a122748d27c8099c8",
+    "tests/client_test.py": "185578d47ca20ee9a269a3b06cdcc8792120c626067dec19d22e27db077a743e",
+    "tests/command_catalog_test.cpp": "d6e00490179a002801c6fff2bf95a06114b79efb125018186fa3f2ee2cd7616c",
+    "tests/command_info_test.py": "2c4401ab59e61415e5563342e1eb1686a519944c013de01a97d3c19327efc1ac",
+    "tests/configuration_test.cpp": "c6e50b6accdf37df3bf3e01f2578772f8eb179acffbe6e5313934f5bfa9527f7",
+    "tests/configuration_test.py": "d89a88bcfb9e9796089afb4a044342ec3f33c25bcac961e6be6082e120a94095",
+    "tests/execution_gate_test.cpp": "5481952d28eee460422b0dc3f644a00d7f41705b1a9087cfc2e94e6da52afd16",
+    "tests/expiry_snapshot_test.cpp": "58a99492eae99cfde15b7776e94ef8699361e782313e65ece74d4f1de934a211",
+    "tests/geo_radius_keys_test.cpp": "9a54f79c4435185e189c0e851d74a9b4146252fc0eafbbd458d41162699920e7",
+    "tests/geo_radius_test.py": "e7646c1ae956d4c2a1bc2aaf88bf904dde54160dadead0445efa6e008334f0d2",
+    "tests/geo_search_test.cpp": "078ecb2c8aa1ed81488d1c769eb181de598892a7d4ca8bd7fea20189b30e45b5",
+    "tests/geo_search_test.py": "839ddad39af7b87a335de2c30aea26115a2d507eee6297394981633a88a303cc",
+    "tests/geo_test.cpp": "5eef19bd1b71a748158a4ccb43cbf07aa454c3783d28263b19312b9acabd1c90",
+    "tests/geo_test.py": "d9dbe51d218628bbd7e14dd15f28c3049095a20c14230b26430f1f99e4d0e6a3",
+    "tests/hyperloglog_fault_test.cpp": "d4dc1a8d850a2cb68ecef4be29230bcf561b0c7758073896485680dda6be2bbd",
+    "tests/hyperloglog_test.cpp": "4b3e6eb12255c1e26b495233006571c32b7d3b9c0fe1e7e216219e1d2d4f3d06",
+    "tests/hyperloglog_test.py": "a4ec76adc3558f290eff7e9a0011acd2e9f5f6dbcc0fcd88b50fbca2563f48d1",
+    "tests/info_test.py": "e46a41ff7b5258f8148c722b002d25382cff509ad4cc811aea1d51c5b1d98035",
+    "tests/inline_string_test.cpp": "0d33db5cfcaf54e73f0a4694551cb2e7f257ea2cb96b69ba6fb5fd663bf10644",
+    "tests/integration_test.py": "b853a35505a3d032164e1e7f64bac3720cc5f952ff67da8d0acfd470cc5f56dd",
+    "tests/key_wait_test.cpp": "df1179a55142f64768346d3bdd3ccf3fa83f6aa922b8efc746380494681af7da",
+    "tests/key_wait_test.py": "773a9416c34b8c9d0a2c954bef6d122bc48edd8cce4b39c5a9b7fec891f8375b",
+    "tests/list_ready_test.cpp": "be56be5ca6da2ef3e50f3e0b93244f4b506209d7725b2c2b5098dacacda6b207",
+    "tests/page_live_test.py": "deb41e5a278492446cf6ab036773a5960f3a1d704e37ee50939b64922240fa93",
+    "tests/replica_readonly_test.py": "f805cdad9ea76cf1fcd6b5b82e1a0fb36bbbe0f885f8519c885c5e8414897399",
+    "tests/resp3_client.py": "a0c9e4ba3e681cf73165dd779fe3796fcc0ecac98e127bd903d600ad64f8f007",
+    "tests/resp3_test.py": "6772cfde49c82e18fc363180890ec9be806db4fccbd15e2777a5de7afe719f15",
+    "tests/server_statistics_test.cpp": "5861b3c98886f420f004e228709ee1e4b7a402f6d4c0f3ea15519dc9a31a77ae",
+    "third_party/redis-geohash/LICENSE": "226a5501d735e8e620a874e3efd6a68ebcb1c64387788cae47a30beac4ccf438",
+    "tools/benchmark_resp3_get.py": "c26461eebcf8ce8d30d1c235b59616c946fbbfd23959a282d71dc059e80ee9aa",
+    "tools/check_geo_grid.cpp": "cf62140879d350cd6b16091b165beebabf5bd62761c298803d43136f615e57c5",
+    "tools/generate_command_catalog.py": "24485e1078d6c95995df07199be61fee7b4a44172581321c36ebd444329d004c"
+  },
+  "source_file_count": 168,
+  "geometry_regression": {
+    "origin": "Previous GEO search increment; geometry source unchanged",
+    "inputs": 1700000,
+    "before_nonzero": 1699977,
+    "after_nonzero": 0,
+    "before_source": {
+      "path": "/tmp/pkv-geosearch-before-geometry.cpp",
+      "sha256": "eba4b1e59e50fcd4ac44e7fb4493995341837272392ad5280fd2d87ddd28f0d8"
+    },
+    "probe": {
+      "path": "/tmp/pkv-geosearch-distance-probe.cpp",
+      "sha256": "b3a403972e898b7005ef2184fc21f7bc122520e0ceafe897b2983703f9042fc3"
+    },
+    "red_log": {
+      "path": "/tmp/pkv-geosearch-zero-distance-red.log",
+      "sha256": "c6c1deda6ab2b4cfe00b014e258fde0b27af5cab7ad93efed2c775e21aefbe12"
+    },
+    "green_log": {
+      "path": "/tmp/pkv-geosearch-zero-distance-green.log",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    }
+  },
+  "reference_grid": {
+    "origin": "Previous GEO search increment; cell source unchanged",
+    "cases": 100000,
+    "log": {
+      "path": "/tmp/pkv-geosearch-grid-reference.log",
+      "sha256": "1d882f4023d3943c724a64266f4b8bca6584396933a755cd95416d8d53fff37e"
+    },
+    "probe": {
+      "path": "/Users/zsx/work/gitee/pkv/tools/check_geo_grid.cpp",
+      "sha256": "cf62140879d350cd6b16091b165beebabf5bd62761c298803d43136f615e57c5"
+    },
+    "reference_sources": [
+      {
+        "path": "/Users/zsx/work/github/redis/redis-8.6.2/src/geohash.c",
+        "sha256": "20ebcaa1538e7fa9f1c5f6b0cba1823bfe539136ca7c374f96bca0ac86af1e73"
+      },
+      {
+        "path": "/Users/zsx/work/github/redis/redis-8.6.2/src/geohash_helper.c",
+        "sha256": "03ccfa1553bda7236c9ca687c51540714fcb60b9c137fe4796722238adff134a"
+      }
+    ]
+  },
+  "wait_handoff": {
+    "threads": 4,
+    "fibers": 16,
+    "largest_member_bytes": 40000
+  },
+  "cancellation_probe": {
+    "source": {
+      "path": "/Users/zsx/work/gitee/pkv/tools/check_wait_cancellation.cpp",
+      "sha256": "b03aa71688ad8debecb5d4637c3329ec0230f50c5a8cd7671aab143b59331f10"
+    },
+    "runs": [
+      {
+        "build": "c11",
+        "binary": {
+          "path": "/tmp/pkv-blocking-kill-writer",
+          "sha256": "0a6400eaf92b200d7db666e1754492c24a75ae1f64d16c822b8d8cf374101d86"
+        },
+        "build_log": {
+          "path": "/tmp/pkv-blocking-kill-writer-build.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "log": {
+          "path": "/tmp/pkv-blocking-kill-writer.log",
+          "sha256": "13252cc5adedb56742cb585998bef7724531bd9b776339fcea5c5e516d0d8f6f"
+        }
+      },
+      {
+        "build": "memory",
+        "binary": {
+          "path": "/tmp/pkv-blocking-kill-writer-asan",
+          "sha256": "3ed7f9d8a047f8e7c8afacbd9a85a688cd8aa352fd4878f6c711277aeaf23c62"
+        },
+        "build_log": {
+          "path": "/tmp/pkv-blocking-kill-writer-asan-build.log",
+          "sha256": "22a615cad2272db95b09a7cc6ce773fdbccf26e4d9a1da2397a664711f682a8c"
+        },
+        "log": {
+          "path": "/tmp/pkv-blocking-kill-writer-asan.log",
+          "sha256": "13252cc5adedb56742cb585998bef7724531bd9b776339fcea5c5e516d0d8f6f"
+        }
+      }
+    ]
+  },
+  "wait_protocol_commands_exposed": [
+    "BLPOP",
+    "BRPOP",
+    "BLMPOP",
+    "BLMOVE",
+    "BRPOPLPUSH",
+    "CLIENT UNBLOCK"
+  ],
+  "blocking_stable_observations": 429,
+  "blocking_typed_observations": 20,
+  "blocking_statistics_cases": 6,
+  "geo_radius_observations": 578,
+  "geo_radius_typed_observations": 8,
+  "resp3_typed_observations": 307,
+  "replica_write_roots": 81,
+  "replica_policy_observations": 128,
+  "performance": {
+    "mdb": {
+      "evidence": {
+        "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/blocking-get-mdb-2026-11-01.json",
+        "sha256": "ba2dc79b9a6891800d8d1657398adda1d9dd4f87ad5310764caf8db15de43d8a"
+      },
+      "matched_protocol_delta_percent": {
+        "2": 0.2733680606354483,
+        "3": -0.6419406957490992
+      },
+      "checked_requests": 50331648
+    },
+    "tbb": {
+      "evidence": {
+        "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/blocking-get-tbb-2026-11-01.json",
+        "sha256": "80aad2dfa8f722756bbb4a867c75249975458c02c4a01304f8f2cd7e54122c0b"
+      },
+      "matched_protocol_delta_percent": {
+        "2": 0.6237253226305528,
+        "3": -0.3012873100323388
+      },
+      "checked_requests": 50331648
+    }
+  },
+  "build_pins": {
+    "path": "/tmp/pkv-inline-build-pins.cmake",
+    "sha256": "1993d4adcfd312ec4c1ce90a3d28336d244063688ecbd19121d82f39bd04e38c"
+  },
+  "reference_binary": {
+    "path": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+    "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a"
+  },
+  "geo_commands": [
+    "GEOADD",
+    "GEOPOS",
+    "GEOHASH",
+    "GEODIST",
+    "GEOSEARCH",
+    "GEOSEARCHSTORE",
+    "GEORADIUS",
+    "GEORADIUS_RO",
+    "GEORADIUSBYMEMBER",
+    "GEORADIUSBYMEMBER_RO"
+  ],
+  "geo_pending": [],
+  "limits": [
+    "Blocking sorted sets and streams remain pending",
+    "Incoming bytes on promoted connections are queued in at most 16 KiB chunks with a 1 GiB byte/heap quota",
+    "Wake trigger ordering and final original-key-order re-execution match the local modified reference",
+    "macOS ARM64; Linux/GCC not validated",
+    "Hot inline GET comparison of PKV revisions, not stock Redis",
+    "No claim about mixed workloads, paged reads or disk performance",
+    "Three rotating samples per variant; no significance claim",
+    "Legacy repeated-store admission checks metadata and actual target; stricter than reference",
+    "Malformed ZSet score conversion matches the local ARM64 reference",
+    "Complete Redis compatibility remains an active goal"
+  ]
+}

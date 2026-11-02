@@ -45,7 +45,8 @@
 #  define logger_fatal(fmt, ...)  \
 	acl::log::fatal4(__FILE__, __LINE__, __FUNCTION__, fmt, __VA_ARGS__)
 #  define logger_debug(section, level, fmt, ...)  \
-	acl::log::msg6(section, level, __FILE__, __LINE__, __FUNCTION__, fmt, __VA_ARGS__)
+	acl::log::msg6(section, level, __FILE__, __LINE__, __FUNCTION__, fmt,
+     __VA_ARGS__)
 # else
 #  define logger	acl::log::msg1
 #  define logger_warn	acl::log::warn1
@@ -77,17 +78,12 @@ extern acl::master_bool_tbl var_conf_bool_tab[];
 extern int var_cfg_redis_max_slots;
 extern int var_cfg_slave_client_stack;
 extern int var_cfg_slave_messages_flush;
+extern int var_cfg_replica_output_buffer_limit;
+extern int var_cfg_replica_publish_buffer_limit;
+extern int var_cfg_replica_pending_messages;
 extern acl::master_int_tbl var_conf_int_tab[];
 extern acl::master_int64_tbl var_conf_int64_tab[];
 
 #define SERVICE_RPC_PORT_ADD    10000
-
-#ifndef HAS_ROCKSDB
-# define HAS_ROCKSDB
-#endif
-
-#ifndef HAS_WT
-# define HAS_WT
-#endif
 
 //#define HAS_VECTOR

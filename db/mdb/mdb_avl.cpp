@@ -18,7 +18,7 @@ mdb_avl::mdb_avl() {
 }
 
 mdb_avl::~mdb_avl() {
-    acl_mdt_free(mdt_);
+    // acl_mdb_free owns and releases every registered table.
     acl_mdb_free(mdb_);
 }
 

@@ -1,0 +1,192 @@
+{
+  "total_passed": 726,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 81,
+      "elapsed_seconds": 119.95,
+      "log": "/tmp/pkv-kill-memory-full.log",
+      "log_sha256": "fae9e8a04da707352371a4fcf6f48db0687be793306beb5e4a16df1d9759cb29",
+      "details": "/tmp/pkv-kill-memory-full-details.log",
+      "details_sha256": "7eb96278ed2807021040e738f8a29a8635a81960c71e40d5d3faaec2113a316b",
+      "build_log": "/tmp/pkv-kill-memory-final-build.log",
+      "build_log_sha256": "aa4ad4925f5ec30da3f28e08c678cd5683a73146b2b122c793c10df5af307def",
+      "binary_sha256": "e8b08739c6dbc023c14b2726f311f86789e20069225b52f4ee07f9aab09a70a5"
+    },
+    {
+      "build": "c11",
+      "passed": 81,
+      "elapsed_seconds": 100.61,
+      "log": "/tmp/pkv-kill-c11-full.log",
+      "log_sha256": "8164e9cd878fc05a16d8862f427ee58fb607313be3f7181b0668c48875ac6460",
+      "details": "/tmp/pkv-kill-c11-full-details.log",
+      "details_sha256": "499300fc1c8330d33b52f3317817985ef2591d84e7e715eb8b0176ffe109dfcf",
+      "build_log": "/tmp/pkv-kill-c11-final-build.log",
+      "build_log_sha256": "9c50823b3b1999354e8e2d5a7718cffee4741932d2021e0fddc227757f8a283d",
+      "binary_sha256": "8b34c5854005c35d179e6adb38152cc4718279794959acac083847af76bae9ca"
+    },
+    {
+      "build": "tbb",
+      "passed": 90,
+      "elapsed_seconds": 124.6,
+      "log": "/tmp/pkv-kill-tbb-full.log",
+      "log_sha256": "8655e073e8a4f468393a595b41445d41a5e2e858e0247a70ac9e2a1db116793d",
+      "details": "/tmp/pkv-kill-tbb-full-details.log",
+      "details_sha256": "70149345890b9bef3fefacbff0e1074239e17f274dc3f051031a3de59778e39e",
+      "build_log": "/tmp/pkv-kill-tbb-final-build.log",
+      "build_log_sha256": "1a06a09a3588ec1fa23558f1fe9571dfb088f9789642a9a279bdc694e7be518f",
+      "binary_sha256": "08dec64f28e3b6fb7dad9a06f3f62ffc10f32aba7e95d34c78e68c84681a7da0"
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 90,
+      "elapsed_seconds": 104.74,
+      "log": "/tmp/pkv-kill-tbb-c11-full.log",
+      "log_sha256": "131138951c58657d5e1fbf243e0c93978bc3646e3c586c80e96e2699dbbfc160",
+      "details": "/tmp/pkv-kill-tbb-c11-full-details.log",
+      "details_sha256": "bf327abd8db3b05b6f9ad1daea3c18c177fec888922911a03d54f1e71c63ff61",
+      "build_log": "/tmp/pkv-kill-tbb-c11-final-build.log",
+      "build_log_sha256": "19c92c9b7f5f38f79fc76b5a4679f2aaeff6d1541d63ae547fe00b1da0c04729",
+      "binary_sha256": "a2180ba7d1cc95792fe2e78f97c32c38aeb23fb48fe71233f798f49771d21e08"
+    },
+    {
+      "build": "rocks",
+      "passed": 96,
+      "elapsed_seconds": 142.6,
+      "log": "/tmp/pkv-kill-rocks-full.log",
+      "log_sha256": "66fb0f46025e397d947dcc7d5b51c0a435ba939d554934a775f707d8f88a5ef6",
+      "details": "/tmp/pkv-kill-rocks-full-details.log",
+      "details_sha256": "502c0e44a180b24290ad1641ab6be263962929beaffa44cdee94158b82bedaa0",
+      "build_log": "/tmp/pkv-kill-rocks-final-build.log",
+      "build_log_sha256": "5b47efebbdc8983206c912cac0a28eb2f0c7b7948e6517d3f5840b6dacba3a40",
+      "binary_sha256": "ba6da948ba1b60ed9c2a6f2377ae6524b24381e3a11f58d67180adefb07ac022"
+    },
+    {
+      "build": "rocks-release",
+      "passed": 96,
+      "elapsed_seconds": 110.53,
+      "log": "/tmp/pkv-kill-rocks-release-full.log",
+      "log_sha256": "6970fb2c612e66b4716f1d2f0632df4fd58c0315c7b1b1744632d3604c9cadef",
+      "details": "/tmp/pkv-kill-rocks-release-full-details.log",
+      "details_sha256": "87557a7359965e66dfb8dd71655b1bc8d521cf118dec90aec778717dd1ac9d0a",
+      "build_log": "/tmp/pkv-kill-rocks-release-final-build.log",
+      "build_log_sha256": "024a2924c727ec54a2019e1d09cc6db4fda5f380d6b444c40e5722db564f1e47",
+      "binary_sha256": "ce9fa04231e5f76ad9249bbdf92cac81c2b1f4144601406bf80985ad6a451790"
+    },
+    {
+      "build": "wt",
+      "passed": 96,
+      "elapsed_seconds": 279.14,
+      "log": "/tmp/pkv-kill-wt-full.log",
+      "log_sha256": "6305281b65029a1ffc9ccdef34dde3782d91ce98cb4aefe1b872187e61b6896e",
+      "details": "/tmp/pkv-kill-wt-full-details.log",
+      "details_sha256": "cda290b69def0d890790e62beb22b4a2a9e8c9d74e92db8d772f992f6ce51869",
+      "build_log": "/tmp/pkv-kill-wt-final-build.log",
+      "build_log_sha256": "a008d88f86c0ea56cd5227af43e6fb2cac7a5b8c4db03ebb8557575672cf4647",
+      "binary_sha256": "2eaff9eabd1a40d0cea7b6831020c5788280cf63ea2d222a7aca4f1278de6905"
+    },
+    {
+      "build": "wt-c11",
+      "passed": 96,
+      "elapsed_seconds": 243.63,
+      "log": "/tmp/pkv-kill-wt-c11-full.log",
+      "log_sha256": "b6a5071cd3a6351f4d554eb9e311f47fa955c8b0b5fe030271d530d540dd5842",
+      "details": "/tmp/pkv-kill-wt-c11-full-details.log",
+      "details_sha256": "4f350f28837e9aaf99443bffaf6a652c619b8bcfe7a3d40db3dfbfb3f74393d4",
+      "build_log": "/tmp/pkv-kill-wt-c11-final-build.log",
+      "build_log_sha256": "78819185e84f59439a2305f59e026e216bb5d4ecd5e631b7fd27cc4adb84003b",
+      "binary_sha256": "52013cbaace78760d7d4d70618f2292cb539831e995a5e88611c7fa0fe05f06c"
+    }
+  ],
+  "all_sessions_terminal": true,
+  "wt_suites_isolated": true,
+  "max_concurrent_test_configurations": 2,
+  "existing_concurrency_timeouts_and_durability_preserved": true,
+  "source_sha256": {
+    "common/client_registry.h": "2d03d9a1b75a91febbc00e519c399410a33652117e789af3f9f3b74bdbfd1c91",
+    "common/client_registry.cpp": "7aa26417a09ab5a622514006e2808934a5958f9e8ba76512021bb88d194930db",
+    "common/client_state.h": "2b81ea4483ca27fb31fe08d2b2ac9e7575d4a952161c7da484efab2216d579a8",
+    "common/client_state.cpp": "d170ea76fdc55156096506e117563f3138fe250118107b70f77289e01b6f8f54",
+    "action/redis_client.cpp": "37eb18d194d0855a0c2d756fb29b00cca41430b0917ebd7454ba6d0a5593c6e8",
+    "action/redis_client_kill.cpp": "cb9cac8887f6905512e82488980568d7e46d2228fb76a2e5a086c5b764fa1bdb",
+    "action/redis_server.h": "e3757678f2d1c391188e70a7fc47a865d91a5bbc1cc2bb1482defba45c635552",
+    "action/redis_service.h": "f1a47c414145579a021f9f58ea1b288e014d89e9ecfc20a9fc544c37829317bf",
+    "action/redis_handler.cpp": "72868fae927d2021f536102536415a4bbb4ec6f4426059660e96b136e47e9e2f",
+    "tests/CMakeLists.txt": "d8d6c650d9c4f8f851ec6bfba0e54dcb9a74ded94c4f756536b8dc6cc587c395",
+    "tests/client_kill_core_test.cpp": "8be2ab406951040fee502613c0dacb6c7b4b2cc170acb1e920b63c182e380ba7",
+    "tests/client_kill_test.py": "93f61782861875c06da7c986e989c79b972e7ef0e55d0b6a122748d27c8099c8",
+    "tests/client_state_test.cpp": "445cb6814ab49b758c30e62f07cc3d97db73109b8c5af707895d450a8aa92fe1",
+    "tests/client_registry_test.cpp": "3385a6ea51189e85737963cb3778eab82302cb72a96fd734b0e1e67b9dffe623",
+    "tests/client_test.py": "03c7c64ffd175cb61de365f407fa69cd8d3a8535cc5a71e1af78e339a017b7e7",
+    "tools/generate_command_catalog.py": "78d72977ec42b1e7a078e26295ecd6a664e961cff3e86a61a9fcd923d262bfdd",
+    "common/command_catalog_data.inc": "7374b8c30ab71ea4c7e74c800a7fd8fd39e037f5e26475436d1c70bb1b8a6060"
+  },
+  "reference": {
+    "binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+    "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a",
+    "stock_upstream": false,
+    "version": "local modified Redis 8.6.2"
+  },
+  "new_command": "CLIENT KILL",
+  "filters": [
+    "ID",
+    "ADDR",
+    "LADDR",
+    "TYPE",
+    "USER",
+    "MAXAGE",
+    "SKIPME"
+  ],
+  "assertions": [
+    "Full parameter validation precedes shutdown",
+    "Reply storage and target snapshot prepared before shutdown",
+    "Body allocation failures leave targets open",
+    "ID uses one registry bucket lookup",
+    "Other filters use immutable endpoint/creation snapshots",
+    "IPv4/IPv6 endpoint symmetry and existing descriptor-reuse tests",
+    "KILL runs while another thread holds exclusive KV admission",
+    "Queued KILL follows EXEC order; DISCARD has no effect",
+    "Runtime argument errors preserve remaining EXEC children",
+    "Self-kill replies before close and skips later pipeline roots",
+    "PKV emits all EXEC children after self-kill",
+    "32 concurrent killers count one transition",
+    "AUTH, RESP3, cluster and real redis-cli checks"
+  ],
+  "reference_framing_difference": {
+    "log": "/tmp/pkv-kill-reference-framing.log",
+    "log_sha256": "135530946aa5e83955aaddcf7c1ab568615e5d03ffe5e562fa28852f63c3c468",
+    "reference_wire_escaped": "*2\\r\\n:1\\r\\n",
+    "pkv_wire_escaped": "*2\\r\\n:1\\r\\n+OK\\r\\n",
+    "both_commit_remaining_set": true,
+    "policy": "Preserve complete PKV framing; compare reference separately"
+  },
+  "standalone_tsan": {
+    "binary": "/tmp/pkv-kill-registry-tsan",
+    "binary_sha256": "d2c6009dd21597a93c4ee19b2add82e8d82392b9235322d5346f3011b0c7aff6",
+    "log": "/tmp/pkv-kill-registry-tsan.log",
+    "log_sha256": "3d7d2b8c9c6ea94dd93f56c424cc10935d95e8ea6d6b9a5de975b1717965df74",
+    "scope": "Registry unit test, not the whole ACL service"
+  },
+  "benchmark": {
+    "path": "doc/benchmarks/client-kill-get-2026-10-31.json",
+    "sha256": "082f0f03ee4e9da86b5940867ec6e21794b74483397e01b7ac8f530f090baab5",
+    "raw_log": "/tmp/pkv-kill-get-bench.log",
+    "raw_log_sha256": "1f6ba6460707138d09b972a2f92cf5dbc30fcedc99c61174b4aeea18ed4b7d11"
+  },
+  "code_style": {
+    "new_lines_at_most": 80,
+    "new_functions_at_most": 200,
+    "whitespace_check_passed": true
+  },
+  "limitations": [
+    "Default user only; named ACL users unfinished",
+    "Public normal clients only; Pub/Sub and Redis replication unfinished",
+    "Companion RPC connections are outside CLIENT KILL",
+    "No rollback or mid-EXEC cancellation",
+    "Shutdown requests do not join the owning handler",
+    "CLIENT INFO/LIST and synchronized telemetry remain unfinished",
+    "Windows shutdown/address branches not run on this macOS host",
+    "General filtering currently inherits O(N log N) sorted snapshots",
+    "No broad throughput advantage over stock Redis established"
+  ]
+}

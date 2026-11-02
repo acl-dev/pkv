@@ -1,0 +1,89 @@
+{
+  "backend": "mdb",
+  "mode": "exec",
+  "groups": 5000,
+  "width": 32,
+  "samples": 3,
+  "keyspace": 32,
+  "warmup_groups": 20,
+  "rows": [
+    {
+      "seconds": 0.361053875,
+      "writes_per_second": 443147.16190208454,
+      "median_group_ms": 0.06887499999999602,
+      "p95_group_ms": 0.08891700000002167,
+      "variant": "before",
+      "sample": 1
+    },
+    {
+      "seconds": 0.3890212089999999,
+      "writes_per_second": 411288.629767227,
+      "median_group_ms": 0.07616599999993312,
+      "p95_group_ms": 0.09024999999995842,
+      "variant": "after",
+      "sample": 1
+    },
+    {
+      "seconds": 0.397925167,
+      "writes_per_second": 402085.6514461172,
+      "median_group_ms": 0.07699999999988272,
+      "p95_group_ms": 0.092333,
+      "variant": "after",
+      "sample": 2
+    },
+    {
+      "seconds": 0.3536915839999999,
+      "writes_per_second": 452371.521511804,
+      "median_group_ms": 0.06858300000001094,
+      "p95_group_ms": 0.08199999999991547,
+      "variant": "before",
+      "sample": 2
+    },
+    {
+      "seconds": 0.3533983749999998,
+      "writes_per_second": 452746.84695423424,
+      "median_group_ms": 0.06845899999996519,
+      "p95_group_ms": 0.08212500000004397,
+      "variant": "before",
+      "sample": 3
+    },
+    {
+      "seconds": 0.39487029100000015,
+      "writes_per_second": 405196.348387729,
+      "median_group_ms": 0.07654199999995726,
+      "p95_group_ms": 0.09166699999996197,
+      "variant": "after",
+      "sample": 3
+    }
+  ],
+  "binaries": {
+    "before": {
+      "path": "/private/tmp/pkv-exec-source-before-c11",
+      "sha256": "fa35f7ff927efa22bf3ebf2e1da32d9b8042e14ec7ff3d2a1b157979d5e2a948"
+    },
+    "after": {
+      "path": "/private/tmp/pkv-c11-build/pkv",
+      "sha256": "e28a792d101e3d253ba645e83cea70ecf23bc79392ab25ae2862bb010144a9ef",
+      "snapshot_path": "/tmp/pkv-exec-final-c11-e28a792d101e"
+    }
+  },
+  "environment": {
+    "host": "macOS-26.3.1-arm64-arm-64bit",
+    "logical_cpus": 10,
+    "python": "3.9.6",
+    "recorded_at_utc": "2026-10-31T04:26:05.809195+00:00",
+    "harness_sha256": "405e6df45f766c3f50fd1da2d93be3e7b4289938791c4c4aebb9bc560d445fd1",
+    "client_connections": 1,
+    "concurrent_builds_or_tests": false
+  },
+  "after_build_configuration": {
+    "BUILD_WITH_C11": "YES",
+    "CMAKE_BUILD_TYPE": "Release",
+    "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+    "HAS_ROCKSDB": "OFF",
+    "HAS_TBB": "OFF",
+    "HAS_WT": "OFF",
+    "PKV_TEST_SANITIZERS": "OFF"
+  },
+  "baseline_description": "Local pre-source-workspace pkv binary snapshot"
+}

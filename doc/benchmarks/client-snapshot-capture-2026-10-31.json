@@ -1,0 +1,57 @@
+{
+  "measurement": {
+    "cpp": 201103,
+    "rounds": 21,
+    "results": [
+      {
+        "connections": 1024,
+        "sorted_median_seconds": 2.7625e-05,
+        "unsorted_median_seconds": 5.583e-06,
+        "speedup": 4.9480566
+      },
+      {
+        "connections": 4096,
+        "sorted_median_seconds": 0.000158709,
+        "unsorted_median_seconds": 2.1583e-05,
+        "speedup": 7.353426308
+      },
+      {
+        "connections": 16384,
+        "sorted_median_seconds": 0.000553541,
+        "unsorted_median_seconds": 7.8542e-05,
+        "speedup": 7.047706959
+      },
+      {
+        "connections": 65536,
+        "sorted_median_seconds": 0.002177292,
+        "unsorted_median_seconds": 0.000288709,
+        "speedup": 7.541476019
+      }
+    ],
+    "observed_references": 4177920
+  },
+  "binary": "/tmp/pkv-c11-build/tests/client_snapshot_bench",
+  "binary_sha256": "c8c42ecc0bfd1b666815c34a507e0541de571c494ab912e36f4a58916e3901fb",
+  "compiler": "/usr/bin/c++",
+  "compiler_version": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+  "flags_sha256": "f672a615deec54e9c3c19554650bc494726d8e0d38468f66ea0eab3b795406e8",
+  "raw_log": "/tmp/pkv-snapshot-capture-raw.json",
+  "raw_log_sha256": "247d32febb0a6113ea6dd86c7647a22e64952899d91b74827ff41e18a553d687",
+  "source_sha256": {
+    "tests/client_snapshot_bench.cpp": "d468f315c69f55368ad3c8cd5b1c3f8382854aa525a952c01df4f86efd9b850d",
+    "common/client_registry.h": "3f62bfd8e8143470b286cb29530959f45c7487f7dc96530be5c76609e703e71a",
+    "common/client_registry.cpp": "b2fe20fe0932a36e58613518057fe18ae105bd9f07676ef856b428fc68dd07c2",
+    "common/client_state.h": "c5cc80f368d37cadedb288f992acf28af8a579f21e3bf9758d8be1af920be7e7",
+    "common/client_state.cpp": "56b75cac6cba5d3a8f6a95396345eda90a2e2ba3e4313dd3c49538b607d7080a"
+  },
+  "platform": "macOS-26.3.1-arm64-arm-64bit",
+  "machine": "arm64",
+  "scope": "Single-thread registry capture, same binary, 3 warmups and 21 alternating rounds",
+  "limits": [
+    "Synthetic consecutive IDs and non-owning dummy descriptor 100",
+    "Creation, destruction, metadata copying and shutdown excluded from timed interval",
+    "Result destruction excluded from timed interval",
+    "Medians only; per-round samples not retained",
+    "No end-to-end KILL or stock Redis speed claim"
+  ]
+}

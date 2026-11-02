@@ -1,0 +1,230 @@
+{
+  "total_passed": 670,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 74,
+      "elapsed_seconds": 95.22,
+      "log": "/tmp/pkv-hgetdel-memory-full.log",
+      "details": "/tmp/pkv-hgetdel-memory-full-details.log",
+      "log_sha256": "e4ddafe591e6c0a0838054a2890095811fbce9b58f71d008f106df5c3129a986",
+      "details_sha256": "05e7d3e854b50e825638c16c0cdcc310514ac45d98b27509b363570464ec612d",
+      "build_log": "/tmp/pkv-hgetdel-memory-full-build.log",
+      "build_log_sha256": "0f94c4fcf0957ec0ffab80f632002a3df992efc0c88c87c8c67eda736a729e9d",
+      "common_protocol_assertions": 412,
+      "allocation_failure_points_native_and_json": [
+        77,
+        12
+      ]
+    },
+    {
+      "build": "c11",
+      "passed": 74,
+      "elapsed_seconds": 82.41,
+      "log": "/tmp/pkv-hgetdel-c11-full.log",
+      "details": "/tmp/pkv-hgetdel-c11-full-details.log",
+      "log_sha256": "854b1dad9c1c7663e2392b28ffd84bf1f6fad76fb72949939cbde88e10fb21ff",
+      "details_sha256": "a544554f425c197945843ab9aaa2f53f15bb2b33a401b328a2e7076602392eff",
+      "build_log": "/tmp/pkv-hgetdel-c11-full-build.log",
+      "build_log_sha256": "e6897d5a0862e29be2c632bb030aa1c7237f76d5872266941435961822123e26",
+      "common_protocol_assertions": 412,
+      "allocation_failure_points_native_and_json": [
+        77,
+        12
+      ]
+    },
+    {
+      "build": "tbb",
+      "passed": 83,
+      "elapsed_seconds": 111.28,
+      "log": "/tmp/pkv-hgetdel-tbb-full.log",
+      "details": "/tmp/pkv-hgetdel-tbb-full-details.log",
+      "log_sha256": "a30a96de15037a06ba12f53d9831a5bd0154ac58f78ec392359d79cec5842193",
+      "details_sha256": "149b3fd8fa7798ffc8178a31c7fe9caf8bae910e3b87329aaedc85fe07d92fb5",
+      "build_log": "/tmp/pkv-hgetdel-tbb-full-build.log",
+      "build_log_sha256": "80c058ea959f80cb400df53a97d088d77c785c132ad0b5044ae9c41895113f2f",
+      "common_protocol_assertions": 412,
+      "allocation_failure_points_native_and_json": [
+        77,
+        12
+      ]
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 83,
+      "elapsed_seconds": 89.55,
+      "log": "/tmp/pkv-hgetdel-tbb-c11-full.log",
+      "details": "/tmp/pkv-hgetdel-tbb-c11-full-details.log",
+      "log_sha256": "165894652aaadd5b44090d993f3fa81afb8704036cc412be83fe7cf363d00843",
+      "details_sha256": "0d69489e4a38a2934ad4b45625622ab7fb19b1cb5ef453fe2d6b1507975f9050",
+      "build_log": "/tmp/pkv-hgetdel-tbb-c11-full-build.log",
+      "build_log_sha256": "a8b4a1338fb1d3cda15b4edc4b248b4cad82d751b45f75abb382b36e5e4c3d2b",
+      "common_protocol_assertions": 412,
+      "allocation_failure_points_native_and_json": [
+        77,
+        12
+      ]
+    },
+    {
+      "build": "rocks",
+      "passed": 89,
+      "elapsed_seconds": 119.62,
+      "log": "/tmp/pkv-hgetdel-rocks-full.log",
+      "details": "/tmp/pkv-hgetdel-rocks-full-details.log",
+      "log_sha256": "90fdd7230668c78d5785ce0f437a64dc82d7674304441c10c2d8890c2961ca02",
+      "details_sha256": "a221a53744ed5fd325d7fb524d8c67fbe1297274fab0ca03f3b50b6acc3c988f",
+      "build_log": "/tmp/pkv-hgetdel-rocks-full-build.log",
+      "build_log_sha256": "75025b50e279f4996126ddeed40593f7ada6d737a03236735ac9936f52369e8c",
+      "common_protocol_assertions": 412,
+      "allocation_failure_points_native_and_json": [
+        77,
+        12
+      ]
+    },
+    {
+      "build": "rocks-release",
+      "passed": 89,
+      "elapsed_seconds": 97.3,
+      "log": "/tmp/pkv-hgetdel-rocks-release-full.log",
+      "details": "/tmp/pkv-hgetdel-rocks-release-full-details.log",
+      "log_sha256": "6e9b9b45259a09c3108043b61bf0eb8778dd4cd8ce108248e58dfeaa8aa5ede9",
+      "details_sha256": "9f568852ce5953e81d6addff8356982a14172c59d9ff4086edc77e3d34dacd04",
+      "build_log": "/tmp/pkv-hgetdel-rocks-release-full-build.log",
+      "build_log_sha256": "7319e323a225cbb45378fddd0500bb897330df979f1a03e79680e569b76ff69d",
+      "common_protocol_assertions": 412,
+      "allocation_failure_points_native_and_json": [
+        77,
+        12
+      ]
+    },
+    {
+      "build": "wt",
+      "passed": 89,
+      "elapsed_seconds": 275.93,
+      "log": "/tmp/pkv-hgetdel-wt-full.log",
+      "details": "/tmp/pkv-hgetdel-wt-full-details.log",
+      "log_sha256": "4d9f5a5f7e4c7409e6c347c3d36a2d30447832ba26579a83a4e8d2520ecc7bff",
+      "details_sha256": "9b3a89d5abb473fdff33efc86bd5599f95ee41da62134b34e96b7c06047eea88",
+      "build_log": "/tmp/pkv-hgetdel-wt-full-build.log",
+      "build_log_sha256": "06b680b618ec8e62ec1083d911bc71426e0762d9fa956b860bbc521908b7786f",
+      "common_protocol_assertions": 412,
+      "allocation_failure_points_native_and_json": [
+        77,
+        12
+      ]
+    },
+    {
+      "build": "wt-c11",
+      "passed": 89,
+      "elapsed_seconds": 254.39,
+      "log": "/tmp/pkv-hgetdel-wt-c11-full.log",
+      "details": "/tmp/pkv-hgetdel-wt-c11-full-details.log",
+      "log_sha256": "07d80c98afdaeeb30b6b806d6eefc29ef26fb65ce48b61253f745fa37396fb17",
+      "details_sha256": "a4079e2586ca0fdf670d6990498ed028fad16059a6daee7c21ce1e4bcf624f06",
+      "build_log": "/tmp/pkv-hgetdel-wt-c11-full-build.log",
+      "build_log_sha256": "fa26acca1056be34e747e3e59d0562b65970d850197ae530783062627d9e30eb",
+      "common_protocol_assertions": 412,
+      "allocation_failure_points_native_and_json": [
+        77,
+        12
+      ]
+    }
+  ],
+  "all_sessions_terminal": true,
+  "wt_isolated": true,
+  "final_schedule": [
+    [
+      "memory",
+      "c11"
+    ],
+    [
+      "tbb",
+      "tbb-c11"
+    ],
+    [
+      "rocks",
+      "rocks-release"
+    ],
+    [
+      "wt"
+    ],
+    [
+      "wt-c11"
+    ]
+  ],
+  "internal_concurrency_timeouts_and_durability_unchanged": true,
+  "common_protocol_assertions_per_build": 412,
+  "separate_assertions": [
+    "NUL option strictness",
+    "WATCH no-op and deletion",
+    "eight-client atomic retrieval race",
+    "cluster routing",
+    "source EXEC and live replication",
+    "receiver physical root deletion",
+    "bounded unrelated value reads and allocations",
+    "rejected commits",
+    "native and JSON allocation failure preservation",
+    "oneTBB/RocksDB/WiredTiger backend storage",
+    "independent process disk reopening"
+  ],
+  "reference": {
+    "binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+    "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a",
+    "version": "local modified Redis 8.6.2",
+    "stock_upstream": false
+  },
+  "source_sha256": {
+    "tests/CMakeLists.txt": "c50a74c6fe8d5f05feedb8aea787c533fc54aa09880ffcf81a5bc684423ff4a5",
+    "action/redis_service.cpp": "8ba56154321ea4a2ba7805ee69f044ea260e663822dd54cf074bff6e272804b1",
+    "action/redis_hash.cpp": "b20a77282198c56bc4a1ad207a7843da81a15c16cf3ed8d8b3f7fb97c7f1e9d7",
+    "action/redis_hash.h": "3315f09d2821fbd884b601f575414588dbc2eeefbfee894d40e77f135d767049",
+    "action/redis_hash_getdel.cpp": "c8b8d3c8b41a0350d2163115a714ceffa37eef5d1d1c65bfa626886c6fd22953",
+    "dao/hash.h": "fca648b8f2fe55905017ca67986833f38f82ed86487a8fdfa5168acd06050d0d",
+    "dao/paged_hash.h": "00c25e8e88a22c24fc44f9c4dd70ec9fb2827cf29facdb8a955cd53c23d586c7",
+    "dao/paged_hash_getdel.cpp": "b081ca8e57076df35cdcc413400d3dd7602d766a46d28cb26e05381ff0a36a3f",
+    "dao/json/json_hash.h": "3bfb53c9dd6fc898c44468f80ec2aec3d4a4fbf22d559fbfbb4073a30b331d8e",
+    "dao/json/json_hash_getdel.cpp": "094fb406eafeafcdfa9abc1b819895537a05f6d331554b53f52a3dc15da8a09f",
+    "db/map_store.h": "a0b5e4ab41fb7180dfc7005f67b685360e7fcd488f37900334a70eefde12db11",
+    "db/map_store.cpp": "e66e5f1f27d1e1f22806d65bb659c3d2831dfafb7213f06e25ba925984aeae35",
+    "db/map_tree.cpp": "7248381349bb673aff4203237a2e8e2568d882564a05b285cd9d4c2d419a746d",
+    "common/command_catalog_data.inc": "a9a43880ba352a6bed8512b9a73a5e3536cc121881b61000eccd6f2319c29a9f",
+    "tools/generate_command_catalog.py": "a6dd3d2e7149384d47ecb2eaefc81bb96527aa6bbd46275d910942cad024c89d",
+    "tests/hgetdel_test.cpp": "10ee4b1441c2ebe3cf23c96c0d1ea753c54aed28dfed3cbb390fe3ff81493ebf",
+    "tests/hgetdel_test.py": "b12c6d445a3f45ba3990d9131ae9d4ad55bb9ed1d94fc7dee5ca18821da14c12",
+    "tests/hgetdel_backend_test.py": "c0d9f86ba22d4511ed1d1b94860ce84d9bbec27e2addb62641ec9cff128d61b4"
+  },
+  "sanitizers": {
+    "builds": [
+      "memory",
+      "tbb",
+      "rocks",
+      "wt"
+    ],
+    "enabled": [
+      "ASan",
+      "UBSan"
+    ],
+    "external_libraries_sanitized": false
+  },
+  "code_style": {
+    "maximum_line_length": 80,
+    "maximum_function_lines": 200
+  },
+  "initial_fixture_failures": [
+    {
+      "log": "/tmp/pkv-hgetdel-memory-target.log",
+      "reason": "JSON-only fixture used public expiry migration before calling legacy DAO; final fixture directly encodes old TTL"
+    },
+    {
+      "log": "/tmp/pkv-hgetdel-memory-unit-count.log",
+      "reason": "Three-field JSON case had nine allocations; final six-field case expands coverage and retains >10 assertion"
+    }
+  ],
+  "limitations": [
+    "Hash field expiration and HGETEX/HSETEX unfinished",
+    "Large requested values still require response memory",
+    "Explicit legacy JSON fallback retains whole-record costs",
+    "No initial sync, durable replay, or crash-safety claim",
+    "No complete compatibility or throughput claim"
+  ]
+}

@@ -1,0 +1,556 @@
+{
+  "date": "2026-11-01",
+  "tested_platform": "macOS-26.3.1-arm64-arm-64bit",
+  "full_matrix_passed": 854,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 97,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "binary": {
+        "path": "/tmp/pkv-memory-build/pkv",
+        "sha256": "d8a5c14bdc41b7b055ba84a565ce44671c638964feeff5687e580e0609fb81c4"
+      },
+      "resp3_comparisons": 259,
+      "flags": {
+        "path": "/tmp/pkv-memory-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "bff4360120cb79e4d86388717c671d8b52718ff0d9fa5674c24a0b973a553a95"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-observability-final-memory-configure.log",
+        "sha256": "40a854366ed80d4e9cacb1b63e88b6ba82c8ded3617f2550306751ea4553a5b3"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-observability-final-memory-build.log",
+        "sha256": "054aeb61b58222dbbc10863cbfffbc6a2a896771cff3b297ded77bc74cb1a2ef"
+      },
+      "log": {
+        "path": "/tmp/pkv-observability-final-memory-full.log",
+        "sha256": "c71c03163f998ef057e0e8ebb4253a109a9a0ac85c81085099be07bc4c626397"
+      },
+      "details": {
+        "path": "/tmp/pkv-observability-final-memory-full-details.log",
+        "sha256": "ee99f49b16a34f93aaaa06f729bfaeb53aca6eec6a121bdc11bb94e49b50fd3d"
+      },
+      "elapsed_seconds": 118.37
+    },
+    {
+      "build": "c11",
+      "passed": 97,
+      "configuration": {
+        "BUILD_WITH_C11": "YES",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "binary": {
+        "path": "/tmp/pkv-c11-build/pkv",
+        "sha256": "f82e7cb307f7c0fed49b7e8689769ae277dd5127f8ee4974fdd70204f4569e79"
+      },
+      "resp3_comparisons": 259,
+      "flags": {
+        "path": "/tmp/pkv-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "292c4614092f47cf791c7dc3a9340e25c7f138c026dc2d76d3a715fd001aaed7"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-observability-final-c11-configure.log",
+        "sha256": "dcf3a9912ecf0cd114a6363bd77c7deb8b6f83b6e11aec1b90d881255933ff50"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-observability-final-c11-build.log",
+        "sha256": "316b681504b68ad402912ddee21bbafbb1f0f732fc80c99e00c1374ff9d4d2cd"
+      },
+      "log": {
+        "path": "/tmp/pkv-observability-final-c11-full.log",
+        "sha256": "4ee39ef35bdac72158453974912b635ac9b28bd0dae73d9db9912c9ec5563cb9"
+      },
+      "details": {
+        "path": "/tmp/pkv-observability-final-c11-full-details.log",
+        "sha256": "f096fd08f8de77f0be02ac17cbdbd274c0f036ff2b7a1784567d02bcc12f90b7"
+      },
+      "elapsed_seconds": 100.63
+    },
+    {
+      "build": "tbb",
+      "passed": 106,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "binary": {
+        "path": "/tmp/pkv-tbb-build/pkv",
+        "sha256": "c197097a4dc0185aa549878ac268b0881542dcd68c00228a3969e8d068edba69"
+      },
+      "resp3_comparisons": 259,
+      "flags": {
+        "path": "/tmp/pkv-tbb-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "eee081ff7b839e1e2677648e33a8045d964801e171da91e19aad286ca7d3e034"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-observability-final-tbb-configure.log",
+        "sha256": "4147f433536e01796b077ba01fa7e3f8fbd5c797d985f742a783233f2b15740c"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-observability-final-tbb-build.log",
+        "sha256": "3d4f3ef7b35adea9cb8ba2cda89679b52e9f83c0b6c17a33db360219b8592855"
+      },
+      "log": {
+        "path": "/tmp/pkv-observability-final-tbb-full.log",
+        "sha256": "e7c1397327c4bca9b175cff567adf8a83469b3692ff9ad0fb8887a95a4d1e273"
+      },
+      "details": {
+        "path": "/tmp/pkv-observability-final-tbb-full-details.log",
+        "sha256": "f6eb5238d9775ca2d068465dba8b941416a85de289c6406b9b429f75f0bf4e0b"
+      },
+      "elapsed_seconds": 120.9
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 106,
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "binary": {
+        "path": "/tmp/pkv-tbb-c11-build/pkv",
+        "sha256": "08ab3ffaf8183a4a94328ec2e8b0ff11345c92a5585c754ea4ae5f7d6af44467"
+      },
+      "resp3_comparisons": 259,
+      "flags": {
+        "path": "/tmp/pkv-tbb-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "cbfc84c956be80a93b19f7000642bd7ad7d52b9e9ea2a8b614d311d96f013646"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-observability-final-tbb-c11-configure.log",
+        "sha256": "cf733154ae4b1e0ff967cfb641a0200df670a64fe6174f239fafa5b02c78ea17"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-observability-final-tbb-c11-build.log",
+        "sha256": "7b2b488df682557d0210cd5e7df77098d05f86419270837b67eb5a659f16da5d"
+      },
+      "log": {
+        "path": "/tmp/pkv-observability-final-tbb-c11-full.log",
+        "sha256": "19739054ba90abc79bc8d3e5ec6de1d0ec86beb54e395f3e47371de6c44b671f"
+      },
+      "details": {
+        "path": "/tmp/pkv-observability-final-tbb-c11-full-details.log",
+        "sha256": "c41ecae86380600189effd2ceb59caf4287e3dca488a18f2b83c53059ac132e7"
+      },
+      "elapsed_seconds": 100.66
+    },
+    {
+      "build": "rocks",
+      "passed": 112,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "binary": {
+        "path": "/tmp/pkv-rocks-build/pkv",
+        "sha256": "4c5e7c8710876bc1ace51405c5ac1e82147d3c1f873f34d55f34a04a4f4a0ac4"
+      },
+      "resp3_comparisons": 259,
+      "flags": {
+        "path": "/tmp/pkv-rocks-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "55cc4ad2d8bc4debbcc33772444457f54a89d921b6a630daeac3bf197561757d"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-observability-final-rocks-configure.log",
+        "sha256": "7906fc8c4a72386d1f90bda006f0f12e3099a59dbd2d7ce2f3bf2eba9700a805"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-observability-final-rocks-build.log",
+        "sha256": "f67c65d08d1b769924fbc14880f7c1bb802909e082456dd31f681ee8e750a91e"
+      },
+      "log": {
+        "path": "/tmp/pkv-observability-final-rocks-full.log",
+        "sha256": "18c18ece4436b91d33279e0e249f1b3ff57e37a69927ccc876983bc1914a3972"
+      },
+      "details": {
+        "path": "/tmp/pkv-observability-final-rocks-full-details.log",
+        "sha256": "3b0f19e1478b83189e88315d21bea06ec9815568e58300cb85cb57458d99ee92"
+      },
+      "elapsed_seconds": 139.5
+    },
+    {
+      "build": "rocks-release",
+      "passed": 112,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "binary": {
+        "path": "/tmp/pkv-rocks-release-build/pkv",
+        "sha256": "bebf3311471b5ed631361e33a56d3cbc7bbd8faca8d52bc25cef7906e5103e94"
+      },
+      "resp3_comparisons": 259,
+      "flags": {
+        "path": "/tmp/pkv-rocks-release-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "9ecac0f9b31e4517d2ff3d1211a5921bf749da23fa9f9e8924de6e2ed34e4781"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-observability-final-rocks-release-configure.log",
+        "sha256": "ef28a2105ef0018b5c54ff33b386edf1c589e87dc829e5f5465b130986f57c87"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-observability-final-rocks-release-build.log",
+        "sha256": "a7416222541a9363d61e3aab37d304570ba1732a2af35596417e846352fe417e"
+      },
+      "log": {
+        "path": "/tmp/pkv-observability-final-rocks-release-full.log",
+        "sha256": "88bb4603589458d965ebb082f983ce6dd7720cbcac68a82b02f8408e4a7a11c8"
+      },
+      "details": {
+        "path": "/tmp/pkv-observability-final-rocks-release-full-details.log",
+        "sha256": "c9ffafa09e8e46f88e24dd45333be3d50ca915bf76653015a01bb6cbddd21e77"
+      },
+      "elapsed_seconds": 116.89
+    },
+    {
+      "build": "wt",
+      "passed": 112,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "binary": {
+        "path": "/tmp/pkv-wt-build/pkv",
+        "sha256": "b32578f07e99f9ec4d16d66970b4791fe5511c6374ff7883f6f248cdeaebc99f"
+      },
+      "resp3_comparisons": 259,
+      "flags": {
+        "path": "/tmp/pkv-wt-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "934865e863df237dd72842b308b144930a2068b5aa7761f1f23bf7aea740d5dc"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-observability-final-wt-configure.log",
+        "sha256": "71c6f5391fba50adb29df307687b2694905849f2fc20e76b592bc6aa4b3b8668"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-observability-final-wt-build.log",
+        "sha256": "224454bbad6448af2307581d92257541fb877f6bd756315623546467f6ff8634"
+      },
+      "log": {
+        "path": "/tmp/pkv-observability-final-wt-full.log",
+        "sha256": "e2cd5426c29e3980bd11eea443c7381ad48066cf04fe17bb93111a2928318967"
+      },
+      "details": {
+        "path": "/tmp/pkv-observability-final-wt-full-details.log",
+        "sha256": "5aa34fb821fa3f12af7c65ee222eee6f68a7c6961c9e80907ac8ae86d0e63398"
+      },
+      "elapsed_seconds": 292.38
+    },
+    {
+      "build": "wt-c11",
+      "passed": 112,
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "binary": {
+        "path": "/tmp/pkv-wt-c11-build/pkv",
+        "sha256": "c31dead1abf0e82198964f36df983273a80a7648d6346ada3bc27b37ffb36030"
+      },
+      "resp3_comparisons": 259,
+      "flags": {
+        "path": "/tmp/pkv-wt-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "f2c567333a6c283c7049294043e3cfbb559c8d929dcebeeda4434604cd18833b"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-observability-final-wt-c11-configure.log",
+        "sha256": "4cfdeefb7211f67c8880ae0a7d2f2f2b37c24228fed43f9bace569d5bb333b19"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-observability-final-wt-c11-build.log",
+        "sha256": "fbaafb8d8b7c1a52f3ccbfdd423c913073a35fbce61a57e737e8e9c34032843a"
+      },
+      "log": {
+        "path": "/tmp/pkv-observability-final-wt-c11-full.log",
+        "sha256": "3f8fdc8a501862ef7d242a422dc3c670adb79ebc0a2c14772c24ae738b139c91"
+      },
+      "details": {
+        "path": "/tmp/pkv-observability-final-wt-c11-full-details.log",
+        "sha256": "391128737a17a4675e29c4706cf2a2b100dc51cb91a4b076b4fb9842f0f4f26b"
+      },
+      "elapsed_seconds": 260.38
+    }
+  ],
+  "source_sha256": {
+    "CMakeLists.txt": "469a494c271a914c4877f0a875ed22cd9295ff9cd25b5fad8a53bb21785fcfc6",
+    "action/redis_acl.cpp": "b0cacba77517843a6b5536d111e9679580749b4583125ce1459a26fbb93a35f8",
+    "action/redis_acl_file.cpp": "d12dd9b25044250845e6f886c91da8834e28fe65a98b7b249faa309ca954eaa6",
+    "action/redis_acl_log.cpp": "6b930e3395c33efacdb4fb09da235e51a31a6f794584d4f3bc47a8ec279a2df5",
+    "action/redis_auth.cpp": "e390c43617cfdec02e434973581aaa8106c6b4150b8e01350c75e00791396770",
+    "action/redis_client_activity.cpp": "9f3679956b07da4ffdab50b5ebfde2ca157e4e8ad7f8c7c430b0954b3e06124a",
+    "action/redis_client_info.cpp": "7bc95f6169a0a9dacb5047333cdc8a8597694c86b39d65038208576e8f3fea45",
+    "action/redis_client_kill.cpp": "819a6a85db17dcb10f0840dddf354f301549f86dad06f75449de928d8da8f388",
+    "action/redis_configuration.cpp": "c384240e1bf054a83062d9babfd62f0e0d75a0f47e591daf730ad15a46872e5d",
+    "action/redis_handler.cpp": "8e06851d229688ed900c865c5a82aa3f6391b1f3fda6278d40e505730dd41cf2",
+    "action/redis_handler.h": "263878c00a7d010f0a25ad6ba9f6b05c377cbffe1859fd12b62254ed64f36c7a",
+    "action/redis_handler_acl.cpp": "315acdb2fd5510b320a0d2d3bb3b21b4ae828e4372743bd324b3079ccd5e9e4a",
+    "action/redis_hello.cpp": "7f52af14dcb80c38f2ec81a762c2b7f629eb8b92b90dd9b7854db7bf679419ca",
+    "action/redis_info.cpp": "d9a82fcca6f49dc59d093745de3465e72378f1dab1b0d33582dc9dbb0dac8b5f",
+    "action/redis_server.cpp": "8b66fb3ea720aeab30c5cb6a4325e00bf9d3b33cbb6520bc57f154cdfd31e07b",
+    "action/redis_server.h": "5ecc17b65c7605b6cb330951840b303a7cfe3e5acf6caf140abb29886db54330",
+    "action/redis_service.cpp": "f470c5f615f56d38ad9f07dfe494aa0cdba761beb871549d3162bfe9c91626d7",
+    "action/redis_service.h": "0244b61b40eb4b572176b343d6c56b16b6aa1e7cf12f273dfc0719e51941f103",
+    "action/redis_statistics.cpp": "08f7e5a6a66a82da5e8172b2c159a12d6599d914435900743c5372923fad4a3b",
+    "action/redis_transaction.cpp": "c11e1a75707e56dff155c9d0866cb52c290f42ddfad374b97b8d07ca3a19e3e3",
+    "action/transaction_workspace.cpp": "bfa5b076d0ce8917958f061b2d7d3f349e339fa349d6defa3c76074095cba305",
+    "common/acl_audit.cpp": "2560809b243b000e1a2e699866550419586f5580a55a60874912308610337e44",
+    "common/acl_audit.h": "02e3c64d69a1373c084206ad5a94efcfe1d1c61e1c7162a2dea23740853cd958",
+    "common/acl_description.cpp": "bb9b599e40a126296a833550be2b609cf70b95ff448b7279a2882733f4afe7af",
+    "common/acl_digest.cpp": "fb07d2c249aab4d9e4a93657803bef4a52063ecfe188af82b564d62e6505380f",
+    "common/acl_file.cpp": "dd94ccd9fee6e15746d942b0d9ab1183571ff7ddd200b9ed227d55ef63406b58",
+    "common/acl_file.h": "795f29161e31377435cd54c2dad4e109528d3a2fea27c5468529c56b35c7c0a7",
+    "common/acl_index.cpp": "8d3a6fd4ad8eeead0b688ec618e540a3534ecbf637d5b573aa14a5481f3cc14e",
+    "common/acl_internal.h": "8b5064d1911265c5db8b424a41b88c2e96864b4f9b702ea48fcbe5428f3231f1",
+    "common/acl_policy.cpp": "787c5aa8a2dd6ee8b732d9af79ce7f387eab7bab6e33e9d068f87bef221b9dd5",
+    "common/acl_policy.h": "116e321316bdddbcbda538e6f4fa7b49e50ef2919ef8a7def171470b4903d70c",
+    "common/acl_reload.cpp": "c46a170d7eb5dea353b56b33a11e2455308e7aa7c0a744dc83c2b7637530ebf5",
+    "common/acl_rules.cpp": "d2fb06ea553a7b32ff5e4d2f2de34bbf2f8d6eb3e97b1a95ff20f88eca6ea2e9",
+    "common/acl_tokens.cpp": "8b8f288da8cdf7767ae52c30af0733b0c986818cd9591ad28e05ab433387464b",
+    "common/client_activity.cpp": "1438533ec6437e3c3e3b1324feea531e382e6ba7be9d15312d671718be71f768",
+    "common/client_activity.h": "b4e857539f6283a355a3a37ca1926cb6d8edda834c026035c27b0387ee5b5173",
+    "common/client_description.cpp": "b8e312096a7e930ebfe1abd59bf2e03cb438ca87bbe074c8dafd6ddeaa16dda3",
+    "common/client_description.h": "9557a0fd131543fa942843d0b56d88ca73a383c02ab6f3d207f086779eb12b70",
+    "common/client_memory.h": "aa59abff48d681f94d30a03d8ad17ceedbdb76f8c76f525080ea5e1626d25255",
+    "common/client_registry.cpp": "7a262b9600d1e89033be23626423785734f1b8297f00b6a71c07c7fc1d674b0f",
+    "common/client_registry.h": "260635df1f59659d0b872664e95162d5abe9e4522d425e264103ddb70bf6af76",
+    "common/client_state.cpp": "5b9818069a4f78a8544b880110f886eab0eb9d102a705a74e4296f2d73fb4f4a",
+    "common/client_state.h": "3a648d1def7804b047ad126570b870a3b74afec1189b7ac77f5694e1e69a1f7f",
+    "common/command_catalog.cpp": "af443789b7317c788be40a2beb796996f7c653ceb860a3e67a5e3a14af5a2441",
+    "common/command_catalog.h": "0566cf96b1b7dfb844f0848893b102372d3f7bf6cc5135e8623142ec62a2502c",
+    "common/command_catalog_data.inc": "1a22391c5a64f0337036c166d7023fead2d59a6f4505d5263856d65fb6a574c5",
+    "common/command_keys.cpp": "9e8ce75c7b728a7f7e0ec15edc77e6f371bc1a03da27dcd1b54c7657844b6e93",
+    "common/configuration.cpp": "3182e7a40c01c725601903c8aa4b2d24e49b036968053f812f0752b7de684f5c",
+    "common/configuration.h": "117623bfbee55b5ed86787b1060c3293c9f158e0f3240d3fdec613b4b2c55e38",
+    "common/info_format.cpp": "069fba3d72fc4b7b71a85cdceb182f99c324761bb6dfb576ca74a9290acf08e2",
+    "common/info_format.h": "518e8aaeb22179a4c0f1c7be467eb2f201abb6f396747c53029175aecf964798",
+    "common/password_policy.cpp": "a02bd490ac12dfa00ebd3314cd36d662814987a9ece74fb1ab6a3eac90d1c9cd",
+    "common/password_policy.h": "189c9edc539a278de4619b6f4a2bbb92630848355c6c5dfa0e9678bfbf2d273d",
+    "common/process_info.cpp": "d8755f208f3ce4ec24172be1309c48312d165b8c6e53ae48c124eac3360e86b2",
+    "common/process_info.h": "92864d78a5c0c734edcafd52e18684196fd0bdffc0537d7b0e7a9e6363903a88",
+    "common/server_statistics.cpp": "10995b17dc13ec7839c94fd033d3376dabdaced993cc1e769417485f59319147",
+    "common/server_statistics.h": "a6cbb310c519b6aaecd0c6c8d238174d9e6562cd9dcad9f25662a0aabe3da9d1",
+    "common/transaction_database.cpp": "22c094c530b77662ccbc7307f0a17434cf7e4efa42029901fbf78f63d08cf4e7",
+    "common/transaction_database.h": "28bde43fc54ef6a4ab2f15cafeb2c1ffd36952a9eaab74e233558f0a1756a546",
+    "db/database_pool.cpp": "98ed333294e61fb77775faf3ef066892770ad60b319677f10fa8f1ef8e3c99d6",
+    "db/database_pool.h": "97b8cae836f518710a0bede1dad5af5bedc79879a5ad90d96d1098a9d168e766",
+    "db/db.h": "61f49d8bbce8c761cb3ee00873123bdc9497ac35938ac3b05d54b5ceb950de9b",
+    "db/expiry_index.h": "6d938615f9d5c633d6448be4001f551b08fd630daaefe176217697b5e9235fbb",
+    "db/expiry_snapshot.cpp": "1afd54b392f25201ece0621cf8b0a224f5d7fc98f117602f5f8f198dbc5a92e5",
+    "db/keyspace_statistics.cpp": "59a1a02cf737740f17b73f6b29553056072306c51dd74e7ad832a91d6b39338a",
+    "master_service.cpp": "82d1c623e84f80e25e0c14e2c99d10c3a7b189ff6a9859cb964bfc6b47499854",
+    "master_service.h": "4b2d109ac544631136a50d1b52fb1e9c53774a62d5f29a4f1028ad6d34a78f75",
+    "tests/CMakeLists.txt": "633c0769146a09dc031bd8ed533a285f89f84c495754a2c23ed8d322a1a84397",
+    "tests/acl_audit_test.cpp": "475215bdb863a9568c53a3ab07678bb187a246b685274480a6cb3bb48b3a24f3",
+    "tests/acl_file_test.cpp": "b2f12769ac72d740dc702e8e0fd2591ee9921f12a68b90e5fc24fd38b1a60626",
+    "tests/acl_file_test.py": "1b231d337ea90ff0ae4fdc124f76d0140b0edb52f340ef672cf448b65af27715",
+    "tests/acl_log_test.py": "cdcfd3a238c81657daebc07b6a10fba10b44dd07dbe2585abeded570c0b13c53",
+    "tests/acl_policy_test.cpp": "717034b734251b124fd22866f966dc02be565dfb0b32bafe07197030e4bcbba9",
+    "tests/acl_test.py": "3e4cd1ffe17fa0ca265cd3995d9776ab9ee95079a202b90a93b5875b5168ed29",
+    "tests/auth_test.py": "26852fa6979116a67a71c3e0780cd892d2c49fc488b4e40d677dca36af215919",
+    "tests/client_info_test.py": "86edaca479d12bcba23c4f49da1bb23b3a6fe4410df612a9eb17ced8a780c608",
+    "tests/client_kill_test.py": "93f61782861875c06da7c986e989c79b972e7ef0e55d0b6a122748d27c8099c8",
+    "tests/command_info_test.py": "f992754740ecf94ac9651e2430adea24080ec1e76900f34c60f5559358e273ed",
+    "tests/configuration_test.cpp": "5bc059c060b4ff5053aa25a5cc115dde8a469adb4508f25ebcd7b5a9b2c2a70f",
+    "tests/configuration_test.py": "ef6db4f03d350fd8b12d3e5d30edfc2174282729d151fc920d3d444877c2825e",
+    "tests/expiry_snapshot_test.cpp": "58a99492eae99cfde15b7776e94ef8699361e782313e65ece74d4f1de934a211",
+    "tests/info_test.py": "e46a41ff7b5258f8148c722b002d25382cff509ad4cc811aea1d51c5b1d98035",
+    "tests/integration_test.py": "29422cd33e24a36e907557a8bfe3c8948d60beed4236f2969d0ac35b8e72a52a",
+    "tests/resp3_client.py": "a0c9e4ba3e681cf73165dd779fe3796fcc0ecac98e127bd903d600ad64f8f007",
+    "tests/resp3_test.py": "1041450093890eb84f803f10fc9b76e3ebc6068b6b921f55bb499b77a1e095fc",
+    "tests/server_statistics_test.cpp": "5861b3c98886f420f004e228709ee1e4b7a402f6d4c0f3ea15519dc9a31a77ae",
+    "tools/generate_command_catalog.py": "9c5e4bb009e87b20bd10cf9fde5f5a7071b66def7a83affde2a073d78cfed57f"
+  },
+  "changed_from_previous": [
+    "action/redis_client_activity.cpp",
+    "action/redis_configuration.cpp",
+    "action/redis_handler.cpp",
+    "action/redis_handler.h",
+    "action/redis_handler_acl.cpp",
+    "action/redis_info.cpp",
+    "action/redis_server.cpp",
+    "action/redis_server.h",
+    "action/redis_service.cpp",
+    "action/redis_service.h",
+    "action/redis_statistics.cpp",
+    "action/redis_transaction.cpp",
+    "common/command_catalog_data.inc",
+    "common/info_format.cpp",
+    "common/info_format.h",
+    "common/process_info.cpp",
+    "common/process_info.h",
+    "common/server_statistics.cpp",
+    "common/server_statistics.h",
+    "common/transaction_database.cpp",
+    "db/database_pool.cpp",
+    "db/database_pool.h",
+    "db/db.h",
+    "db/expiry_index.h",
+    "db/expiry_snapshot.cpp",
+    "db/keyspace_statistics.cpp",
+    "master_service.cpp",
+    "master_service.h",
+    "tests/CMakeLists.txt",
+    "tests/command_info_test.py",
+    "tests/expiry_snapshot_test.cpp",
+    "tests/info_test.py",
+    "tests/integration_test.py",
+    "tests/resp3_test.py",
+    "tests/server_statistics_test.cpp",
+    "tools/generate_command_catalog.py"
+  ],
+  "prior_validation": {
+    "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/config-validation-2026-11-01.json",
+    "sha256": "48eceb059def9329825308728bca34563a13812f9953b95104913b976ac228ad"
+  },
+  "source_freeze": {
+    "path": "/tmp/pkv-observability-source-freeze.json",
+    "sha256": "9d0e6f9894630c4acee11ce5b0b157f44da75c965c5123eedc4ac5e4563b45a7"
+  },
+  "runner": {
+    "path": "/tmp/pkv-observability-final-matrix.py",
+    "sha256": "89482bafd87b649be9a252da516c0fd9f17ac8f56a2e26e4eaef4acd7a4e5c25"
+  },
+  "style": {
+    "path": "/tmp/pkv-observability-style.json",
+    "sha256": "206e86e44a57c8631710db17acbdf1b1a940477e55e21b5a518208158b403dd5"
+  },
+  "style_quality": {
+    "path": "/tmp/pkv-observability-style-quality.json",
+    "sha256": "8cdfdc55a2d259f4f08f0d9afa2d1a5366b8b19e27f0892cb4b1fd72ae0e1815"
+  },
+  "unavailable_database_regression": {
+    "red_log": {
+      "path": "/tmp/pkv-observability-unavailable-red.log",
+      "sha256": "31d7770b713daeb722bb4860b630dc2f0f39b769ca67ac667da13efaffc21c1d"
+    },
+    "green_log": {
+      "path": "/tmp/pkv-observability-unavailable-green.log",
+      "sha256": "879e7afd85d53e15bdd9defc9f42fb875d6a6955e4af3cafb7ef769e3d1d7de6"
+    },
+    "behavior": "Return ERR and keep PING usable after a persisted DB path is replaced by a regular file; both RocksDB and WiredTiger tested."
+  },
+  "thread_sanitizer": {
+    "binary": {
+      "path": "/tmp/pkv-observability-statistics-tsan",
+      "sha256": "ac3ab1a9c7f5927857dc54f05ffca0c34ee6b84a26eaaeb55e748d1a7120c676"
+    },
+    "log": {
+      "path": "/tmp/pkv-observability-statistics-tsan.log",
+      "sha256": "120b3a10c3db66f2acc2a0425e32ec8ee5649cdb95b52b2bb38d43b08022eb87"
+    },
+    "build_log": {
+      "path": "/tmp/pkv-observability-statistics-tsan-build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "command": {
+      "path": "/tmp/pkv-observability-statistics-tsan-command.json",
+      "sha256": "befb3b9b28485f16ff26997869af68898f0d7e69aeeb62b50f11aa60fdd90a92"
+    },
+    "scope": "Native worker statistics with 8 writers, 80000 observed command updates, concurrent snapshots, and reset/error allocation failure cases. Not whole-server or fiber-runtime race freedom."
+  },
+  "allocation_failure": {
+    "reset_budgets": 32,
+    "error_prefix_budget": 0,
+    "invariant": "Failed reset retains the old baseline. Error-prefix allocation failure preserves total errors and exposes untracked count."
+  },
+  "network_concurrency": {
+    "clients": 8,
+    "pings_each": 100,
+    "exact_total": 800,
+    "accepted_connections_survive_close": true
+  },
+  "differential_assertions": {
+    "info_observations": 13,
+    "config_observations": 31,
+    "acl": 72,
+    "resp3": 259,
+    "auth": 72,
+    "client_info": 121,
+    "client_kill": 32,
+    "acl_log": 18
+  },
+  "semantics": {
+    "reset": "Command, connection, network and error counters use a staged baseline. Keep current clients, identity, uptime, data, audit entries and cumulative ACL denials. RESETSTAT itself subsequently counts.",
+    "execution": "Queued commands count at EXEC. Direct child execution errors count on the child; ACL recheck denial marks EXEC failed.",
+    "concurrency": "Per-worker owned values with atomic publication; no global counter lock/RMW for normal KV. Exclusive INFO/reset admission and worker-local locks for CLIENT publication. IO observational.",
+    "keyspace": "Logical roots excluding pages, exact expiring-root count, TTL sample capped at 1024 owners. Lazy persisted DB discovery and RocksDB/WiredTiger restart verified. No eager empty DB creation.",
+    "memory": "Actual allocator and OS resident sizes; omit unavailable metrics. No invented peaks, instantaneous rates or hit ratios.",
+    "protocol": "RESP2 bulk and RESP3 txt verbatim; case-insensitive section unions, default/all/everything and empty unknown sections.",
+    "storage": "No root/page/value encoding change."
+  },
+  "reference": {
+    "binary": {
+      "path": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+      "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a"
+    },
+    "version": "Redis 8.6.2 sha=00000000:1 malloc=libc",
+    "scope": "Local modified reference, not stock Redis speed evidence"
+  },
+  "performance": {
+    "get": {
+      "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/info-get-2026-11-01.json",
+      "sha256": "d8fbc0363c8d42258cb05e04fb8cf6cb41198a6fd3b8ea68ba759e229c47c7f0"
+    },
+    "requests_checked": 37748736,
+    "delta_percent": {
+      "baseline_resp2": 0.0,
+      "new_resp2": -3.076632879371155,
+      "new_resp3": -6.568326763713495
+    },
+    "limits": [
+      "One hot GET key; not mixed workloads or other backends",
+      "Local machine and Python/socket client may limit throughput",
+      "Interleaved samples; no statistical significance claim",
+      "Compares PKV revisions, not stock Redis"
+    ],
+    "measured": {
+      "path": "/tmp/pkv-observability-measured-c11-pkv",
+      "sha256": "f82e7cb307f7c0fed49b7e8689769ae277dd5127f8ee4974fdd70204f4569e79"
+    }
+  },
+  "remaining": [
+    "Full Redis command inventory",
+    "Blocking commands and Pub/Sub",
+    "Redis RDB/AOF and CONFIG REWRITE",
+    "Full Redis replication/PSYNC",
+    "Scripting and complete Redis cluster behavior",
+    "Linux/GCC validation"
+  ]
+}

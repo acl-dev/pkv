@@ -1,0 +1,105 @@
+{
+  "total_passed": 594,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 66,
+      "elapsed_seconds": 190.0,
+      "log": "/tmp/pkv-cas-memory-full.log",
+      "details": "/tmp/pkv-cas-memory-full-details.log",
+      "log_sha256": "2f17844f12a91432139f377b46491baa43964ed74d4967a358c80a488ad24b0d",
+      "details_sha256": "2d615921f1684371335c7f369fae879171503e85a02d97e24d64763add3705f5"
+    },
+    {
+      "build": "c11",
+      "passed": 66,
+      "elapsed_seconds": 175.36,
+      "log": "/tmp/pkv-cas-c11-full.log",
+      "details": "/tmp/pkv-cas-c11-full-details.log",
+      "log_sha256": "ad1ee81e7f2f0c15decfc6fbff0031c9cf350eb1bf2bb88c05b914373fe5d7b3",
+      "details_sha256": "e82f1653637e58cc1b6632812c93927161b1ce2d549ccd225e590f23c9a202d8"
+    },
+    {
+      "build": "tbb",
+      "passed": 73,
+      "elapsed_seconds": 191.01,
+      "log": "/tmp/pkv-cas-tbb-full.log",
+      "details": "/tmp/pkv-cas-tbb-full-details.log",
+      "log_sha256": "0d86336bcdf282d50bbb8401eff79a72dde176b03f499e5779bf2e6f5f7e1b5c",
+      "details_sha256": "8562ca9d62ce396e2a2491bf07a8a41e14e98c1451f3ec68f9238cbd103c242d"
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 73,
+      "elapsed_seconds": 183.81,
+      "log": "/tmp/pkv-cas-tbb-c11-full.log",
+      "details": "/tmp/pkv-cas-tbb-c11-full-details.log",
+      "log_sha256": "02168fbba70c738a60a0fc448c0136c21903c56e1321e7e36fafb1c7815678ed",
+      "details_sha256": "ef6618a31bbaea07c043128e7e3b948e86a0f0015486aef3fbfb12e021afdb53"
+    },
+    {
+      "build": "rocks",
+      "passed": 79,
+      "elapsed_seconds": 196.25,
+      "log": "/tmp/pkv-cas-rocks-full.log",
+      "details": "/tmp/pkv-cas-rocks-full-details.log",
+      "log_sha256": "199b3c6d91651f92765948738a62c9e288d7f0a620516b99567addf369286d41",
+      "details_sha256": "6d0ad44ff225f3ab64778e32bf6344c024fd18b26eb064a45c5f11cc49422eb2"
+    },
+    {
+      "build": "rocks-release",
+      "passed": 79,
+      "elapsed_seconds": 191.12,
+      "log": "/tmp/pkv-cas-rocks-release-full.log",
+      "details": "/tmp/pkv-cas-rocks-release-full-details.log",
+      "log_sha256": "eaf9819ffc77730e43d8297056bc7981f32ae1d26f1ec6ecc2ce35e787218689",
+      "details_sha256": "4886db665f6536b5abf37a811c37107874aad54da6ba18671e4b06f2e1e1b108"
+    },
+    {
+      "build": "wt",
+      "passed": 79,
+      "elapsed_seconds": 244.31,
+      "log": "/tmp/pkv-cas-wt-full.log",
+      "details": "/tmp/pkv-cas-wt-full-details.log",
+      "log_sha256": "c8f0bb9631ec47dfd2a6041944c52eb3c54441a6bb8c32f402d1ef705fb1007a",
+      "details_sha256": "fbee548f7875962e02dc45ed76955268d4d69b1bbc7f48a162602b3564395d5f"
+    },
+    {
+      "build": "wt-c11",
+      "passed": 79,
+      "elapsed_seconds": 216.96,
+      "log": "/tmp/pkv-cas-wt-c11-full.log",
+      "details": "/tmp/pkv-cas-wt-c11-full-details.log",
+      "log_sha256": "c732ef904bc213504bcc1e732eb861c196a608b851d816b9add6fa27f5f3fb51",
+      "details_sha256": "5b7978a11c8bba11463c64f84fd3feaca5b9e43b348dcd3608796a3368562f7b"
+    }
+  ],
+  "common_protocol_assertions_per_build": 272,
+  "source_sha256": {
+    "action/redis_string.cpp": "f88404f31dbcd83c3bbf774ef6c542932c12de2f77d3a003a6aefcf61bb37b8e",
+    "dao/string.h": "f7d20caa7d569e4bdd7c03490c722a4077231d50f3f37170dff78d16f34cf7be",
+    "dao/paged_string.h": "a72f769c39d55a67be4c762c50be8da495771a49bbe74d3f23c0b9999a26a2ac",
+    "dao/paged_string_set.cpp": "43fd4487d3780d531b76292d1004349d3d3457456f2801e17f9fba4b86764a8d",
+    "dao/json/json_string.cpp": "992e2bc226f5e91c792b82015b37a0a020c65196e449c8e00a05a976f69c840a",
+    "dao/string_comparison.h": "960b6000c3a29ee3763ec7cfee0704c4706e6a61cf92d4940bda18971e371702",
+    "tests/set_compare_test.cpp": "abbbbf13c188a7df072867848c7d6ad63dc2d8b40c39932ddcd1ac8e65ec4f48",
+    "tests/set_compare_test.py": "ad563e523d5d4b360a1491c41e7f9dfc8d63397d09d0eb5cd2d41ccc8bfae9b2",
+    "tests/CMakeLists.txt": "56cde9e3685951c6aae95a50878606b3749282098a229fb18332dd354ab70d11"
+  },
+  "wt_isolated": true,
+  "all_sessions_terminal": true,
+  "reference_binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+  "reference_sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a",
+  "reference_version": "Redis server v=8.6.2 sha=00000000:1 malloc=libc bits=64 build=dc7a0160f6aa59fe\n",
+  "earlier_differential_failure": "/tmp/pkv-cas-memory-target.log",
+  "diagnostic_failure": "/tmp/pkv-cas-memory-diagnostic.log",
+  "reference_differences": [
+    "strict mutual exclusion in both option orders",
+    "reject NUL-suffixed option tokens"
+  ],
+  "limits": [
+    "external libraries unsanitized",
+    "no complete Redis parity claim",
+    "no initial sync, durable replay, crash-safety or throughput claim"
+  ]
+}

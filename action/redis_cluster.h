@@ -21,6 +21,7 @@ public:
     bool exec(const char* cmd, redis_coder& result);
 
 public:
+    bool cluster_keyslot(redis_coder& result);
     bool cluster_slots(redis_coder& result);
     bool cluster_addslots(redis_coder& result);
     bool cluster_nodes(redis_coder& result);

@@ -10,6 +10,7 @@ namespace pkv {
 
 struct pkv_node;
 class cluster_client;
+class database_pool;
 using shared_cluster_client = std::shared_ptr<cluster_client>;
 
 /**
@@ -17,8 +18,12 @@ using shared_cluster_client = std::shared_ptr<cluster_client>;
  * 
  * It provides functionality to bind to a given address and add slots to the cluster.
  */
-class cluster_manager : public acl::singleton<cluster_manager> {
+class cluster_manager {
 public:
+    static cluster_manager& get_instance();
+    cluster_manager(const cluster_manager&) = delete;
+    cluster_manager& operator=(const cluster_manager&) = delete;
+
     /**
      * @brief Default constructor for cluster_manager.
      */
@@ -38,7 +43,8 @@ public:
      */
     void init(size_t max_slots, bool cluster_mode, const char* save_path,
               const std::string& service_ip, int service_port, int rpc_port,
-              shared_db db);
+              shared_db db, std::shared_ptr<database_pool> databases = nullptr,
+              std::string password = {});
 
     const char* get_service_ip() const {
         return service_ip_.c_str();
@@ -141,6 +147,7 @@ public:
      * @return {shared_node}
      */
     NODISCARD shared_node get_node(const char* key, size_t& slot);
+    NODISCARD shared_node get_node(const std::string& key, size_t& slot);
 
     /**
      * Hash the given key to get the hash slot of it.
@@ -176,6 +183,8 @@ private:
     size_t max_slots_ = 16384; /**< The maximum number of slots in the cluster. */
 
     shared_db db_;
+    std::shared_ptr<database_pool> databases_;
+    std::string password_;
     shared_cluster_client sync_;
 
     void add_node(const struct pkv_node& node);

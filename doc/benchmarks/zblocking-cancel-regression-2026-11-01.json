@@ -1,0 +1,33 @@
+{
+  "runs": [
+    {
+      "label": "baseline",
+      "binary": "/tmp/pkv-blocking-measured-c11-pkv",
+      "sha256": "3eecbd4acecd9e5280d1c54dab66233cab3aa01d6f375458ec82a730c5719090",
+      "result": {
+        "unblocked_remaining": 0,
+        "response": "WRONGTYPE Operation against a key holding the wrong kind of value"
+      }
+    },
+    {
+      "label": "new",
+      "binary": "/tmp/pkv-c11-build/pkv",
+      "sha256": "b25ec6420d426c084e7f327543c957b49c43a9ceaad2ba87400fcf3ef49a42d1",
+      "result": {
+        "unblocked_remaining": 1,
+        "response": null
+      }
+    },
+    {
+      "label": "reference",
+      "binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+      "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a",
+      "result": {
+        "unblocked_remaining": 1,
+        "response": null
+      }
+    }
+  ],
+  "probe": "/private/tmp/pkv-zblocking-cancel-regression.py",
+  "probe_sha256": "d0b020ae9eb57b450b4588cec072afbefb01fb3dc37fa5edb6a482f85f9a6ce4"
+}

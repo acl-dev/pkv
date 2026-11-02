@@ -1,0 +1,86 @@
+{
+  "host": {
+    "system": "Darwin",
+    "release": "25.3.0",
+    "machine": "arm64",
+    "logical_cpus": 10,
+    "cache_line_bytes": 128
+  },
+  "compiler": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+  "flags": "-O3 -DNDEBUG -std=gnu++11",
+  "backend": "mdb + oneTBB 2021.10.0",
+  "build": "/tmp/pkv-tbb-c11-build",
+  "sanitizers": false,
+  "iterations_argument": 100000,
+  "trials": 5,
+  "rows_per_trial": 34,
+  "warmup_per_worker": 64,
+  "worker_counts": [
+    1,
+    4
+  ],
+  "physical_shards": 16,
+  "keys_per_worker": 256,
+  "value_bytes": 128,
+  "unrelated_future_ttl_keys": 256,
+  "index_iteration_multipliers": {
+    "erase": 100,
+    "poll": 10,
+    "refresh": 10,
+    "churn": 10
+  },
+  "trial_order": "odd: before/after; even: after/before",
+  "state_order": "(order + trial) modulo 3",
+  "baseline": {
+    "path": "/tmp/pkv-expiry-before-bench",
+    "sha256": "9846087bafbffc5ccf4cd7e5ca388d8b5234060d8881b0696fd703e773fefb44",
+    "origin": "uncommitted active-expiry milestone; not upstream Redis"
+  },
+  "variants": [
+    {
+      "name": "exact-release-acquire",
+      "binary_path": "/tmp/pkv-expiry-v1/after-bench",
+      "sha256": "98164b7be7352079b59967f1cc99bba9276bc6b4eaedc4b1d33dce32c7ca2e0b"
+    },
+    {
+      "name": "exact-relaxed-tail",
+      "binary_path": "/tmp/pkv-expiry-v2/after-bench",
+      "sha256": "6adfbaca03e35524180930306a31af6288705fe69a5ef7721a4749a479694aa0"
+    },
+    {
+      "name": "exact-relaxed-front",
+      "binary_path": "/tmp/pkv-expiry-v3/after-bench",
+      "sha256": "b91581df70a4b1df2418811c4f425a24476e4f2bb6a5b16dfba83809bcabb56a"
+    },
+    {
+      "name": "exact-relaxed-array",
+      "binary_path": "/tmp/pkv-expiry-v4/after-bench",
+      "sha256": "72f22d0b7e5115cdfed352c66d83137f023e1929a7bd3c0a931a50284a5805fe"
+    },
+    {
+      "name": "exact-relaxed-padded",
+      "binary_path": "/tmp/pkv-expiry-v5/after-bench",
+      "sha256": "45d21b1a36379e9dffe151007ae2cf2cee3cfcbc8a5158872d986ad8d2b09d01"
+    },
+    {
+      "name": "lower-bound-array",
+      "binary_path": "/tmp/pkv-expiry-after-bench",
+      "sha256": "4fc263c3ed7aaca7a3f82651e1833bff2389bc91c3fc07a7e917d060230795c7"
+    }
+  ],
+  "source_sha256": {
+    "db/expiry_index.h": "6b67da6dcda7f30c60db80baba317ffa4b73a7aa254c469504febc1b4fb19b90",
+    "db/expiry_index.cpp": "d5b5107e63d74e5f10587986cfd8fbcd9a0848d58df2a09b87380775bc5d8750",
+    "tests/expiry_path_bench.cpp": "bfee4b1000dc05e02247b572e7abb2f8b3fe2ee3be933aa55c99077f28d48cd2"
+  },
+  "raw_sha256": "244d29835a5a1bd8ba2ba24bc59f7de892431b2be6b7a459614f5804b833b67d",
+  "limits": [
+    "desktop host noise; no confidence intervals",
+    "short raw SET and fast index samples; inspect paired ranges",
+    "no concurrent benchmark/build/test jobs during measurement",
+    "no TCP, ACL scheduler, replication, active reaper or disk engines",
+    "final source changed only expiry_index relative to frozen baseline",
+    "churn iteration counts one set/erase pair",
+    "not a whole-service throughput or stock Redis comparison"
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "runs": [
+    {
+      "label": "new",
+      "binary": "/tmp/pkv-c11-build/pkv",
+      "sha256": "64dffac8be24b965a0832d8b356be332506d96bbcec3b7e7631ec9d6ce0dfd94",
+      "observations": [
+        [
+          [
+            "a",
+            "l"
+          ],
+          [
+            "b",
+            "z",
+            "1"
+          ],
+          [
+            "c",
+            "db3",
+            "2"
+          ]
+        ],
+        [
+          [
+            "a",
+            "l"
+          ],
+          {
+            "error": "WRONGTYPE Operation against a key holding the wrong kind of value"
+          },
+          [
+            "c",
+            "db3",
+            "2"
+          ]
+        ]
+      ]
+    },
+    {
+      "label": "reference",
+      "binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+      "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a",
+      "observations": [
+        [
+          [
+            "a",
+            "l"
+          ],
+          [
+            "b",
+            "z",
+            "1"
+          ],
+          [
+            "c",
+            "db3",
+            "2"
+          ]
+        ],
+        [
+          [
+            "a",
+            "l"
+          ],
+          {
+            "error": "WRONGTYPE Operation against a key holding the wrong kind of value"
+          },
+          [
+            "c",
+            "db3",
+            "2"
+          ]
+        ]
+      ]
+    }
+  ],
+  "probe": "/private/tmp/pkv-queue-multi-db.py",
+  "probe_sha256": "64455356a0ee9644340dd6c5616c2b94ee6363eba1b387b940b7465373ec8f9d"
+}

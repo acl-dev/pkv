@@ -44,8 +44,12 @@ const char* redis_coder::update(const char* data, size_t& len) {
     while (len > 0) {
         data = curr_->update(data, len);
         if (curr_->finish()) {
-            objs_.push_back(curr_);
-            curr_ = cache_.get();
+            // Prepare the next owner before publishing this completed frame.
+            // Otherwise a failed get() leaves curr_ owned twice.
+            auto* next = cache_.get();
+            try { objs_.push_back(curr_); }
+            catch (...) { next->destroy(); throw; }
+            curr_ = next;
         } else if (curr_->failed()) {
             break;
         }
@@ -57,18 +61,30 @@ const char* redis_coder::update(const char* data, size_t& len) {
 redis_object& redis_coder::create_object() {
     redis_object* obj = cache_.get();
     assert(obj);
-    objs_.push_back(obj);
+    try { objs_.push_back(obj); }
+    catch (...) { obj->destroy(); throw; }
     return *obj;
 }
 
 bool redis_coder::to_string(std::string& out) const {
     for (const auto& obj : objs_) {
-        if (!obj->to_string(out)) {
+        if (!obj->to_resp(out)) {
             return false;
         }
     }
 
     return true;
+}
+
+void redis_coder::move_to(redis_object& array) {
+    size_t moved = 0;
+    try {
+        for (; moved < objs_.size(); ++moved) array.adopt_child(*objs_[moved]);
+    } catch (...) {
+        objs_.erase(objs_.begin(), objs_.begin() + moved);
+        throw;
+    }
+    objs_.clear();
 }
 
 } // namespace pkv

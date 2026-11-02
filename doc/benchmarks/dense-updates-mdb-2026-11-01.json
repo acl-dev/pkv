@@ -1,0 +1,259 @@
+{
+  "backend": "mdb",
+  "results": [
+    {
+      "operations": 1048576,
+      "seconds": 1.06319875,
+      "operations_per_second": 986246.456741978,
+      "resident_before_bytes": 4751360,
+      "resident_after_bytes": 5472256,
+      "retained_roots": 4,
+      "variant": "baseline",
+      "repetition": 1,
+      "scenario": "overwrite"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.0189206250000002,
+      "operations_per_second": 1029104.6959619644,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 5373952,
+      "retained_roots": 4,
+      "variant": "new",
+      "repetition": 1,
+      "scenario": "overwrite"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.0077642499999997,
+      "operations_per_second": 1040497.3186933356,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 5439488,
+      "retained_roots": 4,
+      "variant": "new",
+      "repetition": 2,
+      "scenario": "overwrite"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 0.9964519579999997,
+      "operations_per_second": 1052309.6387954513,
+      "resident_before_bytes": 4800512,
+      "resident_after_bytes": 5472256,
+      "retained_roots": 4,
+      "variant": "baseline",
+      "repetition": 2,
+      "scenario": "overwrite"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.007745958,
+      "operations_per_second": 1040516.2051763842,
+      "resident_before_bytes": 4751360,
+      "resident_after_bytes": 5439488,
+      "retained_roots": 4,
+      "variant": "baseline",
+      "repetition": 3,
+      "scenario": "overwrite"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.0444562079999997,
+      "operations_per_second": 1003944.4372760148,
+      "resident_before_bytes": 4751360,
+      "resident_after_bytes": 5488640,
+      "retained_roots": 4,
+      "variant": "new",
+      "repetition": 3,
+      "scenario": "overwrite"
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.8676077500000012,
+      "operations_per_second": 1122908.1695554105,
+      "resident_before_bytes": 4833280,
+      "resident_after_bytes": 5931008,
+      "retained_roots": 0,
+      "variant": "baseline",
+      "repetition": 1,
+      "scenario": "churn"
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.7882671670000008,
+      "operations_per_second": 1172728.5713790657,
+      "resident_before_bytes": 4734976,
+      "resident_after_bytes": 5799936,
+      "retained_roots": 0,
+      "variant": "new",
+      "repetition": 1,
+      "scenario": "churn"
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.800787875000001,
+      "operations_per_second": 1164574.7003932924,
+      "resident_before_bytes": 4702208,
+      "resident_after_bytes": 5783552,
+      "retained_roots": 0,
+      "variant": "new",
+      "repetition": 2,
+      "scenario": "churn"
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.796349750000001,
+      "operations_per_second": 1167451.9396904744,
+      "resident_before_bytes": 4734976,
+      "resident_after_bytes": 5832704,
+      "retained_roots": 0,
+      "variant": "baseline",
+      "repetition": 2,
+      "scenario": "churn"
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.807007084000002,
+      "operations_per_second": 1160566.5625603034,
+      "resident_before_bytes": 4800512,
+      "resident_after_bytes": 5849088,
+      "retained_roots": 0,
+      "variant": "baseline",
+      "repetition": 3,
+      "scenario": "churn"
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.779689291999997,
+      "operations_per_second": 1178380.9732558662,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 5799936,
+      "retained_roots": 0,
+      "variant": "new",
+      "repetition": 3,
+      "scenario": "churn"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.3583034580000017,
+      "operations_per_second": 771974.7703093889,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 222117888,
+      "retained_roots": 1048576,
+      "variant": "baseline",
+      "repetition": 1,
+      "scenario": "fill"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.3606423330000013,
+      "operations_per_second": 770647.7849237982,
+      "resident_before_bytes": 4702208,
+      "resident_after_bytes": 252657664,
+      "retained_roots": 1048576,
+      "variant": "new",
+      "repetition": 1,
+      "scenario": "fill"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.3658723750000021,
+      "operations_per_second": 767696.908724725,
+      "resident_before_bytes": 4751360,
+      "resident_after_bytes": 253607936,
+      "retained_roots": 1048576,
+      "variant": "new",
+      "repetition": 2,
+      "scenario": "fill"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.330451042,
+      "operations_per_second": 788135.7275828267,
+      "resident_before_bytes": 4800512,
+      "resident_after_bytes": 222232576,
+      "retained_roots": 1048576,
+      "variant": "baseline",
+      "repetition": 2,
+      "scenario": "fill"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.3228055419999976,
+      "operations_per_second": 792690.9637939829,
+      "resident_before_bytes": 4816896,
+      "resident_after_bytes": 222199808,
+      "retained_roots": 1048576,
+      "variant": "baseline",
+      "repetition": 3,
+      "scenario": "fill"
+    },
+    {
+      "operations": 1048576,
+      "seconds": 1.3697599999999994,
+      "operations_per_second": 765518.0469571315,
+      "resident_before_bytes": 4800512,
+      "resident_after_bytes": 253591552,
+      "retained_roots": 1048576,
+      "variant": "new",
+      "repetition": 3,
+      "scenario": "fill"
+    }
+  ],
+  "summaries": [
+    {
+      "scenario": "overwrite",
+      "median_ops_per_second": {
+        "baseline": 1040516.2051763842,
+        "new": 1029104.6959619644
+      },
+      "rate_delta_percent": -1.096716145087362,
+      "median_resident_bytes": {
+        "baseline": 5472256,
+        "new": 5439488
+      }
+    },
+    {
+      "scenario": "churn",
+      "median_ops_per_second": {
+        "baseline": 1160566.5625603034,
+        "new": 1172728.5713790657
+      },
+      "rate_delta_percent": 1.0479372068011417,
+      "median_resident_bytes": {
+        "baseline": 5849088,
+        "new": 5799936
+      }
+    },
+    {
+      "scenario": "fill",
+      "median_ops_per_second": {
+        "baseline": 788135.7275828267,
+        "new": 767696.908724725
+      },
+      "rate_delta_percent": -2.5933120581637104,
+      "median_resident_bytes": {
+        "baseline": 222199808,
+        "new": 253591552
+      }
+    }
+  ],
+  "platform": "macOS-26.3.1-arm64-arm-64bit",
+  "binaries": {
+    "/tmp/pkv-sampling-measured-c11-pkv": "6e2983bd425bff4339d77e02a2289162313bee7680bf7be65aec43848b0253cd",
+    "/tmp/pkv-c11-build/pkv": "8372e823b7eaf97c5ee0bdc3a6b866d2aabd0ba719bc9fde3cb16af0ce1fcd74"
+  },
+  "flags_sha256": "292c4614092f47cf791c7dc3a9340e25c7f138c026dc2d76d3a715fd001aaed7",
+  "script_sha256": "153ad9bb44b3d2469b3f088063c469afb55938da13418cf7d27aa0d4c0791ff4",
+  "workers": 4,
+  "batch": 256,
+  "value_bytes": 64,
+  "protocol": 2,
+  "limits": [
+    "Three rotating PKV revision samples, not official Redis",
+    "RSS includes all runtime/allocator/cache memory, not index bytes",
+    "Cold fill retains 262144 roots with the default batch count",
+    "Client builds requests outside timing; this is a local workload",
+    "No statistical significance or general mixed-workload claim"
+  ]
+}
