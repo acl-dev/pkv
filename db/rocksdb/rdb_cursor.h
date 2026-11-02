@@ -13,6 +13,7 @@ public:
     ~rdb_cursor() override = default;
 
     void set_seek_key(const std::string& key);
+    bool started() const { return started_; }
     NODISCARD const std::string& get_seek_key() const {
         return seek_key_;
     }
@@ -22,6 +23,7 @@ public:
 
 private:
     std::string seek_key_;
+    bool started_ = false;
 };
 
 } // namespace pkv

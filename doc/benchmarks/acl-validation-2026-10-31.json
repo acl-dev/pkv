@@ -1,0 +1,703 @@
+{
+  "total_passed": 822,
+  "full_matrix_passed": 782,
+  "focused_postfix_passed": 40,
+  "full_candidate": {
+    "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/acl-full-candidate-2026-10-31.json",
+    "sha256": "728f4023c8465b6787eb0d394366587b0035c2384c574693989c1a90face382b"
+  },
+  "results": [
+    {
+      "build": "memory",
+      "passed": 88,
+      "log": {
+        "path": "/tmp/pkv-acl-memory-full.log",
+        "sha256": "e8f76a274ea5a286e289d2f49141d772f4c8c661cd5f6b4a7a318109ee662791"
+      },
+      "details": {
+        "path": "/tmp/pkv-acl-memory-full-details.log",
+        "sha256": "f2bb80c2a2de775b76dfd1c0bf1d2055bbb7241f7c37f6e2bc378b27457f2ca6"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-acl-memory-build.log",
+        "sha256": "b60ab4ae0b82f398d1dd4755bcd9678ff9d69540e2621aaaac968e6bb5244254"
+      },
+      "full_binary": {
+        "path": "/tmp/pkv-acl-full-memory-pkv",
+        "sha256": "d52a765548426717d9da5eee591428651651f57e5ceb6fe7823dfb7f019f1aa9"
+      },
+      "final_binary": {
+        "path": "/tmp/pkv-memory-build/pkv",
+        "sha256": "6599440e26accef73bfed3a98d64b1216eb8c48e56a021de44a3640ab50ac6b8"
+      },
+      "compile_flags": {
+        "path": "/tmp/pkv-memory-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "6b3570efe51f5288e2955fcb832549b26026144627699695c3f77d136b718c47"
+      },
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "focused": {
+        "path": "/tmp/pkv-acl-memory-postfix.log",
+        "sha256": "c7fc139baac7e6177ac93c55def41b99573ae619cd58a42a022cae652bc0cf30"
+      },
+      "admission": {
+        "path": "/tmp/pkv-acl-memory-admission.log",
+        "sha256": "78c92f28eb9ef1d3322f6e8102c5010ecc38ac89e17cf866c4c572aea6c5d7f4"
+      },
+      "admission_details": {
+        "path": "/tmp/pkv-acl-memory-admission-details.log",
+        "sha256": "d9cea6cb9aaef5b1947b109e23190e471403daabdbd670d32c849d74bd9ccafd"
+      },
+      "focused_details": {
+        "path": "/tmp/pkv-acl-memory-postfix-details.log",
+        "sha256": "96cb6cc1c6855a9219b3aaa26a789c8e577d4e76f7c7bd21d5c9b7e432e0833a"
+      },
+      "focused_build": {
+        "path": "/tmp/pkv-acl-memory-postfix-build.log",
+        "sha256": "509307bfc3b6d22217a4353f4c247a9c266bcbb75947bb85cddd9d1fd4da5b6a"
+      },
+      "elapsed_seconds": 119.63
+    },
+    {
+      "build": "c11",
+      "passed": 88,
+      "log": {
+        "path": "/tmp/pkv-acl-c11-full.log",
+        "sha256": "b358a9d991f14979c7f311bafbf822e310eb36ec65e9c5dd4444c03150032ee9"
+      },
+      "details": {
+        "path": "/tmp/pkv-acl-c11-full-details.log",
+        "sha256": "6200897e418672e17610dd1680a68325d128e1e68b8d20c8d60219c308bdc827"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-acl-c11-build.log",
+        "sha256": "ecc44ed2e0a9d1ce7cd584303a8d88b12ff3ad78319056985a45cd454fb5cfcb"
+      },
+      "full_binary": {
+        "path": "/tmp/pkv-acl-full-c11-pkv",
+        "sha256": "a201b1c752df640cf03d19296c9a9fc3924279ee78c55e08647cd6e4980c7a44"
+      },
+      "final_binary": {
+        "path": "/tmp/pkv-c11-build/pkv",
+        "sha256": "d75f940dfcc86dafa3b4e9d8a99262d355b776a792aae6b0b2f0346a35e72160"
+      },
+      "compile_flags": {
+        "path": "/tmp/pkv-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "ecb9ec883fd669a76045b73a481f23a79609271888b347f3d06d8513b48d2154"
+      },
+      "configuration": {
+        "BUILD_WITH_C11": "YES",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "focused": {
+        "path": "/tmp/pkv-acl-c11-postfix.log",
+        "sha256": "22c8667a30ca9009587e257128fa31ce47107624b8d6fa2261c93d280a8ae7da"
+      },
+      "admission": {
+        "path": "/tmp/pkv-acl-c11-admission.log",
+        "sha256": "db235c3a4345fb13e23707299ba8e64f315d8a276bf44d9c3510123727444e6a"
+      },
+      "admission_details": {
+        "path": "/tmp/pkv-acl-c11-admission-details.log",
+        "sha256": "7b5e1215a5c464b4b0fb030d5c5c63f47d00c4fe6f98197c33fb4b7cdd02f346"
+      },
+      "focused_details": {
+        "path": "/tmp/pkv-acl-c11-postfix-details.log",
+        "sha256": "8b26952183047d3d7a6638ca5fb7b5032635eb19b792791a93e48a2975ed0339"
+      },
+      "focused_build": {
+        "path": "/tmp/pkv-acl-c11-postfix-build.log",
+        "sha256": "67f0109d028dd247f5b04fa8e853d167a67833548f067e4cf0681bf581a225f8"
+      },
+      "elapsed_seconds": 75.45
+    },
+    {
+      "build": "tbb",
+      "passed": 97,
+      "log": {
+        "path": "/tmp/pkv-acl-tbb-full.log",
+        "sha256": "b24edf594c06255c00a1102f5711988af9266093e0f076a1e3e34df7dd27b445"
+      },
+      "details": {
+        "path": "/tmp/pkv-acl-tbb-full-details.log",
+        "sha256": "8a1f73f587a677aa610c7b2c8da3544aa05c2cf1b53901c86903185a43f22f05"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-acl-tbb-build.log",
+        "sha256": "08b0e9667f0941fa4cea7b60e05d8f0aa5ab515acfe5b9b669d00c185b01866b"
+      },
+      "full_binary": {
+        "path": "/tmp/pkv-acl-full-tbb-pkv",
+        "sha256": "bf454c93e37903d50b53a9b1143f133fdb280a0efc81481fa8de5c2ae6878cd0"
+      },
+      "final_binary": {
+        "path": "/tmp/pkv-tbb-build/pkv",
+        "sha256": "1bd0679b81c423ba4e96848b41d63e420c4b22df7713521b346ab7ef389113dd"
+      },
+      "compile_flags": {
+        "path": "/tmp/pkv-tbb-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "6f4e0a40df0e07d5e1c0bef47a7270fc049df62cef9aadd6dd6ebcaa065d7226"
+      },
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "focused": {
+        "path": "/tmp/pkv-acl-tbb-postfix.log",
+        "sha256": "155610cb630ff4bfdd0af91c01532351a4c5a8f8b692929f620a0da477e6295c"
+      },
+      "admission": {
+        "path": "/tmp/pkv-acl-tbb-admission.log",
+        "sha256": "2d357f685481f5968a2741d2d4fe7d294f1fd0cee352df10b671e80039c9e434"
+      },
+      "admission_details": {
+        "path": "/tmp/pkv-acl-tbb-admission-details.log",
+        "sha256": "2d2de6300be7ec2e64a15f84edd4c4298ce8e2d9ecec3817cc4f781a08cb8546"
+      },
+      "focused_details": {
+        "path": "/tmp/pkv-acl-tbb-postfix-details.log",
+        "sha256": "2ffc458ea3d8b7ccf15dddd8810a2e6e866bbcca2e99c43b6b5524e288ccef0e"
+      },
+      "focused_build": {
+        "path": "/tmp/pkv-acl-tbb-postfix-build.log",
+        "sha256": "1f7b6a5ff2b3792f23b11dbd608ee6dd6e7f72f096a52f6b764c905c8e12885a"
+      },
+      "elapsed_seconds": 132.04
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 97,
+      "log": {
+        "path": "/tmp/pkv-acl-tbb-c11-full.log",
+        "sha256": "d5de3f9b69b06eb279f284bec06a2909279e45b1792571a74572e79b9607a7dc"
+      },
+      "details": {
+        "path": "/tmp/pkv-acl-tbb-c11-full-details.log",
+        "sha256": "217d42886fcdc1c300dcb986c054e0b01302fb58965e64db7447cc6aeaa65e84"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-acl-tbb-c11-build.log",
+        "sha256": "15390cf64b4a2eb8ec80c72db4cc8893f1519d90049772d7bc83e598325c7321"
+      },
+      "full_binary": {
+        "path": "/tmp/pkv-acl-full-tbb-c11-pkv",
+        "sha256": "6de7b25b33535b122dac4b48dc0cc48834527afa096391fc28612081f9fd3e72"
+      },
+      "final_binary": {
+        "path": "/tmp/pkv-tbb-c11-build/pkv",
+        "sha256": "bf52d195f7654ff09db515d89bf6b96dffa75944e835c4f42756f094cc0b15f1"
+      },
+      "compile_flags": {
+        "path": "/tmp/pkv-tbb-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "1ca8b35d632704c3c431952fb9650a918ede0f36aa5ec4032e86a344e06d2449"
+      },
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "focused": {
+        "path": "/tmp/pkv-acl-tbb-c11-postfix.log",
+        "sha256": "adbd1bfef41a986b995f00199a9d269d718a9aa5283ac7d91989aea29be95f42"
+      },
+      "admission": {
+        "path": "/tmp/pkv-acl-tbb-c11-admission.log",
+        "sha256": "38f5cdbfc3afb366f4117c7838237c07d59560b53eca063361ea4804f0ba9daf"
+      },
+      "admission_details": {
+        "path": "/tmp/pkv-acl-tbb-c11-admission-details.log",
+        "sha256": "5be77fe777afe53866a6053f2a4a0cf3e0d35b0be41b0b85a3f7af47fa4c3a09"
+      },
+      "focused_details": {
+        "path": "/tmp/pkv-acl-tbb-c11-postfix-details.log",
+        "sha256": "1f0cf573962fb2921d4b3e183db7c4fcef22a1f212c2c4217df222608357e7eb"
+      },
+      "focused_build": {
+        "path": "/tmp/pkv-acl-tbb-c11-postfix-build.log",
+        "sha256": "a231ad1ed6f560824ecdd862907ecbb51b92abeef09b3979562685b3ec82e2ff"
+      },
+      "elapsed_seconds": 98.29
+    },
+    {
+      "build": "rocks",
+      "passed": 103,
+      "log": {
+        "path": "/tmp/pkv-acl-rocks-full.log",
+        "sha256": "9baa5c37dad2467bbc4442d3bd8518b4c815180ca508073db5927d1c374d0d2a"
+      },
+      "details": {
+        "path": "/tmp/pkv-acl-rocks-full-details.log",
+        "sha256": "155295c36421392bb90e53ac1a4f171ea950303d58dbc0956cecf8273b5de09c"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-acl-rocks-build.log",
+        "sha256": "cebcbdce3914473c3a93d67d0ba891abc82d984892405e7f4c0c924737e2d144"
+      },
+      "full_binary": {
+        "path": "/tmp/pkv-acl-full-rocks-pkv",
+        "sha256": "e8c933086526ddfcad0c7a5935407982fa6b8f8127302ae990360571ee55a41c"
+      },
+      "final_binary": {
+        "path": "/tmp/pkv-rocks-build/pkv",
+        "sha256": "94cab3ffc117efa4beb1d1029587de5790a01b3a3b198d1de51c98339e2c79c1"
+      },
+      "compile_flags": {
+        "path": "/tmp/pkv-rocks-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "c1eee0f6bdea8e67d4867ef7da81baad162184850e75863d6ae7aaa52166e2f8"
+      },
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "focused": {
+        "path": "/tmp/pkv-acl-rocks-postfix.log",
+        "sha256": "cd333af69a42c8a26006b5a1b353546606e54aa6cfc4518e1e1a0e5cbb2a58a3"
+      },
+      "admission": {
+        "path": "/tmp/pkv-acl-rocks-admission.log",
+        "sha256": "13df1bb88daa76bdbfff5d31c8c92292e9874ba688aa54ea1ef69545c3358bf4"
+      },
+      "admission_details": {
+        "path": "/tmp/pkv-acl-rocks-admission-details.log",
+        "sha256": "03111465eff3c3e4f8af5931d5e884c2a48426570cc67bf05010db8b6413b037"
+      },
+      "focused_details": {
+        "path": "/tmp/pkv-acl-rocks-postfix-details.log",
+        "sha256": "528da0b273bbf89c17066f85cb7029c61e48145bb52473557156e74991ec30ab"
+      },
+      "focused_build": {
+        "path": "/tmp/pkv-acl-rocks-postfix-build.log",
+        "sha256": "dfc6d1168c2f6a296afc4be31b57be27d1b70bac4cc19df725107e78f5bbc0cc"
+      },
+      "elapsed_seconds": 158.91
+    },
+    {
+      "build": "rocks-release",
+      "passed": 103,
+      "log": {
+        "path": "/tmp/pkv-acl-rocks-release-full.log",
+        "sha256": "5c8dd1b628faa68547e8acae35470929faa5a27396f6aec99d5fa2d32c223ace"
+      },
+      "details": {
+        "path": "/tmp/pkv-acl-rocks-release-full-details.log",
+        "sha256": "aa3f8106815c2b24b9a5f3cc7e7ec24a9c70abe1a495e833b36cad62c7b27b2a"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-acl-rocks-release-build.log",
+        "sha256": "adcca380ec4b3cd7470a89ca6121805f5b448dda62f3022da997ea92a2c9c700"
+      },
+      "full_binary": {
+        "path": "/tmp/pkv-acl-full-rocks-release-pkv",
+        "sha256": "3cbcf5f93248702e424ce0b2f8c1a5c9dc575a536c15c94dca672e7c5e7da298"
+      },
+      "final_binary": {
+        "path": "/tmp/pkv-rocks-release-build/pkv",
+        "sha256": "8de36a083ff6447cb9239cea3284beca8aeabf5c61cdc34c15101fde76ce036e"
+      },
+      "compile_flags": {
+        "path": "/tmp/pkv-rocks-release-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "7203bfdea65094b9d230653f00dfb802a03c291b6847e6c34bbe4071ed789cc9"
+      },
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "focused": {
+        "path": "/tmp/pkv-acl-rocks-release-postfix.log",
+        "sha256": "049e4c6d5a04a7b772d3ce28bc70127b533184b53b2da15fe5a8898a3a8c2575"
+      },
+      "admission": {
+        "path": "/tmp/pkv-acl-rocks-release-admission.log",
+        "sha256": "76f6a91123ca9a6106cdd39dbe0fdbc81526f3b091f82801005e69542e72caef"
+      },
+      "admission_details": {
+        "path": "/tmp/pkv-acl-rocks-release-admission-details.log",
+        "sha256": "202f0446f96fd002986d3bb68658634b6b354703c6db09a5a3d0ffbe2d1389bd"
+      },
+      "focused_details": {
+        "path": "/tmp/pkv-acl-rocks-release-postfix-details.log",
+        "sha256": "68f957f851d7c77ac4df7baa187a55e1af50e3ecfc693ce191fd348fb1d8444d"
+      },
+      "focused_build": {
+        "path": "/tmp/pkv-acl-rocks-release-postfix-build.log",
+        "sha256": "8b1266de29e7445bf0665c7b03b4b2196e4b5429c6f0fab3e68c5222025b125d"
+      },
+      "elapsed_seconds": 132.52
+    },
+    {
+      "build": "wt",
+      "passed": 103,
+      "log": {
+        "path": "/tmp/pkv-acl-wt-full.log",
+        "sha256": "61f3bdeb4a307baf8b4ec204a79b19afcd726ae30317ad9d64e380a3a980ee2f"
+      },
+      "details": {
+        "path": "/tmp/pkv-acl-wt-full-details.log",
+        "sha256": "569c2d6598c5332f48476bdd43d4fa7fe43db9e32b2d24238278a6da46067b0f"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-acl-wt-build.log",
+        "sha256": "c99309a385876ec8c9c66d294bbb4e97087eec1b1798d8e953fa8630c96952bd"
+      },
+      "full_binary": {
+        "path": "/tmp/pkv-acl-full-wt-pkv",
+        "sha256": "37a5919baf0ee7ce107ecb72fec49d98939af6819059dc1ab632756e8e6b82de"
+      },
+      "final_binary": {
+        "path": "/tmp/pkv-wt-build/pkv",
+        "sha256": "92a9b339bb9abeaa0403b7bdcf6dab778c5996737a969c30c367e68007b6950a"
+      },
+      "compile_flags": {
+        "path": "/tmp/pkv-wt-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "f786b9b36c36b14a74fac11e018a37cf353bced55a5edfa3db6060361fcfd043"
+      },
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "focused": {
+        "path": "/tmp/pkv-acl-wt-postfix.log",
+        "sha256": "2bc820eb6424a18b3941fe9ecf18ee0e2701276d6bbc130ca9b52c9a9878258a"
+      },
+      "admission": {
+        "path": "/tmp/pkv-acl-wt-admission.log",
+        "sha256": "a3de1edbe4fe7a0e0f46b29eaf790d8ac5a144873c5bcf7643d31717c1e7e04b"
+      },
+      "admission_details": {
+        "path": "/tmp/pkv-acl-wt-admission-details.log",
+        "sha256": "a9faabe58b9e4fba03e15130869e034ed60b7ff86e66440848352e689c644702"
+      },
+      "focused_details": {
+        "path": "/tmp/pkv-acl-wt-postfix-details.log",
+        "sha256": "263193c6fe75cdc22dbf85c0afea83662f4bf276d6553d6ee544d5e9b20500bc"
+      },
+      "focused_build": {
+        "path": "/tmp/pkv-acl-wt-postfix-build.log",
+        "sha256": "1e6e452a4c887fac377e16257b160da3d29c95524566b58cc764350d74f078e3"
+      },
+      "elapsed_seconds": 285.38
+    },
+    {
+      "build": "wt-c11",
+      "passed": 103,
+      "log": {
+        "path": "/tmp/pkv-acl-wt-c11-full.log",
+        "sha256": "c11cd4f8ebeb2b93f8ed06b678a3b95190cbca93d7c2a33704d9891cf5a329ac"
+      },
+      "details": {
+        "path": "/tmp/pkv-acl-wt-c11-full-details.log",
+        "sha256": "621e013ccb8b855af137ef1be82b099474a89f76f52fd69adff4594fa02e435e"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-acl-wt-c11-build.log",
+        "sha256": "3318818301a0410f09f0987daa1bda1ef9112a311ada07aab2c19d8dc54aa0ce"
+      },
+      "full_binary": {
+        "path": "/tmp/pkv-acl-full-wt-c11-pkv",
+        "sha256": "c4415938f377ed83b31b307e0bdfea58fb647aed00bf1af7c135083e7f54e628"
+      },
+      "final_binary": {
+        "path": "/tmp/pkv-wt-c11-build/pkv",
+        "sha256": "7889d20589d484a1f0f95a5eafdca007fd929999dc1ed9012da8ef6ff0ce5764"
+      },
+      "compile_flags": {
+        "path": "/tmp/pkv-wt-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "59a440b0fef692e59ffad9b3ea9f6b672a3a291283549f91ed8824fec7b49dcd"
+      },
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "focused": {
+        "path": "/tmp/pkv-acl-wt-c11-postfix.log",
+        "sha256": "2682332d135333392a1792c0052f91245b1914316239cb9b6569698cc5184e1a"
+      },
+      "admission": {
+        "path": "/tmp/pkv-acl-wt-c11-admission.log",
+        "sha256": "75644d42ff8bf648ee2b4bac9f93a40a63fc3cd06fcc20e59a5ec918ba9838a7"
+      },
+      "admission_details": {
+        "path": "/tmp/pkv-acl-wt-c11-admission-details.log",
+        "sha256": "405c7f935705af429fdfdedf33dc05f974680728f3af7226fa07a37788fe563a"
+      },
+      "focused_details": {
+        "path": "/tmp/pkv-acl-wt-c11-postfix-details.log",
+        "sha256": "12d209b64ffd9efa645a79e44af227da4addf250942b7266ca8409ec427ab8bc"
+      },
+      "focused_build": {
+        "path": "/tmp/pkv-acl-wt-c11-postfix-build.log",
+        "sha256": "ad4e3d79aeaa964f01a2bad0ad7c90df3dd7ab576556e064f85553d07d7812c3"
+      },
+      "elapsed_seconds": 258.97
+    }
+  ],
+  "focused_corrections": {
+    "source_files": [
+      "action/redis_acl.cpp",
+      "action/redis_handler.cpp",
+      "common/acl_policy.cpp",
+      "tests/acl_policy_test.cpp",
+      "tests/acl_test.py"
+    ],
+    "negative_binary": {
+      "path": "/tmp/pkv-acl-diagnostic-before",
+      "sha256": "a4d24306e470a6757c81b111c66c9528aeaace74a83d6051032f32347c82372b"
+    },
+    "negative_log": {
+      "path": "/tmp/pkv-acl-diagnostic-before.log",
+      "sha256": "7c3a006482a63e381c4d0a607a3c9e58846ec4cc9f8a38bededeed489d33d6bd"
+    },
+    "auth_negative_binary": {
+      "path": "/tmp/pkv-acl-default-auth-before",
+      "sha256": "c09e001cf1cd3f07aa37c0f2ff659c55a5147546836a985890bd21fa15298d13"
+    },
+    "auth_negative_log": {
+      "path": "/tmp/pkv-acl-default-auth-before.log",
+      "sha256": "0a87895d38f8c1451e1a472faab29148114a42c5c123a0c75a5f57a5474ab9c7"
+    },
+    "auth_reference_log": {
+      "path": "/tmp/pkv-acl-default-auth-reference.log",
+      "sha256": "aa939ba4964a9b6ad5f9ddd5c3a0bd581e3cd453814f25cd02b240cbb47e5b57"
+    },
+    "scope": "Denied-key diagnostic chooses the furthest failed argument across selectors and preserves binary key bytes in bulk diagnostics. Dynamic default nopass gating is checked within execution admission; existing unauthenticated connections regain ordinary access only while default is on/nopass. HELLO still needs actual authentication. The diagnostic changes leave authorization verdicts are unchanged. All eight builds then reran native ACL, network ACL, RESP3 and AUTH fixtures with the added diagnostic case."
+  },
+  "reference": {
+    "binary": {
+      "path": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+      "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a"
+    },
+    "version": "Redis 8.6.2, sha=00000000:1, malloc=libc",
+    "scope": "Local modified reference; not stock Redis speed evidence"
+  },
+  "differential_assertions": {
+    "acl_full_matrix": 69,
+    "acl_final": 72,
+    "resp3": 251,
+    "auth": 72,
+    "client_info": 121,
+    "client_kill": 32
+  },
+  "thread_sanitizer": {
+    "results": [
+      {
+        "fixture": "policy",
+        "log": {
+          "path": "/tmp/pkv-acl-policy-tsan.log",
+          "sha256": "d61c7e805fef95238e6fd60c7089a5712a60c62f479d4605390a6fd458a045e4"
+        },
+        "build_log": {
+          "path": "/tmp/pkv-acl-policy-tsan-build.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "binary": {
+          "path": "/tmp/pkv-acl-policy-tsan",
+          "sha256": "90dacc4d801e8cce91f22714514f36b12b8fd2c16efd9e5e550f6b3229094a95"
+        }
+      },
+      {
+        "fixture": "activity",
+        "log": {
+          "path": "/tmp/pkv-acl-activity-tsan.log",
+          "sha256": "eb69309b8b57364d30daace3d9d217c523091f3e09f956a0fefc8377509fc6d4"
+        },
+        "build_log": {
+          "path": "/tmp/pkv-acl-activity-tsan-build.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "binary": {
+          "path": "/tmp/pkv-acl-activity-tsan",
+          "sha256": "3a840fdf871522e36cb820e740c36bbbb9c2d92167266840e827f67edab0cdd7"
+        }
+      },
+      {
+        "fixture": "snapshot",
+        "log": {
+          "path": "/tmp/pkv-acl-snapshot-tsan.log",
+          "sha256": "81bbd5d3b89c2668faa1743627589f90fde0141545c46d2f5320b70c3a230ee1"
+        },
+        "build_log": {
+          "path": "/tmp/pkv-acl-snapshot-tsan-build.log",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "binary": {
+          "path": "/tmp/pkv-acl-snapshot-tsan",
+          "sha256": "1e967893f8daeb6d69de0e1632df60cf45dfdc0da5bc6d160b8dc3eecbc12a7d"
+        }
+      },
+      {
+        "fixture": "input",
+        "log": {
+          "path": "/tmp/pkv-acl-input-tsan.log",
+          "sha256": "7a3c10e4fb38da80251da19784f3fdf5ab85f515a15bd161c46c60c285272b81"
+        },
+        "build_log": {
+          "path": "/tmp/pkv-acl-input-tsan-build.log",
+          "sha256": "22a615cad2272db95b09a7cc6ce773fdbccf26e4d9a1da2397a664711f682a8c"
+        },
+        "binary": {
+          "path": "/tmp/pkv-acl-input-tsan",
+          "sha256": "3556607eddfcfd5559086c6eed3030c75c95be083ba4089208d86bb61e1ef72b"
+        }
+      }
+    ],
+    "scope": "Standalone policy publication, metadata observation and parser/lifetime fixtures. ACL archive is uninstrumented; its missing lto debug-object warning is retained. Not whole-fiber-server race freedom."
+  },
+  "allocation_failure": {
+    "existing_user_budgets": 128,
+    "new_user_budgets": 64,
+    "hello_identity_budgets": 8,
+    "remove_staging_failure": true,
+    "invariant": "Failed staging leaves policy/metadata unchanged; failed new users are absent; failed removal leaves identity live."
+  },
+  "protocol_scope": {
+    "children": [
+      "cat",
+      "deluser",
+      "dryrun",
+      "genpass",
+      "getuser",
+      "help",
+      "list",
+      "setuser",
+      "users",
+      "whoami"
+    ],
+    "not_implemented": [
+      "ACL file persistence/load/save",
+      "ACL LOG",
+      "Pub/Sub execution",
+      "named-user RPC replication authentication"
+    ],
+    "rpc": "Existing immutable startup requirepass/masterauth policy remains separate from live frontend default-user ACL changes.",
+    "transactions": "Queue and EXEC authorization; workspace planning skips denied commands. ACL/AUTH/HELLO transactions use per-command storage under exclusive admission, not one native workspace commit."
+  },
+  "verification_changes": {
+    "first_full_memory_and_c11": "Only resp3_commands failed by comparing unsupported reference ACL LOAD/SAVE/LOG children. The final fixture compares root fields and all ten implemented children exactly; existing exclusions/assertions remain.",
+    "existing_timeouts_concurrency_and_durability_preserved": true,
+    "max_parallel_test_configurations": 2,
+    "wiredtiger_in_isolation": true,
+    "stored_value_formats_changed": false
+  },
+  "performance": {
+    "get": {
+      "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/acl-get-2026-10-31.json",
+      "sha256": "dfcdcc8835e501ab1eab139db8b2fceac1c547926063cb866c1ab34b47c153d5"
+    },
+    "delta": {
+      "baseline_resp2": 0.0,
+      "new_resp2": -1.2635447438983594,
+      "new_resp3": -1.361076365611813
+    },
+    "requests_checked": 37748736,
+    "limits": [
+      "One hot GET key; not mixed workloads or other backends",
+      "Local machine and Python/socket client may limit throughput",
+      "Interleaved samples; no statistical significance claim",
+      "Compares PKV revisions, not stock Redis"
+    ],
+    "preliminary_acl_lookup": {
+      "before_binary": {
+        "path": "/tmp/pkv-acl-check-before",
+        "sha256": "833b86abc6b7b5f229cc2c7c4a9b3ce22bc1d9ef13dcbd5eb13ca00ae51c9c75"
+      },
+      "after_binary": {
+        "path": "/tmp/pkv-acl-check-after",
+        "sha256": "2c4417adbd56783d120c6cfbc9e751bb21c1b5a685c3a2d4955ee2baac9904d8"
+      },
+      "before": {
+        "path": "/tmp/pkv-acl-check-before.log",
+        "sha256": "f218153d9150141aa3dace142251370958ddc185663fd4210ff74c3ee4ca8635"
+      },
+      "after": {
+        "path": "/tmp/pkv-acl-check-after.log",
+        "sha256": "96d4de15d3891230eb67aed630fa356e933015894d500c90c3895be875a1ee23"
+      },
+      "scope": "Exploratory 5 x 200000 permission checks; separately measured builds, no interleaving or significance claim. Not server throughput. Retained binaries represent revisions."
+    }
+  },
+  "source_sha256": {
+    "CMakeLists.txt": "469a494c271a914c4877f0a875ed22cd9295ff9cd25b5fad8a53bb21785fcfc6",
+    "common/acl_policy.h": "75ac2412b6d26f89bfb0eb9224032f902f70a3bf2797b3136ba11c29bcb04e6f",
+    "common/acl_policy.cpp": "ca25a1c604ded7e2d2fba098afebe7f9c1ade32504905e15f7b556b9a77c4af7",
+    "common/acl_internal.h": "8b5064d1911265c5db8b424a41b88c2e96864b4f9b702ea48fcbe5428f3231f1",
+    "common/acl_index.cpp": "8d3a6fd4ad8eeead0b688ec618e540a3534ecbf637d5b573aa14a5481f3cc14e",
+    "common/acl_rules.cpp": "cdba5ced60f5099617d28a3b35064b04c215fc5172530ff8f029ef37dfdffb84",
+    "common/acl_tokens.cpp": "8b8f288da8cdf7767ae52c30af0733b0c986818cd9591ad28e05ab433387464b",
+    "common/acl_digest.cpp": "fb07d2c249aab4d9e4a93657803bef4a52063ecfe188af82b564d62e6505380f",
+    "common/acl_description.cpp": "1046bdeb12789dcae7d2c43ef196915709d31d37a3bdff6454d33aa86785ad75",
+    "common/client_state.h": "3a648d1def7804b047ad126570b870a3b74afec1189b7ac77f5694e1e69a1f7f",
+    "common/client_state.cpp": "5b9818069a4f78a8544b880110f886eab0eb9d102a705a74e4296f2d73fb4f4a",
+    "common/client_memory.h": "aa59abff48d681f94d30a03d8ad17ceedbdb76f8c76f525080ea5e1626d25255",
+    "common/client_registry.h": "260635df1f59659d0b872664e95162d5abe9e4522d425e264103ddb70bf6af76",
+    "common/client_registry.cpp": "7a262b9600d1e89033be23626423785734f1b8297f00b6a71c07c7fc1d674b0f",
+    "common/client_activity.h": "b4e857539f6283a355a3a37ca1926cb6d8edda834c026035c27b0387ee5b5173",
+    "common/client_activity.cpp": "1438533ec6437e3c3e3b1324feea531e382e6ba7be9d15312d671718be71f768",
+    "common/password_policy.h": "189c9edc539a278de4619b6f4a2bbb92630848355c6c5dfa0e9678bfbf2d273d",
+    "common/password_policy.cpp": "a02bd490ac12dfa00ebd3314cd36d662814987a9ece74fb1ab6a3eac90d1c9cd",
+    "common/command_catalog.h": "0566cf96b1b7dfb844f0848893b102372d3f7bf6cc5135e8623142ec62a2502c",
+    "common/command_catalog.cpp": "af443789b7317c788be40a2beb796996f7c653ceb860a3e67a5e3a14af5a2441",
+    "common/command_catalog_data.inc": "44bee899d94519669296f57f44bf5adc7c8d56e9187093f093b0e5283672b2e7",
+    "common/command_keys.cpp": "9e8ce75c7b728a7f7e0ec15edc77e6f371bc1a03da27dcd1b54c7657844b6e93",
+    "common/transaction_database.h": "28bde43fc54ef6a4ab2f15cafeb2c1ffd36952a9eaab74e233558f0a1756a546",
+    "common/transaction_database.cpp": "b0b377dd039ccc7e3437db4cde18b114979b8561ad4a5a74dfaa9c1bc0da2684",
+    "action/redis_acl.cpp": "684d4773d20e86b15d3cc5577917a0d7ce2aae610a1aed60d1b61da46a0b9968",
+    "action/redis_handler_acl.cpp": "d730b4f8bcf3ed75f982f5b27ae44881e392e6c9f09c01e3d69a625073d50810",
+    "action/redis_handler.h": "9c1f55573049cab1f5f8495c42846fb6bdca224f1ff65de6c4939e6e197cb0dd",
+    "action/redis_handler.cpp": "46b8b9fbb918c22d0562cbda050a982fa7d76c1137f30ff6fa59231af115a795",
+    "action/redis_service.h": "6ba88759e749ab51c7eb2ab31f949a3a8eb0f37192e71660e954b41bd310ab1a",
+    "action/redis_service.cpp": "61e67f85d1bb26dbe891498d8db05bd5fcebc5ea06b0e99584abba4d8fa94712",
+    "action/redis_auth.cpp": "dc7dcf68c441fc55fdabd00be4fe8180c872f5d02300d682aac968cdafe6be17",
+    "action/redis_hello.cpp": "f4aeef6540186c223620d6e840e7eca84441487c6a44daa80c80f04d98a0fd4c",
+    "action/redis_client_info.cpp": "bee830dd61ddd5de5b8b1fea1da16cfcf5bb668817032ad13417f3e2eb84b61c",
+    "action/redis_client_kill.cpp": "819a6a85db17dcb10f0840dddf354f301549f86dad06f75449de928d8da8f388",
+    "action/redis_client_activity.cpp": "43ad3331ea0d8fbebd43e9c0ff5b32ee66fd684a82799f951883c554f10ac7e9",
+    "action/redis_transaction.cpp": "1ee718bd19634192da76c52376d30fc7a8510ecea3b77e6f56fa71bb09dc739a",
+    "action/transaction_workspace.cpp": "bfa5b076d0ce8917958f061b2d7d3f349e339fa349d6defa3c76074095cba305",
+    "action/redis_server.h": "873c17a96c09289e234d3cdad24dc9134e6bf5b8e2d75ab91ce4958267dbde59",
+    "action/redis_server.cpp": "8ffebb74fb2c350efe903819aa2caa45008279d83641d3cdf7b5e0f5ad03b40b",
+    "tools/generate_command_catalog.py": "70b5c70332aa5c3da0dca04470b3bf31b4d37928f88814ac0cd44492af74f51a",
+    "tests/CMakeLists.txt": "6f38238722b402f5ec83f26fd263c847aac7b5f2bc8554f8b77cf151c65b0f74",
+    "tests/acl_test.py": "3e4cd1ffe17fa0ca265cd3995d9776ab9ee95079a202b90a93b5875b5168ed29",
+    "tests/acl_policy_test.cpp": "4799bafac323de10fc79dd1b5914b877ef684cb3ca1f19e60b6cb853296e0eb9",
+    "tests/resp3_test.py": "7530c78feb5dac493b3959ecc9cce79fbeaf053ab3d7d241ef47ab81564c7d30",
+    "tests/resp3_client.py": "a0c9e4ba3e681cf73165dd779fe3796fcc0ecac98e127bd903d600ad64f8f007",
+    "tests/auth_test.py": "26852fa6979116a67a71c3e0780cd892d2c49fc488b4e40d677dca36af215919",
+    "tests/client_info_test.py": "86edaca479d12bcba23c4f49da1bb23b3a6fe4410df612a9eb17ced8a780c608",
+    "tests/client_kill_test.py": "93f61782861875c06da7c986e989c79b972e7ef0e55d0b6a122748d27c8099c8"
+  },
+  "fixture_formatting": "One line wrapped after the first four configurations focused tests; AST equality checked against retained unwrapped fixture. No semantic test change.",
+  "overall_redis_goal": "active: full ACL persistence/logging, blocking and other command families plus complete replication remain unfinished"
+}

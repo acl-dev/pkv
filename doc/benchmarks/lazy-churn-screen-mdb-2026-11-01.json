@@ -1,0 +1,206 @@
+{
+  "results": [
+    {
+      "operations": 2097152,
+      "seconds": 1.8673527079999999,
+      "operations_per_second": 1123061.535732113,
+      "resident_before_bytes": 4767744,
+      "resident_after_bytes": 4128768,
+      "retained_roots": 0,
+      "variant": "dense",
+      "repetition": 1
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.8955091670000002,
+      "operations_per_second": 1106379.244432322,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 5865472,
+      "retained_roots": 0,
+      "variant": "pair",
+      "repetition": 1
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.7806468749999986,
+      "operations_per_second": 1177747.2723220328,
+      "resident_before_bytes": 4669440,
+      "resident_after_bytes": 5783552,
+      "retained_roots": 0,
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.8206903330000017,
+      "operations_per_second": 1151844.4196627687,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 5783552,
+      "retained_roots": 0,
+      "variant": "pair",
+      "repetition": 2
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.766179208999997,
+      "operations_per_second": 1187394.7951110795,
+      "resident_before_bytes": 4734976,
+      "resident_after_bytes": 5832704,
+      "retained_roots": 0,
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.8304047499999996,
+      "operations_per_second": 1145731.292491456,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 5799936,
+      "retained_roots": 0,
+      "variant": "dense",
+      "repetition": 2
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.770679249999997,
+      "operations_per_second": 1184377.1253319897,
+      "resident_before_bytes": 4685824,
+      "resident_after_bytes": 5750784,
+      "retained_roots": 0,
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.7992439580000017,
+      "operations_per_second": 1165574.0127265155,
+      "resident_before_bytes": 4685824,
+      "resident_after_bytes": 5767168,
+      "retained_roots": 0,
+      "variant": "dense",
+      "repetition": 3
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.826581584000003,
+      "operations_per_second": 1148129.3900968162,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 5832704,
+      "retained_roots": 0,
+      "variant": "pair",
+      "repetition": 3
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.7694089579999996,
+      "operations_per_second": 1185227.411966115,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 5799936,
+      "retained_roots": 0,
+      "variant": "new",
+      "repetition": 4
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.8067233750000042,
+      "operations_per_second": 1160748.8058319914,
+      "resident_before_bytes": 4669440,
+      "resident_after_bytes": 5783552,
+      "retained_roots": 0,
+      "variant": "pair",
+      "repetition": 4
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.8174727919999967,
+      "operations_per_second": 1153883.573515418,
+      "resident_before_bytes": 4702208,
+      "resident_after_bytes": 5750784,
+      "retained_roots": 0,
+      "variant": "dense",
+      "repetition": 4
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.7961222500000034,
+      "operations_per_second": 1167599.8112043855,
+      "resident_before_bytes": 4751360,
+      "resident_after_bytes": 5799936,
+      "retained_roots": 0,
+      "variant": "dense",
+      "repetition": 5
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.7953418749999983,
+      "operations_per_second": 1168107.327747815,
+      "resident_before_bytes": 4702208,
+      "resident_after_bytes": 5799936,
+      "retained_roots": 0,
+      "variant": "new",
+      "repetition": 5
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.8578240830000041,
+      "operations_per_second": 1128821.6248190359,
+      "resident_before_bytes": 4718592,
+      "resident_after_bytes": 5816320,
+      "retained_roots": 0,
+      "variant": "pair",
+      "repetition": 5
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.8617367500000057,
+      "operations_per_second": 1126449.2684048878,
+      "resident_before_bytes": 4653056,
+      "resident_after_bytes": 5783552,
+      "retained_roots": 0,
+      "variant": "pair",
+      "repetition": 6
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.7879118329999955,
+      "operations_per_second": 1172961.6423429116,
+      "resident_before_bytes": 4734976,
+      "resident_after_bytes": 5750784,
+      "retained_roots": 0,
+      "variant": "dense",
+      "repetition": 6
+    },
+    {
+      "operations": 2097152,
+      "seconds": 1.7708910409999987,
+      "operations_per_second": 1184235.4788896362,
+      "resident_before_bytes": 4734976,
+      "resident_after_bytes": 5849088,
+      "retained_roots": 0,
+      "variant": "new",
+      "repetition": 6
+    }
+  ],
+  "median_ops_per_second": {
+    "dense": 1159728.7931209668,
+    "pair": 1138475.507457926,
+    "new": 1184306.302110813
+  },
+  "delta_percent": {
+    "dense": 2.119246252712692,
+    "pair": 4.025628513978452
+  },
+  "checked_operations": 37748736,
+  "binaries": {
+    "/tmp/pkv-dense-measured-c11-pkv": "8372e823b7eaf97c5ee0bdc3a6b866d2aabd0ba719bc9fde3cb16af0ce1fcd74",
+    "/tmp/pkv-pair-measured-c11-pkv": "ed474a495c6930244bb6a7d5947f7c07ddc6960b0c8bef5c446dc943d71499fb",
+    "/tmp/pkv-c11-build/pkv": "237aaeac859d1b224478aa98f70b2a3491ba45bc50609b4bf18d1a9103f66c5e"
+  },
+  "script_sha256": "153ad9bb44b3d2469b3f088063c469afb55938da13418cf7d27aa0d4c0791ff4",
+  "scope": "Predeclared six balanced rotating three-variant MDB churn rounds; same core flags/runtime and unchanged benchmark helper. Dense pre-refactor and paired-preparation parent binaries retained. Every reply/final count checked. Not official Redis, no statistical significance claim.",
+  "candidate_snapshot": {
+    "path": "/tmp/pkv-lazy-screen-c11-pkv",
+    "sha256": "237aaeac859d1b224478aa98f70b2a3491ba45bc50609b4bf18d1a9103f66c5e"
+  },
+  "mdb_batch_source_sha256": "e8d472d25bf3e9fbbb214e74e51dfc54160e822491d3f6faa7981a04e4a0f1e1"
+}

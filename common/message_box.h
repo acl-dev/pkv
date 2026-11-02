@@ -10,8 +10,8 @@ class mbox {
 public:
     mbox() = default;
     ~mbox() = default;
-    void push(T* t) {
-        box_.push(t);
+    bool push(T* t) {
+        return box_.push(t);
     }
 
     T* pop(int timeout = -1) {

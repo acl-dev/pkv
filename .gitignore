@@ -1,6 +1,9 @@
 # Prerequisites
 *.d
 
+# Per-machine dependency paths
+/Makefile.local
+
 # Compiled Object files
 *.slo
 *.lo

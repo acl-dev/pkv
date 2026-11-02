@@ -1,0 +1,88 @@
+{
+  "source_sha256": {
+    "CMakeLists.txt": "469a494c271a914c4877f0a875ed22cd9295ff9cd25b5fad8a53bb21785fcfc6",
+    "common/acl_policy.h": "75ac2412b6d26f89bfb0eb9224032f902f70a3bf2797b3136ba11c29bcb04e6f",
+    "common/acl_policy.cpp": "5151a71c0787697bfaac920160166b08b036946f75dac9a3c3c9649fdd14ebeb",
+    "common/acl_internal.h": "8b5064d1911265c5db8b424a41b88c2e96864b4f9b702ea48fcbe5428f3231f1",
+    "common/acl_index.cpp": "8d3a6fd4ad8eeead0b688ec618e540a3534ecbf637d5b573aa14a5481f3cc14e",
+    "common/acl_rules.cpp": "cdba5ced60f5099617d28a3b35064b04c215fc5172530ff8f029ef37dfdffb84",
+    "common/acl_tokens.cpp": "8b8f288da8cdf7767ae52c30af0733b0c986818cd9591ad28e05ab433387464b",
+    "common/acl_digest.cpp": "fb07d2c249aab4d9e4a93657803bef4a52063ecfe188af82b564d62e6505380f",
+    "common/acl_description.cpp": "1046bdeb12789dcae7d2c43ef196915709d31d37a3bdff6454d33aa86785ad75",
+    "common/client_state.h": "3a648d1def7804b047ad126570b870a3b74afec1189b7ac77f5694e1e69a1f7f",
+    "common/client_state.cpp": "5b9818069a4f78a8544b880110f886eab0eb9d102a705a74e4296f2d73fb4f4a",
+    "common/client_memory.h": "aa59abff48d681f94d30a03d8ad17ceedbdb76f8c76f525080ea5e1626d25255",
+    "common/client_registry.h": "260635df1f59659d0b872664e95162d5abe9e4522d425e264103ddb70bf6af76",
+    "common/client_registry.cpp": "7a262b9600d1e89033be23626423785734f1b8297f00b6a71c07c7fc1d674b0f",
+    "common/client_activity.h": "b4e857539f6283a355a3a37ca1926cb6d8edda834c026035c27b0387ee5b5173",
+    "common/client_activity.cpp": "1438533ec6437e3c3e3b1324feea531e382e6ba7be9d15312d671718be71f768",
+    "common/password_policy.h": "189c9edc539a278de4619b6f4a2bbb92630848355c6c5dfa0e9678bfbf2d273d",
+    "common/password_policy.cpp": "a02bd490ac12dfa00ebd3314cd36d662814987a9ece74fb1ab6a3eac90d1c9cd",
+    "common/command_catalog.h": "0566cf96b1b7dfb844f0848893b102372d3f7bf6cc5135e8623142ec62a2502c",
+    "common/command_catalog.cpp": "af443789b7317c788be40a2beb796996f7c653ceb860a3e67a5e3a14af5a2441",
+    "common/command_catalog_data.inc": "44bee899d94519669296f57f44bf5adc7c8d56e9187093f093b0e5283672b2e7",
+    "common/command_keys.cpp": "9e8ce75c7b728a7f7e0ec15edc77e6f371bc1a03da27dcd1b54c7657844b6e93",
+    "common/transaction_database.h": "28bde43fc54ef6a4ab2f15cafeb2c1ffd36952a9eaab74e233558f0a1756a546",
+    "common/transaction_database.cpp": "b0b377dd039ccc7e3437db4cde18b114979b8561ad4a5a74dfaa9c1bc0da2684",
+    "action/redis_acl.cpp": "b3505465524d928e0e9bae352c005d3dbde089c4f808ff8aa16470205d2533b6",
+    "action/redis_handler_acl.cpp": "d730b4f8bcf3ed75f982f5b27ae44881e392e6c9f09c01e3d69a625073d50810",
+    "action/redis_handler.h": "9c1f55573049cab1f5f8495c42846fb6bdca224f1ff65de6c4939e6e197cb0dd",
+    "action/redis_handler.cpp": "a5c4369f9a728aea2da9d4349bfdcacf45e45148427da23b99ec948620e98acb",
+    "action/redis_service.h": "6ba88759e749ab51c7eb2ab31f949a3a8eb0f37192e71660e954b41bd310ab1a",
+    "action/redis_service.cpp": "61e67f85d1bb26dbe891498d8db05bd5fcebc5ea06b0e99584abba4d8fa94712",
+    "action/redis_auth.cpp": "dc7dcf68c441fc55fdabd00be4fe8180c872f5d02300d682aac968cdafe6be17",
+    "action/redis_hello.cpp": "f4aeef6540186c223620d6e840e7eca84441487c6a44daa80c80f04d98a0fd4c",
+    "action/redis_client_info.cpp": "bee830dd61ddd5de5b8b1fea1da16cfcf5bb668817032ad13417f3e2eb84b61c",
+    "action/redis_client_kill.cpp": "819a6a85db17dcb10f0840dddf354f301549f86dad06f75449de928d8da8f388",
+    "action/redis_client_activity.cpp": "43ad3331ea0d8fbebd43e9c0ff5b32ee66fd684a82799f951883c554f10ac7e9",
+    "action/redis_transaction.cpp": "1ee718bd19634192da76c52376d30fc7a8510ecea3b77e6f56fa71bb09dc739a",
+    "action/transaction_workspace.cpp": "bfa5b076d0ce8917958f061b2d7d3f349e339fa349d6defa3c76074095cba305",
+    "action/redis_server.h": "873c17a96c09289e234d3cdad24dc9134e6bf5b8e2d75ab91ce4958267dbde59",
+    "action/redis_server.cpp": "8ffebb74fb2c350efe903819aa2caa45008279d83641d3cdf7b5e0f5ad03b40b",
+    "tools/generate_command_catalog.py": "70b5c70332aa5c3da0dca04470b3bf31b4d37928f88814ac0cd44492af74f51a",
+    "tests/CMakeLists.txt": "6f38238722b402f5ec83f26fd263c847aac7b5f2bc8554f8b77cf151c65b0f74",
+    "tests/acl_test.py": "a755a9e77cf6250c2c8a86b9ea565c4b550229876841133d5c88d72d7a75092a",
+    "tests/acl_policy_test.cpp": "ca72ab5c8b8cf1452a8ab190aa9506376122d98826a10196a457935225e4efb8",
+    "tests/resp3_test.py": "7530c78feb5dac493b3959ecc9cce79fbeaf053ab3d7d241ef47ab81564c7d30",
+    "tests/resp3_client.py": "a0c9e4ba3e681cf73165dd779fe3796fcc0ecac98e127bd903d600ad64f8f007",
+    "tests/auth_test.py": "26852fa6979116a67a71c3e0780cd892d2c49fc488b4e40d677dca36af215919",
+    "tests/client_info_test.py": "86edaca479d12bcba23c4f49da1bb23b3a6fe4410df612a9eb17ced8a780c608",
+    "tests/client_kill_test.py": "93f61782861875c06da7c986e989c79b972e7ef0e55d0b6a122748d27c8099c8"
+  },
+  "binaries": {
+    "memory": {
+      "path": "/tmp/pkv-acl-full-memory-pkv",
+      "sha256": "d52a765548426717d9da5eee591428651651f57e5ceb6fe7823dfb7f019f1aa9"
+    },
+    "c11": {
+      "path": "/tmp/pkv-acl-full-c11-pkv",
+      "sha256": "a201b1c752df640cf03d19296c9a9fc3924279ee78c55e08647cd6e4980c7a44"
+    },
+    "tbb": {
+      "path": "/tmp/pkv-acl-full-tbb-pkv",
+      "sha256": "bf454c93e37903d50b53a9b1143f133fdb280a0efc81481fa8de5c2ae6878cd0"
+    },
+    "tbb-c11": {
+      "path": "/tmp/pkv-acl-full-tbb-c11-pkv",
+      "sha256": "6de7b25b33535b122dac4b48dc0cc48834527afa096391fc28612081f9fd3e72"
+    },
+    "rocks": {
+      "path": "/tmp/pkv-acl-full-rocks-pkv",
+      "sha256": "e8c933086526ddfcad0c7a5935407982fa6b8f8127302ae990360571ee55a41c"
+    },
+    "rocks-release": {
+      "path": "/tmp/pkv-acl-full-rocks-release-pkv",
+      "sha256": "3cbcf5f93248702e424ce0b2f8c1a5c9dc575a536c15c94dca672e7c5e7da298"
+    },
+    "wt": {
+      "path": "/tmp/pkv-acl-full-wt-pkv",
+      "sha256": "37a5919baf0ee7ce107ecb72fec49d98939af6819059dc1ab632756e8e6b82de"
+    },
+    "wt-c11": {
+      "path": "/tmp/pkv-acl-full-wt-c11-pkv",
+      "sha256": "c4415938f377ed83b31b307e0bdfea58fb647aed00bf1af7c135083e7f54e628"
+    }
+  },
+  "scope": "Full-matrix candidate before focused denied-key diagnostics and dynamic default-user authentication corrections.",
+  "verified_original_binaries_after_full_matrix": true
+}

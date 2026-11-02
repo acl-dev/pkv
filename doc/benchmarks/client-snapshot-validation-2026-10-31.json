@@ -1,0 +1,189 @@
+{
+  "total_passed": 734,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 82,
+      "elapsed_seconds": 116.87,
+      "log": "/tmp/pkv-snapshot-memory-full.log",
+      "log_sha256": "8aa045f745f726c583b45c14d4ffbf5c57a217b3aa1aff4c64373ea1459d7b97",
+      "details": "/tmp/pkv-snapshot-memory-full-details.log",
+      "details_sha256": "6a7643e5d1cdaec9439fb9dee58f8bd10f30863d994bfbfec98d42f6bafcdf23",
+      "build_log": "/tmp/pkv-snapshot-memory-build.log",
+      "build_log_sha256": "e2f7eca35628d5444157745c0ef83c99d87008b0162f50b71fee462b390326aa",
+      "binary_sha256": "beb1bc768f2a0f5a5e903bc29763936316aa287c746d6c2407de3e3a7c814311"
+    },
+    {
+      "build": "c11",
+      "passed": 82,
+      "elapsed_seconds": 110.19,
+      "log": "/tmp/pkv-snapshot-c11-full.log",
+      "log_sha256": "54e813f15718333db8de58fd0b1cf708c02064ca82a34633fe4435722c7efe44",
+      "details": "/tmp/pkv-snapshot-c11-full-details.log",
+      "details_sha256": "4122e6a7bb0bbb9669171a6e8e772d5838dd14f231e9f53199853a4e9dd90c79",
+      "build_log": "/tmp/pkv-snapshot-c11-build.log",
+      "build_log_sha256": "65e8cbc22dbf6efe056c95ea98d4eea39212dfcb11ceb4ea44e3c82bc45bc070",
+      "binary_sha256": "29dc4b5e11475b2680127c8acb66d02a915cc059881dbb0c940c243a47b36a40"
+    },
+    {
+      "build": "tbb",
+      "passed": 91,
+      "elapsed_seconds": 132.27,
+      "log": "/tmp/pkv-snapshot-tbb-full.log",
+      "log_sha256": "c6897f296c1d64d623a996e6d9dc65b01199b16bd54b9b555f9afb933c5fd936",
+      "details": "/tmp/pkv-snapshot-tbb-full-details.log",
+      "details_sha256": "4c88db67e68e2d276c71d40ba73a1309cc42dd28aabdb3a3c5d075cf31161e13",
+      "build_log": "/tmp/pkv-snapshot-tbb-build.log",
+      "build_log_sha256": "f2b57aaf79876adbd2ad15665592941f705f6d2ab8860a5d6c885449855277f4",
+      "binary_sha256": "3bf54f4e952a309d6634dbc6b446ae30a7c36da6bbca22ccbb5fe24c9c3653e3"
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 91,
+      "elapsed_seconds": 115.32,
+      "log": "/tmp/pkv-snapshot-tbb-c11-full.log",
+      "log_sha256": "835653285f042fe7bfa4703d9b4a355f29870fb20488ae84a265593e3add8aa6",
+      "details": "/tmp/pkv-snapshot-tbb-c11-full-details.log",
+      "details_sha256": "139556775910ba209dac7bd425c2fd6905153d800fef7b9ee490ac9344b8e81b",
+      "build_log": "/tmp/pkv-snapshot-tbb-c11-build.log",
+      "build_log_sha256": "1767e7ae2b9b337371b1ad34e521e3b8eb03a31c1fbcf8a215ba979fd99b024b",
+      "binary_sha256": "1ad5021be4bf62b3368bac9a2a5511c854d7726bd563a1afe2df51afcfb057af"
+    },
+    {
+      "build": "rocks",
+      "passed": 97,
+      "elapsed_seconds": 153.61,
+      "log": "/tmp/pkv-snapshot-rocks-full.log",
+      "log_sha256": "585616e9e7c1d1b7b53cc10abafbc7f783bf2c8951b46ea20fad449e0ac1afdc",
+      "details": "/tmp/pkv-snapshot-rocks-full-details.log",
+      "details_sha256": "b8568bde96f9ad61b577ca38de593725a511234aa0b0ec4b27a122a18b63e18b",
+      "build_log": "/tmp/pkv-snapshot-rocks-build.log",
+      "build_log_sha256": "a2b556951f626f5975673bd12213035d11d323a8bc7f391c48148e10a8f1665b",
+      "binary_sha256": "edb2e16843495728631e6da91696f06d88cc0951da586d16f3b87c846f3080e1"
+    },
+    {
+      "build": "rocks-release",
+      "passed": 97,
+      "elapsed_seconds": 133.34,
+      "log": "/tmp/pkv-snapshot-rocks-release-full.log",
+      "log_sha256": "eb00f51ae751af028a02f97028ed82ed8002fa02ec4b3670469722add601e555",
+      "details": "/tmp/pkv-snapshot-rocks-release-full-details.log",
+      "details_sha256": "0d1d28475b02835fdffeb94e4d28c19e70feb6c6d4cb2c737db4fe016679b12d",
+      "build_log": "/tmp/pkv-snapshot-rocks-release-build.log",
+      "build_log_sha256": "6a195a84b9ea3846eddc4cf6aedcfc10bfea2eeed9318fe38ce10b1a1a09bb20",
+      "binary_sha256": "c9b90ebe4463ed91edfddbe2eb634bd19f2d9b36d617d225673ed849fe00b93c"
+    },
+    {
+      "build": "wt",
+      "passed": 97,
+      "elapsed_seconds": 285.25,
+      "log": "/tmp/pkv-snapshot-wt-full.log",
+      "log_sha256": "0df143430cab60ceeadd341d64159b7a721113bafd659b0eb938b469d3c971b0",
+      "details": "/tmp/pkv-snapshot-wt-full-details.log",
+      "details_sha256": "5d50334a8180cfb0af5011e0dc9e8202c2016f220dd3b0622f0a390ef2eebdaf",
+      "build_log": "/tmp/pkv-snapshot-wt-build.log",
+      "build_log_sha256": "1430f9da6b8df0692e6060e614ac05456cf878b0301014cc1f3944788f658c88",
+      "binary_sha256": "f9831e728c5f938bed82acbddc055cdaefd4689faf9d2496d4f7d2cbbbcdb2d0"
+    },
+    {
+      "build": "wt-c11",
+      "passed": 97,
+      "elapsed_seconds": 265.16,
+      "log": "/tmp/pkv-snapshot-wt-c11-full.log",
+      "log_sha256": "ad03b4e3e65c5065622a0d30236637d68423611f36e44f623db923b618a96a82",
+      "details": "/tmp/pkv-snapshot-wt-c11-full-details.log",
+      "details_sha256": "8d38316f0ecd41464158a830eefddfa8cebcc813adf9a86bd4e0318d888a301a",
+      "build_log": "/tmp/pkv-snapshot-wt-c11-build.log",
+      "build_log_sha256": "f7328272149691b646160ed8189d7297940d48fd8c3f0eb672ec10e104ac0b73",
+      "binary_sha256": "dabea048d66c5345e8f78710991dc5c4a82591b56d931d22c58dd760a2541b42"
+    }
+  ],
+  "all_sessions_terminal": true,
+  "wt_suites_isolated": true,
+  "max_concurrent_test_configurations": 2,
+  "existing_concurrency_timeouts_and_durability_preserved": true,
+  "source_sha256": {
+    "common/client_registry.h": "3f62bfd8e8143470b286cb29530959f45c7487f7dc96530be5c76609e703e71a",
+    "common/client_registry.cpp": "b2fe20fe0932a36e58613518057fe18ae105bd9f07676ef856b428fc68dd07c2",
+    "common/client_state.h": "c5cc80f368d37cadedb288f992acf28af8a579f21e3bf9758d8be1af920be7e7",
+    "common/client_state.cpp": "56b75cac6cba5d3a8f6a95396345eda90a2e2ba3e4313dd3c49538b607d7080a",
+    "action/redis_handler.cpp": "ef319541867a76f9895b44dad71b733cbf24c0be1eba6ca70d96302cf5bb7bff",
+    "action/redis_hello.cpp": "425e8d3cdc22e5dedd409977944f5e3cb4f51a2f0c508d02a808c3669a269a17",
+    "action/redis_client_kill.cpp": "69f1fa89d3d2e05a78103d85b27d6971b9bde1ea8e18279808e93ced36181dc2",
+    "tests/CMakeLists.txt": "94a13193c42255bc78f287111a4f45197ba0777756b0497521edcefa03d52c85",
+    "tests/client_snapshot_test.cpp": "e3fef3c18a2d97336e0af470de2103a62510f4521279fd4bd5b0e52a2a081b02",
+    "tests/client_snapshot_bench.cpp": "d468f315c69f55368ad3c8cd5b1c3f8382854aa525a952c01df4f86efd9b850d"
+  },
+  "standalone_tsan": [
+    {
+      "log": "/tmp/pkv-snapshot-tsan.log",
+      "log_sha256": "81bbd5d3b89c2668faa1743627589f90fde0141545c46d2f5320b70c3a230ee1",
+      "binary": "/tmp/pkv-client-snapshot-tsan",
+      "binary_sha256": "c818853d7bcc8e77247b1aa8da6bb40c0c73e4d391914e6dd136213c26d8bca1",
+      "scope": "Standard-library state and registry; not the whole ACL server"
+    },
+    {
+      "log": "/tmp/pkv-snapshot-registry-tsan.log",
+      "log_sha256": "3d7d2b8c9c6ea94dd93f56c424cc10935d95e8ea6d6b9a5de975b1717965df74",
+      "binary": "/tmp/pkv-snapshot-registry-tsan",
+      "binary_sha256": "5cf137599b2e8f3bb79b60bac5d9ca7fabbd09de58ad116a54b56619564dcace",
+      "scope": "Standard-library state and registry; not the whole ACL server"
+    }
+  ],
+  "code_style": {
+    "new_lines_at_most": 80,
+    "new_functions_at_most": 200,
+    "whitespace_check_passed": true
+  },
+  "assertions": [
+    "Unsorted membership equals ordered membership",
+    "Unsorted capture allocation failure releases locks",
+    "ID KILL remains a one-bucket lookup",
+    "MAXAGE alone requests the command clock",
+    "Three independent metadata-copy allocation failures preserve output",
+    "Noexcept move publishes a complete copied view",
+    "Four readers race 10000 HELLO pairs plus RESET",
+    "HELLO atomically commits name/protocol/login",
+    "Retirement disables borrowed state before owner destruction",
+    "Retained records reject reads after destruction",
+    "Existing descriptor-reuse, auth, RESP3, KILL and transaction fixtures"
+  ],
+  "layout": {
+    "measured": {
+      "client_state": 152,
+      "client_connection": 152,
+      "client_snapshot": 88,
+      "mutex": 64
+    },
+    "source": "/tmp/pkv-snapshot-layout.cpp",
+    "source_sha256": "dda1043d4557a1f18624efb2ad99e136aee5c6500bee6a7681ee948ba841595f",
+    "scope": "Object sizes on this native 64-bit host; excludes heap strings"
+  },
+  "benchmarks": {
+    "get": {
+      "path": "doc/benchmarks/client-snapshot-get-2026-10-31.json",
+      "sha256": "b720276aed56285c4fc506debd67e204f5df679355927e5c86be624c6d2c3481",
+      "raw_log": "/tmp/pkv-snapshot-get-bench.log",
+      "raw_log_sha256": "ddfeb37c816f3e9b7f3a2b1e3aaa015c6b962aabf5254f692981ca734e071e08",
+      "first_attempt": {
+        "log": "/tmp/pkv-snapshot-get-first-attempt.log",
+        "sha256": "734c0f2b6f66597425a08567eae05941d3a30fde4dd051b3567f9220246d51de",
+        "reason": "Retained executable copy lacked execute permission; corrected mode and reran after confirmed termination"
+      }
+    },
+    "capture": {
+      "path": "doc/benchmarks/client-snapshot-capture-2026-10-31.json",
+      "sha256": "1d59ec6ba2dd74a4a46d5dfe6cdf90664193fcf21716048118428621d1fcbaf6"
+    }
+  },
+  "limitations": [
+    "CLIENT INFO/LIST remain unimplemented and unadvertised",
+    "Only ID, protocol, name and library attributes are copied",
+    "Actor reference getters are not general cross-thread APIs",
+    "DB/queue/buffer/counter telemetry still needs integration",
+    "Membership is frozen; views across different clients are not one global instant",
+    "Metadata copying adds per-connection synchronization and memory",
+    "No broad throughput advantage over stock Redis established",
+    "Windows-specific paths not run on this macOS host"
+  ]
+}

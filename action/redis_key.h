@@ -24,11 +24,15 @@ public:
     bool exec(const char* cmd, redis_coder& result);
 
 public:
+    bool copy(redis_coder& result);
+    bool move(redis_coder& result);
+    bool rename(redis_coder& result);
     bool del(redis_coder& result);
+    bool exists(redis_coder& result);
     bool type(redis_coder& result);
     bool expire(redis_coder& result);
     bool ttl(redis_coder& result);
-    bool scan(db_cursor& cursor, redis_coder& result);
+    bool persist(redis_coder& result);
 
 private:
     dao::key* dao_;

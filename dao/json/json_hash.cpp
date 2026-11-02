@@ -1,162 +1,198 @@
 #include "stdafx.h"
-#include "json_define.h"
 #include "json_hash.h"
+#include "common/redis_integer.h"
 
 namespace pkv {
 namespace dao {
 
-const char* json_hash::build() {
-    if (this->finished_) {
-        return this->result_;
-    }
-
-    this->create_writer();
-
-    yyjson_mut_obj_add_str(this->w_doc_, this->w_root_, JSON_TYPE, JSON_TYPE_HASH);
-    yyjson_mut_obj_add_int(this->w_doc_, this->w_root_, JSON_EXPIRE, -1);
-
-    auto data = yyjson_mut_obj(this->w_doc_);
-    yyjson_mut_obj_add_val(this->w_doc_, this->w_root_, JSON_DATA, data);
-
-    for (const auto& cit : fields_) {
-        yyjson_mut_obj_add_str(this->w_doc_, data, cit.first.c_str(),
-                cit.second.c_str());
-    }
-
-    this->result_ = yyjson_mut_write(this->w_doc_, 0, nullptr);
-
-    this->finished_ = true;
-    return result_;
-}
-
-bool json_hash::hset(shared_db& db, const std::string& key, const std::string& name,
-        const std::string& value) {
-
-    (void) hgetall(db, key);
-    fields_[name] = value;
-
-    if (build() == nullptr) {
-        logger_error("Build for hset error, key=%s, name=%s, value=%s",
-              key.c_str(), name.c_str(), value.c_str());
+bool json_hash::parse_fields() {
+    record_ = value_record();
+    record_.header.kind = value_kind::hash;
+    if (!view_) return read_status_ == read_status::missing;
+    if (view_->header().kind != value_kind::hash) {
+        read_status_ = read_status::wrong_type;
         return false;
     }
-    //printf(">>>%s<<<\r\n", this->result_);
-    return dao_base::save(db, key, this->result_);
-}
-
-int json_hash::hdel(shared_db& db, const std::string& key, const std::string& name) {
-    if (!hgetall(db, key)) {
-        return -1;
-    }
-    auto it = fields_.find(name);
-    if (it == fields_.end()) {
-        return 0;
-    }
-
-    fields_.erase(it);
-
-    if (fields_.empty()) {
-        db->del(key);
-    } else if (build() == nullptr) {
-        logger_error("Build for hset error, key=%s, name=%s",
-              key.c_str(), name.c_str());
-        return -1;
-    } else if (!dao_base::save(db, key, this->result_)) {
-        return -1;
-    }
-
-    return 1;
-}
-
-// { "T": "H", "E": -1, "D": { "name1": "value1", "name2": "value2" }}
-
-bool json_hash::hget(shared_db& db, const std::string& key, const std::string& name,
-        std::string& value) {
-    auto data = this->read(db, key);
-    if (data == nullptr) {
-        logger_error("db read error, key=%s", key.c_str());
+    record_.header = view_->header();
+    if (!view_->hash_values(record_.hash_value)) {
+        read_status_ = read_status::invalid_record;
         return false;
     }
-    if (strcasecmp(type_.c_str(), JSON_TYPE_HASH) != 0) {
-        logger_error("Invalid type=%s, key=%s", type_.c_str(), key.c_str());
-        return false;
-    }
-
-    yyjson_obj_iter iter;
-    yyjson_obj_iter_init(data, &iter);
-
-    yyjson_val* vkey, *vval;
-    while ((vkey = yyjson_obj_iter_next(&iter))) {
-        vval = yyjson_obj_iter_get_val(vkey);
-        if (yyjson_equals_str(vkey, name.c_str())) {
-            auto v = yyjson_get_str(vval);
-            if (v) {
-                value = v;
-            }
-            return true;
-        }
-    }
-
-    return false;
+    return true;
 }
 
 bool json_hash::hgetall(shared_db& db, const std::string& key) {
-    fields_.clear();
+    if (!read(db, key) && read_status_ != read_status::missing) return false;
+    return parse_fields();
+}
 
-    auto data = this->read(db, key);
-    if (data == nullptr) {
-        //logger_error("db read error, key=%s", key.c_str());
-        return true;
-    }
-    if (strcasecmp(type_.c_str(), JSON_TYPE_HASH) != 0) {
-        logger_error("Invalid type=%s, key=%s", type_.c_str(), key.c_str());
+bool json_hash::hget(shared_db& db, const std::string& key,
+        const std::string& name, std::string& value) {
+    if (!read(db, key)) return false;
+    if (view_->header().kind != value_kind::hash) {
+        read_status_ = read_status::wrong_type;
         return false;
     }
-
-    yyjson_obj_iter iter;
-    yyjson_obj_iter_init(data, &iter);
-
-    yyjson_val* vkey, *vval;
-    while ((vkey = yyjson_obj_iter_next(&iter))) {
-        vval = yyjson_obj_iter_get_val(vkey);
-        auto n = yyjson_get_str(vkey);
-        auto v = yyjson_get_str(vval);
-        if (n && v) {
-            fields_[n] = v;
-        }
+    switch (view_->hash_field(name, value)) {
+    case field_status::found: return true;
+    case field_status::missing: read_status_ = read_status::missing; break;
+    case field_status::invalid: read_status_ = read_status::invalid_record; break;
     }
+    return false;
+}
 
+int json_hash::hmset(shared_db& db, const std::string& key,
+        const std::map<std::string, std::string>& fields) {
+    int added = 0;
+    bool valid = true;
+    reset();
+    bool ok = db->update(key, [&](bool found, std::string& bytes) {
+        if (found && !decode(db, bytes) && read_status_ != read_status::missing) {
+            valid = false;
+            return db::update_action::keep;
+        }
+        if (!parse_fields()) {
+            valid = false;
+            return db::update_action::keep;
+        }
+        for (const auto& field : fields) {
+            auto inserted = record_.hash_value.emplace(field.first, field.second);
+            if (inserted.second) ++added;
+            else inserted.first->second = field.second;
+        }
+        if (!encode(db, record_, bytes)) {
+            valid = false;
+            return db::update_action::keep;
+        }
+        return db::update_action::write;
+    });
+    if (!ok) read_status_ = read_status::storage_error;
+    return ok && valid ? added : -1;
+}
+
+bool json_hash::hset(shared_db& db, const std::string& key,
+        const std::string& name, const std::string& value) {
+    return hmset(db, key, {{name, value}}) >= 0;
+}
+
+int json_hash::hdel(shared_db& db, const std::string& key,
+        const std::vector<std::string>& names) {
+    int removed = 0;
+    bool valid = true;
+    reset();
+    bool ok = db->update(key, [&](bool found, std::string& bytes) {
+        if (!found) return db::update_action::keep;
+        if (!decode(db, bytes)) {
+            if (read_status_ == read_status::missing) return db::update_action::erase;
+            valid = false;
+            return db::update_action::keep;
+        }
+        if (!parse_fields()) {
+            valid = false;
+            return db::update_action::keep;
+        }
+        for (const auto& name : names) removed += record_.hash_value.erase(name);
+        if (!removed) return db::update_action::keep;
+        if (record_.hash_value.empty()) return db::update_action::erase;
+        if (!encode(db, record_, bytes)) {
+            valid = false;
+            return db::update_action::keep;
+        }
+        return db::update_action::write;
+    });
+    if (!ok) read_status_ = read_status::storage_error;
+    return ok && valid ? removed : -1;
+}
+
+int json_hash::hdel(shared_db& db, const std::string& key, const std::string& name) {
+    return hdel(db, key, std::vector<std::string>{name});
+}
+
+bool json_hash::hmget(shared_db& db, const std::string& key,
+        const std::vector<std::string>& names,
+        std::map<std::string, std::string>& result) {
+    result.clear();
+    if (!read(db, key)) return read_status_ == read_status::missing;
+    if (view_->header().kind != value_kind::hash) { read_status_ = read_status::wrong_type; return false; }
+    for (const auto& name : names) {
+        if (result.count(name)) continue;
+        std::string value;
+        const auto status = view_->hash_field(name, value);
+        if (status == field_status::invalid) { read_status_ = read_status::invalid_record; return false; }
+        if (status == field_status::found) result.emplace(name, std::move(value));
+    }
     return true;
 }
 
-int json_hash::hmset(shared_db &db, const std::string &key,
-     const std::map<std::string, std::string> &fields) {
-    (void) hgetall(db, key);
-    for (auto& field : fields) {
-        fields_[field.first] = field.second;
-    }
-
-    if (build() == nullptr) {
-        logger_error("Build for hmset error, key=%s", key.c_str());
-        return false;
-    }
-    return dao_base::save(db, key, this->result_);
+bool json_hash::hlen(shared_db& db, const std::string& key, long long& length) {
+    length = 0;
+    if (!read(db, key)) return read_status_ == read_status::missing;
+    if (view_->header().kind != value_kind::hash) { read_status_ = read_status::wrong_type; return false; }
+    size_t size;
+    if (!view_->hash_size(size)) { read_status_ = read_status::invalid_record; return false; }
+    length = static_cast<long long>(size);
+    return true;
 }
 
-bool json_hash::hmget(shared_db &db, const std::string &key,
-     const std::vector<std::string> &names,
-     std::map<std::string, std::string>& result) {
-
-    (void) hgetall(db, key);
-    for (auto& name : names) {
-        auto it = fields_.find(name);
-        if (it != fields_.end()) {
-            result[name] = it->second;
-        } else {
-            result[name] = "";
-        }
-    }
+bool json_hash::hstrlen(shared_db& db, const std::string& key, const std::string& name,
+        long long& length, bool& exists) {
+    length = 0;
+    exists = false;
+    if (!read(db, key)) return read_status_ == read_status::missing;
+    if (view_->header().kind != value_kind::hash) { read_status_ = read_status::wrong_type; return false; }
+    size_t size = 0;
+    const auto status = view_->hash_field_length(name, size);
+    if (status == field_status::invalid) { read_status_ = read_status::invalid_record; return false; }
+    exists = status == field_status::found;
+    if (exists) length = static_cast<long long>(size);
     return true;
+}
+
+bool json_hash::hsetnx(shared_db& db, const std::string& key, const std::string& name,
+        const std::string& value, bool& added) {
+    reset();
+    added = false;
+    bool valid = true;
+    const bool ok = db->update(key, [&](bool found, std::string& bytes) {
+        if (found && !decode(db, bytes) && read_status_ != read_status::missing) {
+            valid = false; return db::update_action::keep;
+        }
+        if (!parse_fields()) { valid = false; return db::update_action::keep; }
+        if (!record_.hash_value.emplace(name, value).second) return db::update_action::keep;
+        if (!encode(db, record_, bytes)) { valid = false; return db::update_action::keep; }
+        added = true;
+        return db::update_action::write;
+    });
+    if (!ok) read_status_ = read_status::storage_error;
+    if (!ok || !valid) added = false;
+    return ok && valid;
+}
+
+bool json_hash::hincrby(shared_db& db, const std::string& key, const std::string& name,
+        long long delta, long long& value) {
+    reset();
+    bool valid = true;
+    const bool ok = db->update(key, [&](bool found, std::string& bytes) {
+        if (found && !decode(db, bytes) && read_status_ != read_status::missing) {
+            valid = false; return db::update_action::keep;
+        }
+        if (!parse_fields()) { valid = false; return db::update_action::keep; }
+        auto field = record_.hash_value.find(name);
+        long long old = 0;
+        if (field != record_.hash_value.end() && !parse_redis_integer(field->second, old)) {
+            read_status_ = read_status::invalid_hash_integer;
+            valid = false; return db::update_action::keep;
+        }
+        if (!checked_integer_add(old, delta, value)) {
+            read_status_ = read_status::integer_overflow;
+            valid = false; return db::update_action::keep;
+        }
+        record_.hash_value[name] = std::to_string(value);
+        if (!encode(db, record_, bytes)) { valid = false; return db::update_action::keep; }
+        return db::update_action::write;
+    });
+    if (!ok) read_status_ = read_status::storage_error;
+    return ok && valid;
 }
 
 } // namespace dao

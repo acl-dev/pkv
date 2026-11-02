@@ -1,0 +1,322 @@
+{
+  "total_passed": 694,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 77,
+      "elapsed_seconds": 112.76,
+      "log": "/tmp/pkv-auth-memory-full.log",
+      "details": "/tmp/pkv-auth-memory-full-details.log",
+      "log_sha256": "c7e3322a6830cecc12b7196c25990f3333bcf5bf21f376b713b9a746d1be6423",
+      "details_sha256": "094c2e955cf44909f7b70a1ed9912fc9241f97139683f674ead961ca3c721856",
+      "build_log": "/tmp/pkv-auth-memory-full-build.log",
+      "build_log_sha256": "11c8bbf659565b069d416e3f1aebacd266c7162653e7bb62b164bcb1c75ef18b",
+      "common_auth_assertions": 72,
+      "typed_protocol_assertions": 237,
+      "authenticated_redis_cli_passed": true
+    },
+    {
+      "build": "c11",
+      "passed": 77,
+      "elapsed_seconds": 103.72,
+      "log": "/tmp/pkv-auth-c11-full.log",
+      "details": "/tmp/pkv-auth-c11-full-details.log",
+      "log_sha256": "3b459adedc3dc79b99d944c47ed65dd664d66c7f9120d8d14050cb63831dbd8f",
+      "details_sha256": "0346dfe148f1c5f19177a517c8b917154cc6633076c39d42b42a2afd170e8509",
+      "build_log": "/tmp/pkv-auth-c11-full-build.log",
+      "build_log_sha256": "1670aa558486d4c15e89c4ac3041b45ea8f9df35e425e9bb38cc1f228247c5f2",
+      "common_auth_assertions": 72,
+      "typed_protocol_assertions": 237,
+      "authenticated_redis_cli_passed": true
+    },
+    {
+      "build": "tbb",
+      "passed": 86,
+      "elapsed_seconds": 122.82,
+      "log": "/tmp/pkv-auth-tbb-full.log",
+      "details": "/tmp/pkv-auth-tbb-full-details.log",
+      "log_sha256": "377c25d6ff18b7064d92e02e0c9b2f400d6a1914689ac3444f66701719b3376b",
+      "details_sha256": "967d8af5276fbffebc43452846bf77c7c6727fa41697425431ae394d18117c08",
+      "build_log": "/tmp/pkv-auth-tbb-full-build.log",
+      "build_log_sha256": "439b8302e8119705904c02b2c3e94ce63a59dd9157238fcbe639bf4895dc2871",
+      "common_auth_assertions": 72,
+      "typed_protocol_assertions": 237,
+      "authenticated_redis_cli_passed": true
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 86,
+      "elapsed_seconds": 111.25,
+      "log": "/tmp/pkv-auth-tbb-c11-full.log",
+      "details": "/tmp/pkv-auth-tbb-c11-full-details.log",
+      "log_sha256": "e7f5b40d9f9a16cb037786cfe86763ed59385005f5e49643694833299bb187f9",
+      "details_sha256": "b0fa5a524c181f9f10f8ec797d30fccd1e6e454db9ff44452f8273831677a339",
+      "build_log": "/tmp/pkv-auth-tbb-c11-full-build.log",
+      "build_log_sha256": "072186f606b38ebf87a8c77b43b0ed4e8153ed1ecf7ab4e1f92bdfb6be0b9bbc",
+      "common_auth_assertions": 72,
+      "typed_protocol_assertions": 237,
+      "authenticated_redis_cli_passed": true
+    },
+    {
+      "build": "rocks",
+      "passed": 92,
+      "elapsed_seconds": 138.43,
+      "log": "/tmp/pkv-auth-rocks-full.log",
+      "details": "/tmp/pkv-auth-rocks-full-details.log",
+      "log_sha256": "7fa3d373065fca2ed809bb62ef55b393d7afa4f4426fd251d49888655e2bef25",
+      "details_sha256": "582e68c56cefddaab4416c5e343dbd3ec8148825b973f2931a8e70616e772ab1",
+      "build_log": "/tmp/pkv-auth-rocks-full-build.log",
+      "build_log_sha256": "40bc1800df037c907c022f0afb66d117b96f0c9677a8e8ec2ab2124a9c2e099d",
+      "common_auth_assertions": 72,
+      "typed_protocol_assertions": 237,
+      "authenticated_redis_cli_passed": true
+    },
+    {
+      "build": "rocks-release",
+      "passed": 92,
+      "elapsed_seconds": 114.65,
+      "log": "/tmp/pkv-auth-rocks-release-full.log",
+      "details": "/tmp/pkv-auth-rocks-release-full-details.log",
+      "log_sha256": "ea13e74d02456b26350ef6aae58ae80448bd6613b8b1d89dfc3116a516da70bc",
+      "details_sha256": "72e968abc0c4276b340bc804543127993aa01f2accee813657a1172d1671df49",
+      "build_log": "/tmp/pkv-auth-rocks-release-full-build.log",
+      "build_log_sha256": "e8d99e44d2edfeb4bd9ea6d365503cb51217f5a76d5e116c514ab0860621705e",
+      "common_auth_assertions": 72,
+      "typed_protocol_assertions": 237,
+      "authenticated_redis_cli_passed": true
+    },
+    {
+      "build": "wt",
+      "passed": 92,
+      "elapsed_seconds": 284.94,
+      "log": "/tmp/pkv-auth-wt-full.log",
+      "details": "/tmp/pkv-auth-wt-full-details.log",
+      "log_sha256": "b3d33494a46cf14c7b8c17a1eaec888559c751270e87da83b2a35e486e503cc9",
+      "details_sha256": "5ae1c38590a9a1f80e7f6268735497923c713b8904736faba45b21d02017d6a3",
+      "build_log": "/tmp/pkv-auth-wt-full-build.log",
+      "build_log_sha256": "8e2017e487187a86985501260b53f1ae3abc54bf85ade28a230ed8d896380b5d",
+      "common_auth_assertions": 72,
+      "typed_protocol_assertions": 237,
+      "authenticated_redis_cli_passed": true
+    },
+    {
+      "build": "wt-c11",
+      "passed": 92,
+      "elapsed_seconds": 247.04,
+      "log": "/tmp/pkv-auth-wt-c11-full.log",
+      "details": "/tmp/pkv-auth-wt-c11-full-details.log",
+      "log_sha256": "981513fdea9f0ff42d45c77af4d2904ab86127a9f250654aaa1fc74bfcb1ba7e",
+      "details_sha256": "60370b9c8be2358020ba689612c5cc616c36101a3712334ee70695c656b845ed",
+      "build_log": "/tmp/pkv-auth-wt-c11-full-build.log",
+      "build_log_sha256": "8eaa73df8d334b5690d05bb9b5965e750de91a9bd424b59cfc2e5178401e92c2",
+      "common_auth_assertions": 72,
+      "typed_protocol_assertions": 237,
+      "authenticated_redis_cli_passed": true
+    }
+  ],
+  "all_sessions_terminal": true,
+  "wt_isolated": true,
+  "final_format_only_change": {
+    "file": "master_service.cpp",
+    "change": "Wrapped an 81-column expression; no code tokens changed; later log line numbers shift by one",
+    "full_suite_source_sha256": "e2ff0884af916d11c7713e8378d304778f7a7f44ccfa5a9f4fe7ae2c6b8f611a",
+    "retained_full_suite_source": "/tmp/pkv-auth-master-service-prewrap.cpp",
+    "final_source_sha256": "f3cd9a2b68deb2bc210c71ef0c50bddf50826d8710fbe03657a2d65db77d09d4",
+    "rebuilt_all_eight_entry_executables": true,
+    "post_format_auth_checks": [
+      {
+        "build": "memory",
+        "log": "/tmp/pkv-auth-memory-style-target.log",
+        "log_sha256": "d74978e021f3a06bc0656debf074bbfe4f30ff0ec8df7ef00808c5450f632030",
+        "rebuild": "/tmp/pkv-auth-memory-style-build.log",
+        "rebuild_sha256": "3894a6492cebeef6e91f22286d1382b3701bb8191e781826479b740ce7e69585"
+      },
+      {
+        "build": "c11",
+        "log": "/tmp/pkv-auth-c11-style-target.log",
+        "log_sha256": "e6a4a0f4c5b156d9f722e092f193f48cd59fa90008fa88a1ebc2dcad112b208f",
+        "rebuild": "/tmp/pkv-auth-c11-style-build.log",
+        "rebuild_sha256": "09b08f1e7e8f8249f5713e04e2ec439a6d0d614d933c0e5931f1ac43c3d5895a"
+      },
+      {
+        "build": "tbb",
+        "log": "/tmp/pkv-auth-tbb-style-target.log",
+        "log_sha256": "6439e69b7d03b377920088e5fbf64aeaf8031ba46f2aa91e2ada2f9480e0f96e",
+        "rebuild": "/tmp/pkv-auth-tbb-style-build.log",
+        "rebuild_sha256": "b37337b8709b0417cf0cdec92ccc6aef81426b09b3c450597305cfa1fe797f49"
+      },
+      {
+        "build": "tbb-c11",
+        "log": "/tmp/pkv-auth-tbb-c11-style-target.log",
+        "log_sha256": "9771a6778c87931e1637e23fd0e05119f230d01178c6070eadfb5ae8ff2f904f",
+        "rebuild": "/tmp/pkv-auth-tbb-c11-style-build.log",
+        "rebuild_sha256": "775ad9a4fe5ff3c2db1cf1a08f4b0d362a3ce06527e2c8a10c1f67e3591ad112"
+      },
+      {
+        "build": "rocks",
+        "log": "/tmp/pkv-auth-rocks-style-target.log",
+        "log_sha256": "29f6fd00aad82ee9638688fcec7d822222ba1539ed5ce29d2766ba8f896858e8",
+        "rebuild": "/tmp/pkv-auth-rocks-style-build.log",
+        "rebuild_sha256": "763e2d34df7817c5bdbd7e8c244fc9db6da2a158b00135032ab73941287fd6f0"
+      },
+      {
+        "build": "rocks-release",
+        "log": "/tmp/pkv-auth-rocks-release-style-target.log",
+        "log_sha256": "0bc7bc9021f71f0afde04aaefd5d1d343120784bdfe43f366bde422bb49ad428",
+        "rebuild": "/tmp/pkv-auth-rocks-release-style-build.log",
+        "rebuild_sha256": "763e2d34df7817c5bdbd7e8c244fc9db6da2a158b00135032ab73941287fd6f0"
+      },
+      {
+        "build": "wt",
+        "log": "/tmp/pkv-auth-wt-style-target.log",
+        "log_sha256": "8213d1074bc01f309d11585bee1fe8211e56de3eaf74e17485b0f561cd6962a4",
+        "rebuild": "/tmp/pkv-auth-wt-style-build.log",
+        "rebuild_sha256": "6f7cc1a43aca4a43b845a576054cacd61aad9fe3b5f1433a2ff9b0437bcfa067"
+      },
+      {
+        "build": "wt-c11",
+        "log": "/tmp/pkv-auth-wt-c11-style-target.log",
+        "log_sha256": "2431511804acf0ae3438b0ef5ad8207db27c56c3c1ddfa4e7c4fe3f31ef0ffd9",
+        "rebuild": "/tmp/pkv-auth-wt-c11-style-build.log",
+        "rebuild_sha256": "b37337b8709b0417cf0cdec92ccc6aef81426b09b3c450597305cfa1fe797f49"
+      }
+    ]
+  },
+  "final_schedule": [
+    [
+      "memory",
+      "c11"
+    ],
+    [
+      "tbb",
+      "tbb-c11"
+    ],
+    [
+      "rocks",
+      "rocks-release"
+    ],
+    [
+      "wt"
+    ],
+    [
+      "wt-c11"
+    ]
+  ],
+  "existing_concurrency_timeouts_and_durability_unchanged": true,
+  "new_rpc_auth_read_deadline_seconds": 5,
+  "rpc_auth_buffer_bytes": 1024,
+  "common_auth_assertions_per_build": 72,
+  "typed_protocol_assertions_per_build": 237,
+  "separate_assertions": [
+    "AUTH default/no-password and protected modes",
+    "HELLO AUTH, protocol/name failure preservation and RESET",
+    "WATCH, MULTI, logical DBs, ID/name retention",
+    "One reply per bad AUTH in pipeline/EXEC",
+    "redis-cli -3 using environment credentials",
+    "No unauthenticated RPC data or subscriber registration",
+    "Wrong/absent credentials, malformed lengths, idle/trickled input",
+    "Authenticated RPC versions 1/2/3 and long final-byte mismatch",
+    "Protected source EXEC and long-password live replication",
+    "Initially unavailable source and failed-auth reconnects stay alive",
+    "Null/closed RPC streams and zero-byte payload semantics",
+    "One-MiB allocation-free credential comparison",
+    "Stronger metadata allocation hook/preservation assertions"
+  ],
+  "reference": {
+    "binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+    "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a",
+    "version": "local modified Redis 8.6.2",
+    "stock_upstream": false
+  },
+  "redis_cli_sha256": "b1b3088e4241107f90af0511025dbd64bb38096f35346fcecc42ee95f548d7ca",
+  "source_sha256": {
+    "tests/CMakeLists.txt": "ba51ee053dcc1ba60227f349246fe9dfcd98fe2cd89b0d63aa71127ea157fee3",
+    "common/password_policy.h": "189c9edc539a278de4619b6f4a2bbb92630848355c6c5dfa0e9678bfbf2d273d",
+    "common/password_policy.cpp": "a02bd490ac12dfa00ebd3314cd36d662814987a9ece74fb1ab6a3eac90d1c9cd",
+    "common/client_state.h": "73d53180c44dc7d1ec1b50b5b7d586d35adb65e70e21fb95cbdf9c180e67f60a",
+    "common/client_state.cpp": "d53e8b0174e2d6fc6ad5d81b03877a1ea29bea3650a8772df7a5e8814050899f",
+    "common/command_keys.cpp": "190a4b92ebd8129e2f3de8b7f429bc1bd185a4ef61e201b419a68dca4e839574",
+    "common/transaction_database.cpp": "fda06a3fd60703b30792cea2dbd7dc87584ea426609dd38af5fd9b9e7f5df022",
+    "action/redis_auth.cpp": "6767a5fb727f35fa2814c701c33963c07cfb208eaaa18c5b829025ccfa6f50b4",
+    "action/redis_hello.cpp": "918f186f5f25e1109b82c4ce8e6e10063798b6b074707d620c745ca82aa7a81d",
+    "action/redis_handler.cpp": "01a0cc542bba4d1e95119594b4ca9435609f6b357cd016e885f6ee953e8b87b8",
+    "action/redis_transaction.cpp": "232ccd0ed7eeae2174214d441baad6451fb4ed71a2c6e1c36b18278edf4567cc",
+    "action/redis_service.h": "eafbddac58ad66003c884522f5be05306a347a570c253e0c0958ab77746e6956",
+    "action/redis_service.cpp": "fad8dc577ac82dda9741debcbdc7a1abf07e81405cc018f45e985488f1abd367",
+    "action/redis_server.h": "43ad0bf592ce3e6ecfbfa33a142fa0804c764f18a8f8321d3338f061b0db4cf3",
+    "action/redis_server.cpp": "d5cc5edef1663cf8bf0613451999809c136292dd609ac562c43cf56924352764",
+    "rpc/password_handshake.h": "591461c77f4a8d12014aed5db9b47885482bd0f1f0aeef440ccae8566fa6ab8d",
+    "rpc/password_handshake.cpp": "f91b21fca4aff04cb41a6b4650e36d1ac4e78c64163fffd6d7c0fe3f2ed19d25",
+    "rpc/rpc_reader.cpp": "b4ddf4b2b2c5c2ac23740b3897aa4a7b203027b334a0b0e9e38ee443c328016c",
+    "cluster/cluster_client.h": "927818288f9642a47106e578d1777ba3a795365f8e2eb3e78fade7a2858464db",
+    "cluster/cluster_client.cpp": "db0c70f0dfe0184e626ccf8a18336f16aedebb1e227cdcba36fc6d8e72bea6c1",
+    "cluster/cluster_manager.h": "9a205e0dc133fd40a23a33ffc5c6eb957c20daaefac36cc21712a080600ceb1f",
+    "cluster/cluster_manager.cpp": "93f876d12601201bb75dd5dabc374a6d927d5eb03616159b5e2bae8fda075cbb",
+    "cluster/cluster_service.h": "cea1bea0dda4e53a202828834f60e25c14ee394c1d075a20fa97fbb53308a040",
+    "cluster/cluster_service.cpp": "a43f654a2b8c52313d53470f281ba8da44cab5e8f6742efa63ebb77653f42521",
+    "master_service.cpp": "f3cd9a2b68deb2bc210c71ef0c50bddf50826d8710fbe03657a2d65db77d09d4",
+    "common/command_catalog_data.inc": "da24d5e2aa5770bb739371950b6631961827239d89a450cdd138f9423229ef2e",
+    "tests/client_state_test.cpp": "2b77681cb1f785b530c0752d87318bea29cc62fcdcd8adaf146bd548116ce934",
+    "tests/password_policy_test.cpp": "8c773907a9c774619bd68a7910669929a715ca9bd4c100bbdc6f240ea3cacbae",
+    "tests/rpc_test.cpp": "be563ffea3e55fb447467c6a423a2084e59309ae90040e84018c126c9e579e1c",
+    "tests/integration_test.py": "87a011c11f9801a258fb653017d68cef8c388e314320272ae0e9353e86a4e30c",
+    "tests/auth_test.py": "26852fa6979116a67a71c3e0780cd892d2c49fc488b4e40d677dca36af215919"
+  },
+  "sanitizers": {
+    "builds": [
+      "memory",
+      "tbb",
+      "rocks",
+      "wt"
+    ],
+    "enabled": [
+      "ASan",
+      "UBSan"
+    ],
+    "external_libraries_sanitized": false,
+    "fiber_stack_warning": "ACL fiber stacks can produce ASan issue-189 warnings; not a whole-server race-freedom claim"
+  },
+  "code_style": {
+    "maximum_line_length": 80,
+    "maximum_function_lines": 200
+  },
+  "reference_framing_difference": {
+    "evidence": "/tmp/pkv-auth-reference-framing.log",
+    "evidence_sha256": "a1e0b0d7d65625cdc925cf2e189b013fdcc2557c894f7894d332860240b82722",
+    "observed": "EXEC declares five children but bad AUTH emits no error",
+    "pkv": "Complete arrays and one error per failed AUTH/HELLO AUTH"
+  },
+  "fixed_crash": {
+    "initial_log": "/tmp/pkv-auth-memory-third-target.log",
+    "initial_log_sha256": "90a369f25639ebf5e5a5d1862bb1deb20116904d35c3295a8f165cc7baf5acb1",
+    "cause": "Receiver loop read an unopened ACL stream after open/auth failed and closed it",
+    "fix": "Reopen unopened streams; RPC reader rejects null/closed streams"
+  },
+  "prior_metadata_oom_anomaly": {
+    "cause": "Still not established",
+    "independent_unchanged_fixture_processes": 200,
+    "repeat_log": "/tmp/pkv-client-oom-repeat-200.log",
+    "repeat_log_sha256": "47ee8c304cc18ccc2c2d9246e3aa076f9a4cb2678ffb82a7ef12e687ec1d1ccf",
+    "probe_log": "/tmp/pkv-client-oom-probe.log",
+    "probe_log_sha256": "ba13dd3e2daadc621018412ed6a538fe5d78941e6e468010aa604b5dcba46f61",
+    "probe_result": "Three injected allocation hooks and preserved state",
+    "new_diagnostics": "Capture hook counts/statuses; require all three hooks and all prior preservation assertions"
+  },
+  "benchmark": {
+    "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/auth-get-performance-2026-10-31.json",
+    "sha256": "a224c2b3be01966824ee65c9dc9cf1bb9a1aa6f0e86ab8bc4d8b55957e24217d",
+    "retained_measured_binary": "/tmp/pkv-auth-measured-c11-pkv",
+    "retained_measured_binary_sha256": "26fc565ae3741d2278f383e546d7489483fbe8c92a09564e7710a6772253c8a9",
+    "scope": "Measured before final format-only entry-file wrapping"
+  },
+  "limitations": [
+    "Default user only; no ACL users/key-command permissions",
+    "Startup configuration only; no CONFIG SET password rotation",
+    "Plaintext credentials/config/memory; no TLS or server certificates",
+    "Length checked first; no formal side-channel proof",
+    "No rate-limiting or complete resource-policy subsystem",
+    "PKV live RPC, not Redis full sync/replay/cluster recovery",
+    "Prior metadata OOM anomaly remains undiagnosed",
+    "No complete compatibility, race-freedom or stock Redis speed claim"
+  ]
+}

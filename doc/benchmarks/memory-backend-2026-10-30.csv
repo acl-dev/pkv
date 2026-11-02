@@ -1,0 +1,9 @@
+engine,format,threads,fields,iterations,median_ops_sec,min_ops_sec,max_ops_sec
+mdb,legacy_json,1,1024,1000,12896.5,11138.4,13203.1
+mdb,paged_hash,1,1024,1000,182453.3,135376.4,186266.0
+oneTBB,legacy_json,1,1024,1000,13004.7,12999.6,13034.8
+oneTBB,paged_hash,1,1024,1000,221115.6,216172.4,224387.1
+mdb,legacy_json,4,1024,1000,45318.8,45039.4,45456.5
+mdb,paged_hash,4,1024,1000,615443.8,614553.4,623830.3
+oneTBB,legacy_json,4,1024,1000,45686.3,45269.8,46014.4
+oneTBB,paged_hash,4,1024,1000,713789.2,666106.9,714004.1

@@ -1,0 +1,68 @@
+{
+  "backend": "mdb",
+  "mode": "ordinary",
+  "groups": 5000,
+  "width": 32,
+  "samples": 3,
+  "warmup_groups": 20,
+  "rows": [
+    {
+      "seconds": 0.29694333399999995,
+      "writes_per_second": 538823.3433116907,
+      "median_group_ms": 0.057042000000000204,
+      "p95_group_ms": 0.06449999999999512,
+      "variant": "before",
+      "sample": 1
+    },
+    {
+      "seconds": 0.28868679099999994,
+      "writes_per_second": 554233.8790277385,
+      "median_group_ms": 0.05733299999999275,
+      "p95_group_ms": 0.06462500000004034,
+      "variant": "after",
+      "sample": 1
+    },
+    {
+      "seconds": 0.286303667,
+      "writes_per_second": 558847.1907347244,
+      "median_group_ms": 0.056874999999845244,
+      "p95_group_ms": 0.0639580000000306,
+      "variant": "after",
+      "sample": 2
+    },
+    {
+      "seconds": 0.28810695799999997,
+      "writes_per_second": 555349.3088493892,
+      "median_group_ms": 0.05687500000006729,
+      "p95_group_ms": 0.06425000000009895,
+      "variant": "before",
+      "sample": 2
+    },
+    {
+      "seconds": 0.28447770800000005,
+      "writes_per_second": 562434.2277110865,
+      "median_group_ms": 0.056666999999954726,
+      "p95_group_ms": 0.0639159999999972,
+      "variant": "before",
+      "sample": 3
+    },
+    {
+      "seconds": 0.2864382080000001,
+      "writes_per_second": 558584.6983095214,
+      "median_group_ms": 0.05679200000008322,
+      "p95_group_ms": 0.06383399999965178,
+      "variant": "after",
+      "sample": 3
+    }
+  ],
+  "binaries": {
+    "before": {
+      "path": "/private/tmp/pkv-exec-source-before-c11",
+      "sha256": "fa35f7ff927efa22bf3ebf2e1da32d9b8042e14ec7ff3d2a1b157979d5e2a948"
+    },
+    "after": {
+      "path": "/private/tmp/pkv-c11-build/pkv",
+      "sha256": "08df153861d1c9f34c782639c542fa9365472867e30c3338b23c23b28f480b2e"
+    }
+  }
+}

@@ -28,6 +28,7 @@ public:
     }
 
     void clear();
+    redis_input_memory memory() const;
 
     NODISCARD redis_ocache& get_cache() const {
         return cache_;
@@ -37,6 +38,7 @@ public:
     NODISCARD redis_object& create_object();
 
     bool to_string(std::string& out) const;
+    void move_to(redis_object& array);
 
 private:
     redis_ocache& cache_;

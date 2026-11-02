@@ -9,6 +9,7 @@ namespace pkv {
 
 using shared_server = std::shared_ptr<acl::server_socket>;
 class slave_watcher;
+class password_policy;
 
 class cluster_service {
 public:
@@ -16,7 +17,8 @@ public:
      * @brief Construct a new cluster service object
      * 
      */
-    cluster_service(slave_watcher& watcher);
+    cluster_service(slave_watcher& watcher,
+        const password_policy* passwords = nullptr);
 
     /**
      * @brief Destroy the cluster service object
@@ -43,6 +45,7 @@ private:
     shared_server server_ = std::make_shared<acl::server_socket>
 	    (acl::OPEN_FLAG_REUSEPORT, 128);
     slave_watcher& watcher_;
+    const password_policy* passwords_;
 };
 
 } // namespace pkv

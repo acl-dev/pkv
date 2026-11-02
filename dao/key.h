@@ -17,6 +17,16 @@ public:
     key() = default;
     virtual ~key() override = default;
 
+    virtual bool copy(shared_db& source_db, const std::string& source, shared_db& destination_db, const std::string& destination, bool replace, bool& copied) = 0;
+    virtual bool rename(shared_db& db, const std::string& source, const std::string& destination, bool nx, bool& renamed) = 0;
+
+    enum expire_condition { expire_nx = 1, expire_xx = 2, expire_gt = 4, expire_lt = 8 };
+    virtual bool set_expiry(shared_db& db, const std::string& key,
+                            long long deadline_ms, unsigned conditions) = 0;
+    virtual bool pttl(shared_db& db, const std::string& key, long long& ms) = 0;
+    virtual bool expiry_time(shared_db& db, const std::string& key, long long& ms) = 0;
+    virtual bool persist(shared_db& db, const std::string& key) = 0;
+
     /**
      * @brief Deletes a key from the database.
      * @param db The shared database instance.
@@ -24,6 +34,8 @@ public:
      * @return True if the key was deleted successfully, false otherwise.
      */
     virtual bool del(shared_db& db, const std::string& key) = 0;
+    virtual bool del(shared_db& db, const std::vector<std::string>& keys, long long& removed) = 0;
+    virtual bool exists(shared_db& db, const std::vector<std::string>& keys, long long& count) = 0;
 
     /**
      * @brief Gets the type of a key in the database.
@@ -41,7 +53,7 @@ public:
      * @param n The number of seconds until the key expires.
      * @return True if the expiration time was set successfully, false otherwise.
      */
-    virtual bool expire(shared_db& db, const std::string& key, int n) = 0;
+    virtual bool expire(shared_db& db, const std::string& key, long long n) = 0;
 
     /**
      * @brief Gets the remaining time (in seconds) until a key in the database expires.
@@ -50,7 +62,7 @@ public:
      * @param n The output integer to store the remaining time.
      * @return True if the remaining time was retrieved successfully, false otherwise.
      */
-    virtual bool ttl(shared_db& db, const std::string& key, int& n) = 0;
+    virtual bool ttl(shared_db& db, const std::string& key, long long& n) = 0;
 
     /**
      * @brief Scans the database for keys matching a pattern.

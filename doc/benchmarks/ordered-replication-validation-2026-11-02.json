@@ -1,0 +1,3708 @@
+{
+  "date": "2026-11-02",
+  "completed_at_utc": "2026-11-02T05:28:52.579098+00:00",
+  "scope": "PKV4 bounded ordered transport and memory replay; public MOVE/source capture and durable disk groups remain pending",
+  "validation_scope": "Eight all-target builds and 572 selected CTests plus two actual disk mixed-group rejection probes and one memory control; not full suite",
+  "disk_rejection_probes": [
+    {
+      "result": {
+        "backend": "rdb",
+        "binary": "/tmp/pkv-exit-final-rocks-release-build/pkv",
+        "seed_type": "Hash",
+        "seed_value_bytes": 70000,
+        "rejected_complete_mixed_group": true,
+        "earlier_page_write_absent": true,
+        "source_family_unchanged": true,
+        "target_family_absent": true
+      },
+      "evidence": {
+        "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/disk-rejection/rocks-release.json",
+        "sha256": "34a07f6b717082568f6b3e7d0e8c60bbb76f552a78282bb19cdf35826d57e029",
+        "bytes": 279
+      },
+      "log": {
+        "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/disk-rejection/rocks-release.log",
+        "sha256": "1b01e0ca952fad7be22b13bca06f251dffefdd6128317782a04835510dfdcacc",
+        "bytes": 261
+      }
+    },
+    {
+      "result": {
+        "backend": "wdb",
+        "binary": "/tmp/pkv-exit-final-wt-c11-build/pkv",
+        "seed_type": "Hash",
+        "seed_value_bytes": 70000,
+        "rejected_complete_mixed_group": true,
+        "earlier_page_write_absent": true,
+        "source_family_unchanged": true,
+        "target_family_absent": true
+      },
+      "evidence": {
+        "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/disk-rejection/wt-c11.json",
+        "sha256": "5293b0bed4292e50a19ed035eccac5ec35788d4b45edaa98863e3b50ab7d0955",
+        "bytes": 272
+      },
+      "log": {
+        "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/disk-rejection/wt-c11.log",
+        "sha256": "17b7e702da0ef4e9f9e0173719f112b25cd5fb88f5a212c7ac5aa3feeeb65831",
+        "bytes": 254
+      }
+    }
+  ],
+  "disk_rejection_memory_control": {
+    "backend": "mdb",
+    "binary": "/tmp/pkv-exit-final-rocks-release-build/pkv",
+    "applied_complete_mixed_group": true,
+    "earlier_page_write_visible": true,
+    "source_family_absent": true,
+    "target_family_equal": true
+  },
+  "source_file_count": 672,
+  "source_fingerprints": {
+    "CMakeLists.txt": "469a494c271a914c4877f0a875ed22cd9295ff9cd25b5fad8a53bb21785fcfc6",
+    "Makefile": "4105da9b65f3f7f1ddca31ad53643688dfa55831b8c8c982589931d48924fa3e",
+    "action/bak/redis_hash.cpp": "3071001156ddf9ea2a2b5486f68d8220067ba6e8d71c34aeb22f0df8b94dfa23",
+    "action/bak/redis_hash.h": "1f2f3d3fb4447db9e0a6391541fa0e220a7534c345ab0b462e8fbf2a9e86c0f2",
+    "action/geo_search_parser.cpp": "4a8096f532df8d4e88849f276000e8e22e8fb52bf718f8c6dd36fef4ff8d7def",
+    "action/geo_search_parser.h": "e02b912a272f53b7b65c8e1745bb4f31ae43b92050db128ee7f289bffef3dab8",
+    "action/redis_acl.cpp": "30512bcbd1d25bbc888ddab2621c84ddfc15f7a413a690110293d292ddc1ad51",
+    "action/redis_acl_file.cpp": "a1e5545e1e50be65e7e4db1227d969094c616bb5a1a227c417a404b4414c90cb",
+    "action/redis_acl_log.cpp": "6b930e3395c33efacdb4fb09da235e51a31a6f794584d4f3bc47a8ec279a2df5",
+    "action/redis_auth.cpp": "e390c43617cfdec02e434973581aaa8106c6b4150b8e01350c75e00791396770",
+    "action/redis_bitfield.cpp": "9bb80bff54a9e8fa7ce66e846d6f71a6cb9e464197df7e73f738fc76900274d2",
+    "action/redis_bitmap.cpp": "bffb10ff9a290156e286123ef5ffba134e86fc1c43b2d2b7ed797f80924fba37",
+    "action/redis_bitop.cpp": "c1df4a7e80980549eb6cd5c0ec3158e4a68e2196b37d5532f1d490dcb48a517e",
+    "action/redis_blocking_input.cpp": "812a3e6560dfc6dad6ae15ffd8e4779530ecf6279eefa72021b08b1361addbaf",
+    "action/redis_blocking_pop.cpp": "29199de223de6024fdcf92ec5d151cecc1d52de7a07a71c7c82b0e3d10a463e9",
+    "action/redis_blocking_pop.h": "6affb059e1bd349f6491925ee78dc63d4941fdc9c396670b73fd5578e6b609b6",
+    "action/redis_client.cpp": "6eb955af5c2bb5fc50c793af2667fd9bf4a521c00ea6d6391bdf8c69ff59e668",
+    "action/redis_client_activity.cpp": "5ce4197697e5d949b54acfb2b1fe388e27a5c09916294085147b63242368a293",
+    "action/redis_client_info.cpp": "8867b86cb681af7b1b1888989830ea2be4f82e1e6fa9048b7bb11a42e3194018",
+    "action/redis_client_kill.cpp": "77fc8495b5d7cfdfb6524b92acd51dc6403edb05d04d86ee3eeb6ebf25e43e0c",
+    "action/redis_client_unblock.cpp": "25ba4a75f5033e406f7d525a736a3ec6a00c6a64b109f80dabcd4da6fc1928bb",
+    "action/redis_cluster.cpp": "a7f70833e4d17e11cb0fb4c220acb4dc9146f5ace1e23522df6477920f355ccf",
+    "action/redis_cluster.h": "1ecbfa370c372e7350e7d346f1bcf160809f04babbbdc5b4c01023c06fa82265",
+    "action/redis_command.cpp": "cad4e8fe6f5ab9e9bdf296c44d1c3ebefd582325b04813ed25605723a5d4a881",
+    "action/redis_command.h": "903063afd3e503eeb5c00a0c252407b5638f444d9042de85754fcc5e8ba66f09",
+    "action/redis_command_info.cpp": "fd053de1ee89aceb81c1b7ff19bf2bfe23fcf2f5059157cbfbc49ee2080bda09",
+    "action/redis_configuration.cpp": "9c1639a32a126ca898903053bc40a6aceea69f48e39af5cbefb59db63318a30b",
+    "action/redis_dbsize.cpp": "7685a9768a6584de640639197bcd8a70e6a6470cc4c7665d2a21f6f29bd67fa8",
+    "action/redis_geo.cpp": "d5c43074691766fbc3a2bc8b48beecbbca522e9071d27c27003ae495a8c521d3",
+    "action/redis_geo.h": "5e0577b1022eba62feb1a6b9b2a0089e43f6fe002c6e94d71fd1a42f6ea96165",
+    "action/redis_geo_search.cpp": "adea374406d5cb7cf6991138e10a6fb8b2cb02418b100019365efee7786a3614",
+    "action/redis_handler.cpp": "e084fc7e90bf9026c384577e7444cff772ee3207711099f72e591812c13a5f99",
+    "action/redis_handler.h": "524100976014a97b770b6a915505f5c14f979c5ce78b42d028205484c2fa1133",
+    "action/redis_handler_acl.cpp": "b19823bf0d9b580b376b7b02b099c31aef5f6db8c5fd25938a179868f30cea58",
+    "action/redis_hash.cpp": "679197e878e0ea5ec5ea795c08f31a113c88cf0d40e87a54b746c079295aee45",
+    "action/redis_hash.h": "3315f09d2821fbd884b601f575414588dbc2eeefbfee894d40e77f135d767049",
+    "action/redis_hash_getdel.cpp": "c8b8d3c8b41a0350d2163115a714ceffa37eef5d1d1c65bfa626886c6fd22953",
+    "action/redis_hello.cpp": "7f52af14dcb80c38f2ec81a762c2b7f629eb8b92b90dd9b7854db7bf679419ca",
+    "action/redis_hyperloglog.cpp": "a958fb83cde7f9b9e20c7ebc1423532a5fc67d8b00ad706e06e4d1ff2760e8d6",
+    "action/redis_hyperloglog.h": "498508276815ed2688aede2eec2e067f2e7b5e07a14df1e26cb9e5524e5e1327",
+    "action/redis_info.cpp": "fa8ecf63302e04cf1b3e55bdcc76fbbcd8fe3d72000cb75c9732862040fd77b4",
+    "action/redis_key.cpp": "bc7e63d544f940c0514a5d8438c52ebe99469649b8d0ba8e1f44db7caad5e761",
+    "action/redis_key.h": "6407cea872edd88e5d665b4d2edc38aabb70d8919adcbd7a9fe453c7c4efe386",
+    "action/redis_keys.cpp": "18bdeaf4dff226917a6c022581bb49c6668ba2506ecffc1bbcc7346488e6f8e2",
+    "action/redis_lcs.cpp": "4bf886cbfba7bd50182da696825f18f50fbb5e6d60a8fff21afe528ff73dd81e",
+    "action/redis_list.cpp": "dcaabb06e569b41132cc5398429d24d334484bb13bae5bc285f78225f2595b69",
+    "action/redis_list.h": "f172b320b0532795caa6777cf3b59f525797f268e40edcab1e2392349e610f48",
+    "action/redis_list_blocking.cpp": "fd7c905ce6a293afaf7d913fdc9dbe87fb99cb352d1585d712c56e0bfaf1cdc0",
+    "action/redis_pubsub.cpp": "d27a4ab0003dd4fca5cf10f14dc04b7a7abaf07db0bfd211e4d3ebd3916bcb40",
+    "action/redis_pubsub.h": "7bb5a50cd9e0bcb06a49b38d86e861277f25de0b7ac792292f71e1f291a095f0",
+    "action/redis_pubsub_connection.cpp": "4141614a22242b77caac2d26ea656f69ece4863e9aa5bcdbd485c72dce2515b6",
+    "action/redis_random_key.cpp": "b146479f572ad6a4e2577a7b23f90f039d661c5a4c441f064732dc1e781349f8",
+    "action/redis_readonly.cpp": "92f4696ccb46e08083d0c0b752d376a4c7b7d15525bdbf37ad151acf5f8d3c20",
+    "action/redis_scan.cpp": "23dd8b94fb91acbc4a3246dc75acdf9684ec69ba8d5edd773a12839bd4fac77c",
+    "action/redis_scan.h": "d089ee82ebf1145c4898dc7c5087d43ec3b793bcee3bd59f247882f87d0067fb",
+    "action/redis_server.cpp": "b4cea544b6ca5635d389c6d07bb051434ed4a650847f36e29114c673d22e9b53",
+    "action/redis_server.h": "21cbcf6f946dc235bb2a4820f8935aa6484fe3393c8c2aa7a0c6346fba5188eb",
+    "action/redis_service.cpp": "fdd15e56bc5013f599442ab7b8101ee943f24d0a04350ac9e6d34d482a6da2ab",
+    "action/redis_service.h": "bbd3084fb39a81c1fcf90658deb4b77f4f25812d2d32510d6d97eb1ca49bd683",
+    "action/redis_set.cpp": "59a40009e0be6cf69cbd04a652d4c94c91f315f178afc7404398ab625ffc8cb8",
+    "action/redis_set.h": "2703768f72e18f84397fe27cf61ef49fe86fb7152ce395e836f0d1630143dd6e",
+    "action/redis_statistics.cpp": "d403a2ed43a3dd90e4fbb15721d3b3da58c700475cf1306b4f978c072461e15e",
+    "action/redis_string.cpp": "bca1798771c3d435f707fb809aa486a9b792d627e1b0749fa3ddee56f05208dc",
+    "action/redis_string.h": "20646db004c99002f6a7f928ba50c3cad0524bb3ea6f40edf599d7dda36b8444",
+    "action/redis_string_msetex.cpp": "d51099493a59983085b8e24836eac9db60e575647b90ac8606be942e76403887",
+    "action/redis_time.cpp": "4251364505c9c328a2465d94f4aef7d85c345cea59cb5bea30851315fae2e9eb",
+    "action/redis_transaction.cpp": "8a9bb2d7bd2d2b472187d469b141c1264df861a86ef3a4ffcb8b17168215e290",
+    "action/redis_zset.cpp": "a2e34d275a36d9d02e9cac42b8f575621e13eb97a63787f85be29fd29e53161d",
+    "action/redis_zset.h": "eb7042e02c82e0520ab33eaa1aa7efece7c57a3cb00cfaa8e5dd9c693a8db623",
+    "action/transaction_routing.cpp": "f391b279d7918e2bfdd8a7c533b20ef37a813ff6ac6a225b86fd779f0a3ec3c5",
+    "action/transaction_workspace.cpp": "bfa5b076d0ce8917958f061b2d7d3f349e339fa349d6defa3c76074095cba305",
+    "action/transaction_workspace.h": "1d0b3440a9d6b746a0a197ed67e462a1945da4e0805e484f7f4476cff9e50894",
+    "c++_patch.h": "e473fb20907247a0101dab839cfbe511437bf12ca01df553f51fa8b3a3efeb46",
+    "cluster/cluster_client.cpp": "1d15d3268a1e4acbac3e4d5eeb2bb289dbfa0e1a27ddd0eda2ad8d3ba77862d0",
+    "cluster/cluster_client.h": "b15e3065c9a0403243303416da1f9f0588f323a6549b6ce1a54917ec61630eec",
+    "cluster/cluster_manager.cpp": "93f876d12601201bb75dd5dabc374a6d927d5eb03616159b5e2bae8fda075cbb",
+    "cluster/cluster_manager.h": "9a205e0dc133fd40a23a33ffc5c6eb957c20daaefac36cc21712a080600ceb1f",
+    "cluster/cluster_node.cpp": "9eaf016fc837346c3edb4d2574607777050508369dc12a9f70414ef500def399",
+    "cluster/cluster_node.h": "779a6697035eb6f88a4dee010eaf75b283b75a9cd62856c0327bbd0f41f76950",
+    "cluster/cluster_service.cpp": "a43f654a2b8c52313d53470f281ba8da44cab5e8f6742efa63ebb77653f42521",
+    "cluster/cluster_service.h": "cea1bea0dda4e53a202828834f60e25c14ee394c1d075a20fa97fbb53308a040",
+    "cluster/gson/nodes_struct.gson.cpp": "e700013bbb7f42d5941cc9b7d30cc25e3f33cf1e67dbb0d39899ccdcf444a31d",
+    "cluster/gson/nodes_struct.gson.h": "5f5e0c6c817527b55e009a97b4e8c46b774ae14fa6ff88608fb30beb3ec209fd",
+    "cluster/gson/nodes_struct.h": "08ca0d1ef4a7886ce9d2738cbf21519e637a6e67c062464ecd423e11722b6538",
+    "coder/json_coder.cpp": "386ab24494ffe98f3425d0e814eef0c5c994ea7637572f6fe9ec168cec26dc60",
+    "coder/json_coder.h": "9677e28f9a517d0362f804a51c98d3f3d43e57fdf286a198c87337521bdb34b3",
+    "coder/json_doc.cpp": "5209e47900de44beeed3f43d38ccd8af539c94f7b5bdd3843417e017aa1eec27",
+    "coder/json_doc.h": "4ab99bb91e812b37702ba697edcc994d03c02f0e867c38767105abef67c47aa8",
+    "coder/json_object.cpp": "3a7d020b11ee25534a9b7899245445a04daf062e16b8b696ee0693453df56c33",
+    "coder/json_object.h": "8e590669b9d82a34529791e34256af6d393b91e184b7a4e9c227d3427abcc7f0",
+    "coder/json_record_codec.cpp": "d316369654284d626f684796d48ee1290c19547ed6131f3f106b2fb972b0bfc0",
+    "coder/json_record_codec.h": "861006238834794aedee4aaa58e74f4bf6614ea7ad6ce7cce8b74ac18618f163",
+    "coder/list_page.cpp": "2351ac876dc5d12f8e944513794df47903bbcefccab31f43b4561832607d3795",
+    "coder/list_page.h": "ad60fb75d7548f13d943a0d25d1c6f25e4368462d5433fa2162acc7b03ce8489",
+    "coder/map_page.cpp": "33a4d0159853a1156ee44d1759e64b474e4a0d5a6521270bfe12e6b4a1d831ea",
+    "coder/map_page.h": "800477145c0053ed522d6d5ff48b2ba9347546055896fde0e0003ac6cc466c2d",
+    "coder/record_codec.h": "6f66eeda6aeecef1919afa23390ac3431e202f49b03b657e8b46030f678f26d8",
+    "coder/redis_coder.cpp": "45c5e61df39c0894119ae21ec9f18b4ee9c04ec065d112b2eebf419b1d96d28e",
+    "coder/redis_coder.h": "ec089bda6cd7029a869cddb91828fcfb560685d2e000158ecc3ae63c16c01909",
+    "coder/redis_memory.cpp": "8b87ecd80d1b2c2e3b3e0f61b51c33153a47a62e47e77b04497d447a92168ab1",
+    "coder/redis_object.cpp": "ae31895139281f0756d59ee38694b03df0899e33c02e7ec35a39891e5478690b",
+    "coder/redis_object.h": "7dfeb007ce9430464b085d3ea0772bc48e92b5e674245073bbb44fc1591d66dd",
+    "coder/redis_ocache.cpp": "b5ef7220aa46a8e9868ab04167a0af4be80c443e79ef136884af8acbd80b8aae",
+    "coder/redis_ocache.h": "463c4505cca7e19cd2581060402a85395cf243789111e588d1908ae32459fcff",
+    "coder/redis_resources.h": "91a1a5077a5d2940876627739cef6228edf05f0e41dba92fcdba65aaaa977041",
+    "coder/redis_response.cpp": "5383501a515a9f3a25186d61dfd08542dd35930202ba1f99b4af49495cc96fef",
+    "coder/redis_type.h": "b6f2c7b85da07384ced000567da8930e4b34e7c07c2d8bce3777a889f2e40669",
+    "coder/stored_record.cpp": "05be23c65f85590d409b2f05d1bbf9ee6e0dbc1352bede63d9d48d5173bb0e43",
+    "coder/string_page.cpp": "0eed25a5cf228adc0e4b2af45013a04d506b62d19d973ab9d8686869f1aee694",
+    "coder/string_page.h": "a8be690b3ee7363afc4e6fd32cf64481ba371524d0370df585f2bc82ee4129de",
+    "coder/zset_page.cpp": "35200148ed6147f5ff631dd419209536e20d7347a4e2132c1232c80810091e07",
+    "coder/zset_page.h": "840a5fa23e60125dcb3530a4fc95a6d6cb568e7b25afd9e9539772047f622376",
+    "common/acl_audit.cpp": "2560809b243b000e1a2e699866550419586f5580a55a60874912308610337e44",
+    "common/acl_audit.h": "02e3c64d69a1373c084206ad5a94efcfe1d1c61e1c7162a2dea23740853cd958",
+    "common/acl_description.cpp": "bb9b599e40a126296a833550be2b609cf70b95ff448b7279a2882733f4afe7af",
+    "common/acl_digest.cpp": "fb07d2c249aab4d9e4a93657803bef4a52063ecfe188af82b564d62e6505380f",
+    "common/acl_file.cpp": "dd94ccd9fee6e15746d942b0d9ab1183571ff7ddd200b9ed227d55ef63406b58",
+    "common/acl_file.h": "795f29161e31377435cd54c2dad4e109528d3a2fea27c5468529c56b35c7c0a7",
+    "common/acl_index.cpp": "8d3a6fd4ad8eeead0b688ec618e540a3534ecbf637d5b573aa14a5481f3cc14e",
+    "common/acl_internal.h": "8b5064d1911265c5db8b424a41b88c2e96864b4f9b702ea48fcbe5428f3231f1",
+    "common/acl_policy.cpp": "93e509de98a43c051e17c39b8a12c1074c77cd3561cc11e337e37bf033ffab2b",
+    "common/acl_policy.h": "116e321316bdddbcbda538e6f4fa7b49e50ef2919ef8a7def171470b4903d70c",
+    "common/acl_reload.cpp": "c46a170d7eb5dea353b56b33a11e2455308e7aa7c0a744dc83c2b7637530ebf5",
+    "common/acl_rules.cpp": "d2fb06ea553a7b32ff5e4d2f2de34bbf2f8d6eb3e97b1a95ff20f88eca6ea2e9",
+    "common/acl_tokens.cpp": "8b8f288da8cdf7767ae52c30af0733b0c986818cd9591ad28e05ab433387464b",
+    "common/bitfield.cpp": "ee9ef50236d97bf74d149c47461be93ccd520615ab991fc2408a822274ef6e06",
+    "common/bitfield.h": "b99b6fb1031b0252570a226c4b84b9a1ef2240fcf841f63f40ea86d13050d1b8",
+    "common/bitop.cpp": "e0c901754a3be680c33d10139ecf6b8e7d96aeea64d8cccc0c98b3abf006b62f",
+    "common/bitop.h": "f12c76543c9de321b930ec3a659dc6387d2cfa048e93dd4917bb7e3ef109b4cf",
+    "common/blocked_client.cpp": "6ac66e85e1e2cb74ffd96f850d3012a88380c3326eae9332d168d67f9272efea",
+    "common/blocked_client.h": "8d7c8dd50232f3866c03f789bc33faefe2cefabe5ea649ef8778edd0467887fe",
+    "common/client_activity.cpp": "279c2efa6a0ae11191a26be8c2db40a536592da7d02b045a0577da993d755d5d",
+    "common/client_activity.h": "7b292f18814dd93064f7d3700f6faffd4c23cdd73363d3230e5eab38a23ee9dd",
+    "common/client_description.cpp": "883e97ac460c5389e04facac1d861bb85c87ce108fe9fbe6961b1e184f3cb170",
+    "common/client_description.h": "8209fcabe8685cfeb3a496555f1ac92973d921cf5bc3961f3374ab7ae34dba4c",
+    "common/client_memory.h": "aa59abff48d681f94d30a03d8ad17ceedbdb76f8c76f525080ea5e1626d25255",
+    "common/client_registry.cpp": "98e44b27b536de3fff5dd020400b650fa06978cdaffc0f8bbb15445e5b1240e1",
+    "common/client_registry.h": "02e68eddd7a9f3a84759277544aa3e269db8d631a5ee9bdfa4af0bcda6d401e4",
+    "common/client_state.cpp": "334fa580432ede21893ee2faf5ecb96286383fc34fc22d18c094bb3c72a9a028",
+    "common/client_state.h": "3a648d1def7804b047ad126570b870a3b74afec1189b7ac77f5694e1e69a1f7f",
+    "common/command_catalog.cpp": "17144ce366e3f1ef09dbd25bf20d47e74c2725f82e217658b27d9a801c41f8ae",
+    "common/command_catalog.h": "b1f759fd0673ec2366063251c6bf16751d9d0ec14fd677711bedfb8933e4262f",
+    "common/command_catalog_data.inc": "c7dc4f83101233af1f307c00fb8a649f0744950070ac28a7b0f3982cfe27cf13",
+    "common/command_keys.cpp": "b6bba994b9f00eb17d3d8c11b6ec0bbd800b03434e59441a6f7e3d8930485335",
+    "common/command_keys.h": "bb5c4d673be1f924e17bce891251b9f864ae19d566d2fdd24b165d6e15ef96f5",
+    "common/configuration.cpp": "88b59c4953e6f09a3b9b3a37f05e0d5faa6b4a8034bb6929d37736449e5b327d",
+    "common/configuration.h": "18393f9203bf99a8a135626708267993cb379ea3c5a86cdbf61da69c2a877421",
+    "common/connection_input.cpp": "a4bf805c16074555795444239f030120a2e246cf717911d13071f3ac5c9651d8",
+    "common/connection_input.h": "ee700cf4468ee5d9914dead57b825ab8ecf721377033ab4a5a6563a5a1bd61b5",
+    "common/connection_output.cpp": "b1c42819a8efe47a81717b8d0163d0bffdf11af83067d1f95c6fbc2365b56417",
+    "common/connection_output.h": "c879be60e3bce995071bfb920fea4ecaaf5bd189b3fe8326db9d8c2794211289",
+    "common/dense_key_index.h": "9bb2da108ced2ffc4307cfaae1f4688bd3cd56963d8a7753e4e01c9902f49f0c",
+    "common/execution_gate.cpp": "4a611c168497e0c46548bf2d9e969475bc3637e2a3ace3f74aa570f07fa07123",
+    "common/execution_gate.h": "e69251f45b34a8452bc982a37852c0e7d5be9f4c6e6e4f7a476dc8314214c647",
+    "common/expiry_progress.h": "d052d24d4344e1a6f96e274194bd41f5d7ec05267cc7eb70fd70fd4e09a907a4",
+    "common/fiber_mailbox.h": "ddf5aee5de46d904e7c3e93bb5742249be3fc3759282fb7caca7a0493521c9f5",
+    "common/geo_cells.cpp": "e8a05cafcc971fe40c95f7e19a7921c231420f16c041c21998c14c7f7d86d9d0",
+    "common/geo_format.cpp": "96aafe89993b5d95c47cd6596eb47e276b041587292a6d6ea4ad7d7350abe728",
+    "common/geo_radius.cpp": "7b06a6b1288678d21b0731900dd0e5de253c15051fa539c3e56ad5edbfd182e0",
+    "common/geo_radius.h": "31d5fa27f9d50e0437cbfc9d82e9544d7fc17576ad852977b17b4fdf4da6a058",
+    "common/geo_search.h": "78386301d916e43b048dae54a607a825be98bd7330650b747a5e6997e4503b7e",
+    "common/info_format.cpp": "069fba3d72fc4b7b71a85cdceb182f99c324761bb6dfb576ca74a9290acf08e2",
+    "common/info_format.h": "518e8aaeb22179a4c0f1c7be467eb2f201abb6f396747c53029175aecf964798",
+    "common/key_wait.cpp": "df842ffea8b73898a4679bd74b93dd6f1a6e0bab6db0b70ab94daab593f49270",
+    "common/key_wait.h": "65e5126553cf5398f449398c4d9855a90089171015967d3ca7ad731f86226f24",
+    "common/key_wait_batch.cpp": "0ff14c6346942e56894b0d4f8461e580a1a63af2dc347f32befea14da060dc73",
+    "common/key_wait_batch.h": "f46e31c8b50154750d7cb8570936d40499871f6eb08c402f60e8f9a9dec8c912",
+    "common/kstring.h": "ae860514a78475814a862d678cd82113c22c1ef880059c9c93208480afc534e9",
+    "common/kv_message.cpp": "526f4973213b8075e5ccb260ef5bbc976c242d3346f2ed81d99753b1ab5a056a",
+    "common/kv_message.h": "64810af63ac6401fff0e58f8939d919ddbedbd48c0b316df7c256e48d6054223",
+    "common/lcs.cpp": "32f359f5a04908d5f78b67e6f479d946174eff61c359ce196418f182aa7bf4d5",
+    "common/lcs.h": "d0092daa6eed9bf7cb8a2559ec1357d6f40d76255dcebdfe210c13a2a4f6b5fa",
+    "common/list_block.cpp": "9bf5e896edb2e9aa84e5e8a596fe22344edf211b885235e3d1031cf3709693c3",
+    "common/list_block.h": "6e4bec5fa12a34d6b205a0d01835cc13ae5b3eba50a8fbb072b4709dc6630cc5",
+    "common/message_box.h": "d771f3648be94d0ebbad9251deb9dea18dbe8bb5317f6f0e3694847651262686",
+    "common/password_policy.cpp": "a02bd490ac12dfa00ebd3314cd36d662814987a9ece74fb1ab6a3eac90d1c9cd",
+    "common/password_policy.h": "189c9edc539a278de4619b6f4a2bbb92630848355c6c5dfa0e9678bfbf2d273d",
+    "common/process_info.cpp": "d8755f208f3ce4ec24172be1309c48312d165b8c6e53ae48c124eac3360e86b2",
+    "common/process_info.h": "92864d78a5c0c734edcafd52e18684196fd0bdffc0537d7b0e7a9e6363903a88",
+    "common/pubsub.cpp": "460453941146f64e1a5b8d942ca806d27496336bb5df4724c495065c4ca84d89",
+    "common/pubsub.h": "13ce4a287ba6b77293904fd0ee16b5d62eb85d94e5abbcb4a4110ac2b3a5b30b",
+    "common/pubsub_frame.cpp": "e4f330e41a9b804f611968a05001b36ebf367d80b7b558b6a727a315a218cbb0",
+    "common/pubsub_frame.h": "9618ec4ec6ae774f4633e33e37d5f47b126af0f7d9aa3667e4c7d2a085636e45",
+    "common/rank_sampling.h": "358067519073401c15af732e993b9f802e79e5afa2a9658949bd2978e20f36b0",
+    "common/redis_bitmap.h": "e163a5c9b6ffa28d1cf07ba2b4289a64c42e24303115a0c92adf39dab1032c6c",
+    "common/redis_decimal.cpp": "c3b9732b06ed782c503ae824d293ce40aa6d22b44cebb6a63788a2280a50917a",
+    "common/redis_decimal.h": "0c144a1db9bfe42175253cb1fe3c81c77bebaeaf909d9e16a5ebe8da75b660f0",
+    "common/redis_double.cpp": "8e373f2ea3efac7490a1aaa6785b4d4c76b8ef8dfb762f72200e7ad7aca15930",
+    "common/redis_double.h": "230620b87b8c0fe82aaf9781434a076d5b2f51bc03a8c25c89b86eb814842f0f",
+    "common/redis_geo.cpp": "e93ce2d132d56a6e220af833b8efb61e6afc45008291897a3dcb85d9de327f23",
+    "common/redis_geo.h": "c62cdf09abfac8fe24551d725ad062f6db5219617f6e305216cbb244fef003d8",
+    "common/redis_glob.cpp": "dd37d7482b6accbeaecf6cddc1a843e3e6cec1394a834fc080284cb1b6905e31",
+    "common/redis_glob.h": "d641a9e87a3a96956dc6ba0bb107e6e3ce3ba67b8b2bf94f424d33510a466f90",
+    "common/redis_hll.h": "df05993e165d5a9cdfc0a952b0dc8adf260a4e4c89fd656ccbf507ed0965c0c9",
+    "common/redis_hll_codec.cpp": "91da77485802f9d024e66a9215bb362a0d1a40db0f0ad384f79d7c17250d74c4",
+    "common/redis_hll_count.cpp": "65f94e2896a19671c7785efff4a006f87785f6ab98a330e31c0d54cbbc6a623e",
+    "common/redis_hll_hash.cpp": "3877f7ca2255dd5bdd2d9904fc32b66d0da9e2af915302dbe85ff8ed29015ea7",
+    "common/redis_hll_update.cpp": "00540c11899e6352a0ab806b2689091d431bfa0cd20226d8abdb76ebc8433c9b",
+    "common/redis_integer.h": "d9390619c7816b84cde741b31b90346df4b91743d63c4039b203091ae74970c1",
+    "common/redis_list_util.h": "62debfcae316fdabcd17fb12066aa7171627028c46d8dd099c28489b16bf9068",
+    "common/redis_scan.cpp": "27d62c4ea1faa0a55613c0ed07dbe02f5557231ee748f69cdca4a0d72d0726f9",
+    "common/redis_scan.h": "ef9eebfa2cc6559a39965ffb9f89143b313923524647416f6cca4e27d82048b7",
+    "common/redis_slot.h": "853598c16703ae5415d1dbaa33639a8b57c3c1fe8cf5f68cf794c7006f0e5043",
+    "common/redis_string_util.h": "b2a23359591d0b05513e8439b8bc7f85e6f7e9528879b58127f8c3bc5c970a41",
+    "common/replica_budget.h": "063b18629d3afc777f03573b60a8e2a44ca263b6f10bea95bf749408c8cbaec3",
+    "common/response_writer.h": "ae3d8c52a2fd28128423fd11467298243718773eaf592f6ff6c90cd3e5ba0551",
+    "common/server_statistics.cpp": "10995b17dc13ec7839c94fd033d3376dabdaced993cc1e769417485f59319147",
+    "common/server_statistics.h": "a6cbb310c519b6aaecd0c6c8d238174d9e6562cd9dcad9f25662a0aabe3da9d1",
+    "common/set_sampling.cpp": "9897f7051e7b266bf1b0b83ae2c908c207a99307e3bb9eec21c580aebb5a8f05",
+    "common/set_sampling.h": "e3a9bd133a3810c386f2659b2e7925fbe274e97b1acea194b4ee14d5c17caee1",
+    "common/shutdown_signals.cpp": "255dfb35426cae3de8219e238a003b7892c8e355d2614df7d3d85cad6c432e83",
+    "common/shutdown_signals.h": "dd7238bd8b528b57c9aa4a102d49b7ea44c8fc60949f3881a863d5d5f29ce5b0",
+    "common/spinlock.h": "9142d255c54e90276c795c1e6fad613629f912593184bd2e5c5b767478a85c37",
+    "common/string_digest.cpp": "5616a9879af819bc6b848019d8dcdd8abc74a5e03a0456abf96d83b201f17a8e",
+    "common/string_digest.h": "c90d98cc836b12979eb45728b7e6c01922cb2e35a2f1ef25584a038a70af1610",
+    "common/transaction_database.cpp": "5114f9ff49de7eb9b3b575a4994d8196f3eef77ff685dfe1c7a94b8673d5ee96",
+    "common/transaction_database.h": "28bde43fc54ef6a4ab2f15cafeb2c1ffd36952a9eaab74e233558f0a1756a546",
+    "common/transaction_queue.cpp": "4a69c3e937c5ef30a4466080b38b7e384cbe020baedee2493b37fcd8f2330b17",
+    "common/transaction_queue.h": "3682c96f176db939474e6c893abd9c9b4c3a3234335a4fbc6e1f7dc63ca309ff",
+    "common/zset_range.cpp": "eb84a9e050c441cafc0ccbf53d80ad0bf49cbadc802dfa25b1942fa11697e2ba",
+    "common/zset_range.h": "b9359542ebf12a6f31da2ddcf8e3c274f0f10c712ef9328ffee36143533f5f9b",
+    "common/zset_value.h": "f3c0a67603e1c68c298b0571050ec964655306c873a25414db9fb194c1d08de5",
+    "dao/dao_base.cpp": "f1e6ca8f21482d3c74d35d3421d7c98f051d75eb44ea7cea648c71052b4b353f",
+    "dao/dao_base.h": "d9ef7272a1796222ceb655ffc42768d876c3a6a3de344d2baef8d3134cf47c22",
+    "dao/hash.h": "fca648b8f2fe55905017ca67986833f38f82ed86487a8fdfa5168acd06050d0d",
+    "dao/json/json_define.h": "2a3b41dd8c69c651620b93794ca4db6fd117d71503c8fdd205346fe8b84848f9",
+    "dao/json/json_hash.cpp": "cc123af8f7792f42b94bd5e018dafe301dec47b9b63981b61f481c4cd0dcbbb3",
+    "dao/json/json_hash.h": "3bfb53c9dd6fc898c44468f80ec2aec3d4a4fbf22d559fbfbb4073a30b331d8e",
+    "dao/json/json_hash_getdel.cpp": "094fb406eafeafcdfa9abc1b819895537a05f6d331554b53f52a3dc15da8a09f",
+    "dao/json/json_key.cpp": "85d35024848a350fce7ffa75cb14280bec104dfedcab2eba0f7ff6062282be22",
+    "dao/json/json_key.h": "cbd7073d525f73d7d10171ab608fcca774a52576f380b5922176db74ebc25ab4",
+    "dao/json/json_list.cpp": "aa2f1ae2094ffdf433b62407a32ca6a961f2fe226eef76a3a819d08ffc665571",
+    "dao/json/json_list.h": "e4c31ca91ac335cdc98d3b7f72ce21a98ad466f9a9d31cabee8569c4b9aafeb6",
+    "dao/json/json_scan.cpp": "0459eee48402476da216804d84ea2a1641097fced6444b9ef118aad09c4bb689",
+    "dao/json/json_scan.h": "fc600b3793a92f4c67fa33b8025d0f71a5c798201fb9b45887f4ae5ceddca6d5",
+    "dao/json/json_set.cpp": "25ff27db252435fb2797d6609615caf8d0252406a6c8f5b22bb7d621c28a6afe",
+    "dao/json/json_set.h": "445f1173d89b1d26c91f2a223709343561d3ae0aafc680616bc1e7c89d73e534",
+    "dao/json/json_string.cpp": "a782f4f977e8d26871d42f08cd156b122a9ae39cd952667a8ef28e3faac1188e",
+    "dao/json/json_string.h": "3f91e291104b2df67e183daf754c69ff0605093632bc82f35573d4ef7b9830d7",
+    "dao/json/json_string_batch.cpp": "412513bcd8947f5f75a565ba6dee98777dbc3007a888c34d122345a9b69cd916",
+    "dao/json/json_string_digest.cpp": "8ee99b89c1bd9d41dcaa931a83532bd770dfbb4fc15fe73715056ebc9c60ebbf",
+    "dao/json/json_string_float.cpp": "cb72d7ea54a181066e296faf44862876e02f8aa986efbd426cc9d4edd27fda7c",
+    "dao/json/json_zset.cpp": "4f63002573f07cf8762c43f86484db9489892616cbcf6907bebfe38d98a798db",
+    "dao/json/json_zset.h": "d933dbd1bb37ff2e3a0ec426c22c88a2c3eb8dd017f95a2ae36107d98e4f1dae",
+    "dao/json/keyspace.cpp": "5b47b7517896923da3a74bc186e1e83523d900e0927666e794c1bcfe8ebf4919",
+    "dao/json/native_key_expiry.cpp": "01f6cb4d83fc63a29135a7edfbd0cbc5c6c77393420f5ee26c3cd8818842cd1d",
+    "dao/json/paged_key_transfer.cpp": "0370c9c28344bc1b811afe7c6481e985264ae1e84f242825338480a9878d7827",
+    "dao/json/random_key.cpp": "4ffee80a2c6f0e6ffe73cc9fd18019985376086ac4ff45d547b42fa471ffc106",
+    "dao/key.h": "a27aef73563705ac2ae747df810d03e716c1bdf4f9f989cfedf9cb0b38992945",
+    "dao/list.h": "7a286b8e7bc8d102b6b529c89da53c922dbe619fb67a4a7a14c036b3ca523e52",
+    "dao/map_status.h": "923a657bf8ed551e3afc58588fc23fe53627f01f71e92cf9eef212807d1498f2",
+    "dao/native_import.cpp": "e1faca26251362b45f5851215b45736b830f720efa94273cc0f03cef2e4bac7c",
+    "dao/native_import.h": "128a39247c1e4de64c6a47cf9867d00e13b26f1a265c53356786f43d51647e5b",
+    "dao/paged_hash.cpp": "9c11ced5debcc3f85ddc0e78f76e88ceabd3b6103fed74ec812f1564cfbaf905",
+    "dao/paged_hash.h": "00c25e8e88a22c24fc44f9c4dd70ec9fb2827cf29facdb8a955cd53c23d586c7",
+    "dao/paged_hash_float.cpp": "f20ddbbbb5cf0c41420408e7bf7e2e1a1209a93791e9d2bf6e72aaf544e21b9b",
+    "dao/paged_hash_getdel.cpp": "b081ca8e57076df35cdcc413400d3dd7602d766a46d28cb26e05381ff0a36a3f",
+    "dao/paged_hash_sample.cpp": "317ea680e5c95db04b9f3073df4320ed87c2a93e6a38470e9722fa396b1a6580",
+    "dao/paged_list.cpp": "471c78126268b10be77db0793580f65fec8d2800aa333f0dda95b45b22730420",
+    "dao/paged_list.h": "9768b4e9b88e74830c5a550ac508000a246ad5d88c16bbead6294885a9e4b416",
+    "dao/paged_set.cpp": "cc7d8945c66c1da6d9afc954b00780fa1c18a31a8c202cee65e38ec4429b77f7",
+    "dao/paged_set.h": "61e120301dc44181c766e8b42a97a270af6cbd7c5145083748269fce09f80eab",
+    "dao/paged_set_algebra.cpp": "2974842cc26551c81ca375d319446efb1e4a5f04e1639eb69bb19a832093051e",
+    "dao/paged_set_sample.cpp": "c68b92bb13e6e42cd8dfbf29f1d0bbb94600d354905a6360e257d4390fe9f4fc",
+    "dao/paged_string.cpp": "d6fdf7027ae989d7f0f5db641dd5dc9d5306671b6b59b4575a16ed5da196ca61",
+    "dao/paged_string.h": "87719973e6d503b5373d180246e6183ee2c51e23ddb1d97c4ea7aea1d1ef5eb0",
+    "dao/paged_string_batch.cpp": "eab196122f4fe7fc1298519c4839a58f0981c0c5dbf3964640d6f2f2018961f0",
+    "dao/paged_string_bitfield.cpp": "fd84f0d140dcc3c6fb732d4ab6975aba05e4efeab42bb9ee97da112c6e45f86c",
+    "dao/paged_string_bitmap.cpp": "47a99dd49bb89bfa08ae943af86110909afc296011be63072a6788018f000696",
+    "dao/paged_string_bitop.cpp": "b4f68a0e005c44d745b2f596304349847784eb19e9823dc92ce6b9e58fd1cf6c",
+    "dao/paged_string_digest.cpp": "9d57bd2b41b97d385ab7657e4c6a6dd37c8f6009efe117af129b2e1ecfab4c73",
+    "dao/paged_string_hll.cpp": "f5416cc7cab7452d55520814078959dbaab4ade51365d9561fe934f63ed721e1",
+    "dao/paged_string_hll_merge.cpp": "8d8afa4a7d2c55db7b324ab8b0c658472d5b0479424cd53e728ac50584c195e8",
+    "dao/paged_string_lcs.cpp": "bddbf59c9074771b9f11b55bb354af8987c0fd94358dd1c935b4d99627fcd0fe",
+    "dao/paged_string_numeric.cpp": "c8c7609913156210fd57d0c18bc59d8a31cdb7b27d58afc4039ce8375cedad8a",
+    "dao/paged_string_set.cpp": "0d016c9e00738662ee5ecad561bce4c353104636ac615e2e7f5a2ebf172c110e",
+    "dao/paged_zset.cpp": "107beb06823aa818a5d5aeedc073cf6083d49671021b1366e5ed810f794eab96",
+    "dao/paged_zset.h": "1eb1abed3f9235065f0d96bad26b007b94ecb6f4d96b8594b35f7a2ab594e160",
+    "dao/paged_zset_algebra.cpp": "3ec00ce73ac06a8cb2272493ef5993c19d8e4059f909720d680d1ac8ca0b7ed4",
+    "dao/paged_zset_geo.cpp": "c53e024b9c966719f436ec2e528fcaae2ca6fa10576103c6250fbbe04491e97b",
+    "dao/paged_zset_range.cpp": "6c3e941e7086494fad47439b100034b0c39ade039b221b9212a0116774e49e24",
+    "dao/paged_zset_sample.cpp": "31858288d6041802a3594c48b7eac5d4bb68baa3fc8209843510d96c7462ee83",
+    "dao/set.h": "fe7b2ed73cd6bbe93366a6dc18ab81473d12d126e654da89e19ed671dc904069",
+    "dao/string.h": "1f9ea8a8b1109c36df9e607289995d26827a502b40e5bea566676956e271249a",
+    "dao/string_bitop_source.cpp": "6402d61bd1e266ba46bbb04ba5fb34d7971b3597ec7735337aeb74d05bf2fd89",
+    "dao/string_bitop_source.h": "84ff702e63b6de191b4e64f3da1396c6433c101c94eb4d516e2c269faf685dc5",
+    "dao/string_comparison.h": "1502d73f04da44b0d796844f70efbb73a36370c5298f6e7f7ccca11c047a0190",
+    "dao/string_status.h": "35ab900f6b27bb7a0875bd3b967f59f36dd553c0970f2eaa9d503b0e2a352fae",
+    "dao/zset.h": "d3bd0e316dade419d36a88b6c685e0ace1979ff78de7d01d8fea256dcd796338",
+    "db/active_expiry.cpp": "1fb43f7b28384b8c43cb5ce10618f26cd9aeb6e44f441180b7b9a4e5d81cd06b",
+    "db/database_pool.cpp": "da05d4284c66e515c53e1cdba3364c85e7c0c32620c32ffc297b8df5cf67beb2",
+    "db/database_pool.h": "04956557e2b68d981114f5981325a46ad2996e3b94a6701eea406dc1e8541307",
+    "db/database_shutdown.cpp": "585a5597f3cf049592203d9c991619252980a3ac2f6b08f4a40373c7a7683b4f",
+    "db/db.cpp": "b0c5d6a4fcc53ae19dcca69f0c8df129ce31241bb6add27a926f70b3bb414bcd",
+    "db/db.h": "0ee13af1e82d0c6976b4a00fa4faeb2f27e00b575feba9c26d858bb35898b69f",
+    "db/db_cursor.cpp": "cd698b3a12e05bce3ad62807ca3027271c3075aade7b799d82c3d14911fa5e95",
+    "db/db_cursor.h": "3df217316bd9da1c652778dae54159583b8852ce0073dd090fe96a4c5748b76b",
+    "db/db_ready.cpp": "1f005261fba220196f998f622eb061ae683cfa954b5597a99794ba01841ecfd4",
+    "db/db_watch.cpp": "d53a8f9b918346c7042ae59243b98b5b709f19fab0508b00b5bdf8039ede2b4f",
+    "db/db_watcher.cpp": "b15383fdf7338334c627b8b58e4790fff9be20827652238b1a7cde252790fa17",
+    "db/db_watcher.h": "65fb8c17a5e41b590b893fb005f1e0ed5713f1819f86d89475c7c3f89e62a12a",
+    "db/detached_pages.h": "713bf5ebaf582d653c9d66fa9462b912d7817c6ffec891855ae3067a7ae994e5",
+    "db/disk_address.h": "4f7de8ad3dcb5716971439c9b1cc55885dacbd0c55c26712785ebddb79fbc92a",
+    "db/durability.cpp": "d042aa5ccdfa929bc9e920e49497dc33d5c7ab22d36e4466d245eb33898ad062",
+    "db/expiry_index.cpp": "d5b5107e63d74e5f10587986cfd8fbcd9a0848d58df2a09b87380775bc5d8750",
+    "db/expiry_index.h": "6d938615f9d5c633d6448be4001f551b08fd630daaefe176217697b5e9235fbb",
+    "db/expiry_service.cpp": "3eb44706ec4bfd08ff939d65f0657aa7e4b8103fa594dc49ce8ddd1331a1a1f7",
+    "db/expiry_service.h": "b745b9f6800fcf027c90573d569e9d99016671312d0efddce84a598e85dbcaac",
+    "db/expiry_snapshot.cpp": "1afd54b392f25201ece0621cf8b0a224f5d7fc98f117602f5f8f198dbc5a92e5",
+    "db/family_move.h": "2e6e4593500b8e218d40e174c0a14428db86a3a2a2d24719afba02c9495d1f07",
+    "db/family_plan.cpp": "1dd4479702f72659903eb2cdbdfbe69a7eca93afdd204876eae482451541df58",
+    "db/family_plan.h": "cb7d8cd3c1b0b037fdbe2e8d724eea6377f07e84651872e2f577bee9d1b5108f",
+    "db/family_plan_internal.h": "ea08a4f0ffdf6089de948beb8da5d184dda688d699a6e6cc2b40274815947cf3",
+    "db/family_plan_prepare.cpp": "f4028ed89be913668af00b310d0d39c53019afd954d560cf1eb8ad8c47bb192f",
+    "db/family_workspace.cpp": "35b2efafd4e6cb481e77e0631b382a38db5546b70666c51959c4f2d443548c23",
+    "db/family_workspace.h": "aced8ee5967833ed156406528091f3c1e106e44a6ef0b29fd71f9e8adb440f73",
+    "db/family_workspace_commit.cpp": "62db19afc566143099736a6d8c6f5a585680c2a3b16ed811f79262a714aadfca",
+    "db/family_workspace_internal.h": "73c1f7d3e7aa8376453dd681b72783e941b0bbc55d541e0a062351490e03b65f",
+    "db/family_workspace_move.cpp": "fad33f2dac8a3fbe85d19ecb0c649d56fa9e120866874b2167cc2fa440499309",
+    "db/family_workspace_stage.cpp": "9635f59ae4194025155cfbb679bf2fdd325b21bb0b3046cc1bb7ae0f704df4d2",
+    "db/key_count.cpp": "0d2cba2af4a477f805afe159c92e09f662a3a4957ddad6c8d94c1ea92993c04e",
+    "db/key_count.h": "9b6b76325ddb2b76543accfc5c7af992efe10c36ab736b5917f304bb7b88cadd",
+    "db/key_sampling.cpp": "0f4acfe3090c18499053ce1b4fafe521effefc6ac81106a6bbb718ed0a56be84",
+    "db/keyspace_statistics.cpp": "59a1a02cf737740f17b73f6b29553056072306c51dd74e7ad832a91d6b39338a",
+    "db/list_cursor.cpp": "fedab014f927eed7999f32a634dbba2bf795fd701febe82b56d821040dfaa859",
+    "db/list_ready.cpp": "cfdd005ad33715c5a7b996ff330ffd3dc6619fe93db1fd53fe8f3e15e3ada087",
+    "db/list_splice.cpp": "7fd12069f085e4949277d2999621154a722737ac69fad747753efef5ea384ff8",
+    "db/list_store.cpp": "481f093583cfec3b5655191cd13354e86f3ee4819adcb3562c851f23046232df",
+    "db/list_store.h": "6fb2c9fdff0bcb51a1e85325a70fbe0d5fea425f6dab2b751bc95e29eb02d4b2",
+    "db/list_transfer.cpp": "8f01bb3344c5656e813a7d6bb30e629e289d810456ae7e1d21f033a69dbf7d6b",
+    "db/map_blob.cpp": "ec429482bb1ae2f5641eefb100a419ce1ba3fb98b6b7518695cc026e953fbeca",
+    "db/map_cursor.cpp": "1b4d03482095d93265f9ec6a397a900418b01ef41e2a1d5943ccf387999da05a",
+    "db/map_range.cpp": "66d6a33d5926ec68fdaebb93e4280808f80220b44d94ee303fe206abbfa65659",
+    "db/map_store.cpp": "e66e5f1f27d1e1f22806d65bb659c3d2831dfafb7213f06e25ba925984aeae35",
+    "db/map_store.h": "a0b5e4ab41fb7180dfc7005f67b685360e7fcd488f37900334a70eefde12db11",
+    "db/map_transfer.cpp": "c45f97e390afbee8fe45b974529c0c2ca359f6df196a7c2575514a39a528315a",
+    "db/map_tree.cpp": "7248381349bb673aff4203237a2e8e2568d882564a05b285cd9d4c2d419a746d",
+    "db/mdb/mdb.cpp": "c8f010d53f9855ed35556216ea0f91dfef4c096101f43bca3bf5c04d2f765eb9",
+    "db/mdb/mdb.h": "9b13029b507cb98e83b75908443de29ac83379f0a0bb2d862c88c98610432ff0",
+    "db/mdb/mdb_avl.cpp": "08db2d4426eb94b2b5387b8d5f76b4e566fe51085dcd26585e0115e772eef6c6",
+    "db/mdb/mdb_avl.h": "04c26cec0a60b046119920fbc580a75f88f92d1007fe01e9ee51c5e0baacd183",
+    "db/mdb/mdb_batch.cpp": "a5c57706d257ae61e90389df44018d999b50b3a390c234d2982163fb6d7dc901",
+    "db/mdb/mdb_detached.cpp": "5231c962f6e0f236007fb27b197687bed2c6c911456e0f5e71cdfd1c462031a6",
+    "db/mdb/mdb_family.cpp": "82cf9d6ff43ba0a579437048719e4f161910a55ef62544bbed85591c816f46bd",
+    "db/mdb/mdb_htable.cpp": "b21a2d73467e98dc2f84c11fced1f71fab4b360454b62cded7a8c2f24ee7ed14",
+    "db/mdb/mdb_htable.h": "44f9195cd2dba55506ad36c8e8452dfcec0be05db0f794cb8cb2d02adc68f424",
+    "db/mdb/mdb_htable_cursor.cpp": "af18eda9a7c10c8abe6e9fd6e48f61cc1cc7d9d092603624915d1c046a3b7246",
+    "db/mdb/mdb_htable_cursor.h": "d73652aebc59661dd24c8d4e96cc480d12b1098f52d062f1cc07be2ede2cce4e",
+    "db/mdb/mdb_index.cpp": "8453f988102364bfdaa8005f7bde5f1747da7fd3056d65ceeef577acd9c498a6",
+    "db/mdb/mdb_sampling.cpp": "29b22563a8ab0986f7117bc59371b2abeb277fa9bf795b83983bf8e1c54db508",
+    "db/mdb/mdb_tbb.cpp": "f2796753c6e9a9c38f108d8d4c8b73f468442f39992126ef20b0729594295875",
+    "db/mdb/mdb_tbb.h": "bb58a1b0a5d184c0de2d7843e7d5a4167c457bb005d04d8c09b531c40c1d40f2",
+    "db/mdb/mdb_tbb_batch.cpp": "6956b34d090bfb6840473d0e887540ff94ba8cdb5ab07607f1d7ee78ae5c3941",
+    "db/mdb/tbb_detached.cpp": "35a961bf0c766e7ad62a4d4e62ef47bcfb9fc40e0b7e73f9fd0819af12480cc9",
+    "db/mdb/tbb_family.cpp": "40613efef73fab186cd3011fec7f6e08d6ed76dcef53aa98fbd320da69e9359b",
+    "db/mdb/tbb_sampling.cpp": "71258e58ea348c9d79a8b956986635d543707688ed14a362d9ed5a91ce0b2ead",
+    "db/move_access.cpp": "62974007a32a3f2ce8c5bb5b3f1ae8d3861114ba3dea0c3c0afb9d3f52015eec",
+    "db/move_access.h": "095567dabf9ae711db35cdb6221ade9e205d6aa8623cbf6e6876df1f5e8a6dc6",
+    "db/move_domain.cpp": "68102548e1cbff6d6a61fdd9494a227ced0e7245f9954b6900645fcc84d42e31",
+    "db/move_domain.h": "07b461ba0260dcb7cd2798d818a7ff30cfc1b3d72a6f8fbf37df93d0b7466c25",
+    "db/move_domain_files.cpp": "60955c59f644842ad3204a4daca53066a501fa321366eae09d4b453c00422ef4",
+    "db/move_domain_internal.h": "37ee69482785dab22e730b57f21a6f266f559296a785c3899582d5053364a703",
+    "db/move_journal.cpp": "39c31738fb5378a5b528dd656412ea92e65265f0cea218d6a79d617a3be4cad5",
+    "db/move_journal.h": "133a63dd61f200475ae1f71ee205b650f53d08e3c75fc83c02bf3809a213c65d",
+    "db/move_journal_internal.h": "f7af484f71c2be596138545fa483329baa323e548939b09639379565567e84f7",
+    "db/move_journal_io.cpp": "728656fb5dbf1b5a40028ba7822b30a7b09845bee265ec6cb01c365985d85ed2",
+    "db/move_journal_record.cpp": "d2ec4099eafa5c23b7320cf1d6aff73dff544cb2f53dbccfd62d422603b85316",
+    "db/move_memory.cpp": "a5ba042e0dfebd3de174079f8c75997b2c302e3be835ab31576e96758f645436",
+    "db/move_memory.h": "b6685065dbc93fc1dc7aa1ab42c6d2cd199ef6ef08c91a382795c1cf97fac37c",
+    "db/move_recovery.cpp": "8684e3ea3bc8c24bdddef3154b09372a916aed55e885fa934802509f8aefadb0",
+    "db/move_recovery.h": "0e7b284de2c6795d338c7dae9af8c6a205a96c8bbfe52d3a9ac16067c8cb5686",
+    "db/move_storage.cpp": "762b63a270d33f888a5dcd50f3ebb3d93375095bf6a432af10b93f5e90fdbe53",
+    "db/move_storage.h": "5fc6f484b3cbd63dcc1eed407fa7ce676a2193fa08297f13a7983ce286328063",
+    "db/page_effects.cpp": "c68aab91056ba36fa2196911bc984e008f813124115b17b0b895212d8874c150",
+    "db/page_pair.cpp": "15b7a3b0e45af37184ff9786626381e3144c76d041f7c4a161841ff28dba44be",
+    "db/page_transaction.cpp": "35de37186885b6de3cf42305eb57b632606233afba5a7af138d5493b8a7f4df8",
+    "db/page_transaction.h": "3493c9af9a8d34eb6d0af6bc01ecf9e0106dd4f13b52d59a63af8b310b709382",
+    "db/page_workspace.cpp": "d01a4273b8722a2608127a8caa616e43b1935d753c1c2a7ff9a15d18532d8dbb",
+    "db/page_workspace.h": "b4a4633d5f1348f76cf11b441c68354f0770a10c60539fa565b20589f40d17d3",
+    "db/prepared_family.h": "ee1b449a19c783139159cb95b2f4bf2252e9accb6bb6b57b6c78212e9756a34a",
+    "db/replica_group.cpp": "e9dde07e948bc620c25639d3fb55a600fdfc7865d17d1ea83ed70fc65ad85515",
+    "db/replica_group.h": "9af951d1d7ec6826b1b0e5bd5945dc877f17abf0aa59ce52c1e4c0bc002c0210",
+    "db/replica_pages.cpp": "b6a56254293277cec364e3aa09c0cac4a5e112b9fdbdc29d20dd92b1e36f90e0",
+    "db/rocksdb/rdb.cpp": "99c5268486e97d65b399f3754f2bb9183bc0448093a9b83c9e7acbf55028905f",
+    "db/rocksdb/rdb.h": "1a66160eacea99f90f45240e5b8833246e482bdfa43d93dd773998d4ace51cd1",
+    "db/rocksdb/rdb_batch.cpp": "828681499bfaa5d920e6760595331619840f4b3bd7188a28a495c55377f2a590",
+    "db/rocksdb/rdb_cursor.cpp": "45a394f936c5945a11dbd002899838b903564fae6a4e36ce0e53e8fe363979ee",
+    "db/rocksdb/rdb_cursor.h": "e9dfb95245662c3420e6ff6972c1822ec0dc2ebdbfe5c51cdda3af844daa278c",
+    "db/rocksdb/rdb_page_stream.cpp": "343238cb412b9f2565895476e473b527fbb1c76ad4bafefecc258cfbf8e1cef9",
+    "db/rocksdb/rdb_sampling.cpp": "7421e5a2eff03291289e3031b9d798b7fc732025a6ed7c53b0cbcfcf653d3604",
+    "db/rocksdb/rdb_scan.cpp": "a218106287f965d65c4ae6e202fdf098a064c9f074a03db751d0e6f166591000",
+    "db/rocksdb/rdb_shutdown.cpp": "1dc1298448762bc71c87ef32a396a4aa71d3f98c7ca42beb35b58c011531abea",
+    "db/rocksdb/rdb_storage.h": "bf53e73a825b000ade828fc35223cb08a501f6211f78725a7db2f44a772089e7",
+    "db/rocksdb/rdb_sync.cpp": "9439d0f2622d2517c47b16e801ce0b20f8f73fce0d096b34ef31bedf5d3e4633",
+    "db/string_bitmap.cpp": "6a5a304532d58451b379bca97fb782a3f14bfbac5f100fe7c87c0136b0ca3d00",
+    "db/string_replace.cpp": "cc22c9cfb581856fd9edfe263fef130b054d01cbc6cff1c1ecb8f183fd6c87fe",
+    "db/string_store.cpp": "2649b11b9ce4c319477cd3c7cd14dbd841e1601e6964a3bfc3ba6706f35820b1",
+    "db/string_store.h": "1e53c7329dcf04c0869768c16255814267935d383760984041ab001f992becdd",
+    "db/string_transfer.cpp": "ff4c215b95a767b66624c5eaa1a1d028b704b62f7d2931beab2083f6db325544",
+    "db/watch_registry.cpp": "9c99dcf4c80c6f185fb477918541066fe4fadda9161ab253257180c97a1bb758",
+    "db/watch_registry.h": "296b948fdbd3572ca925cea34589d6a16a41096dd9dbbf50b0e2812faa2d1902",
+    "db/workspace_commit.cpp": "2172203d880d15a02e67dc14bb03107c073c57bf92b7be3ae14852eba614991c",
+    "db/workspace_sampling.cpp": "b94c9a68d115d7dc5c2a4026688762b798adbfd8e607c3972449bee958ad19ad",
+    "db/workspace_stage.cpp": "6c760ef8c63c2f6dac804e8c7f9b53d1e54c5e0bf26c6c61ee67cb020c4d40ba",
+    "db/wt/wdb.cpp": "80fc7e5b32498214377626a4de4005ec612a598f780eae766c72a4abd6bdd0ac",
+    "db/wt/wdb.h": "295091cdebe3b311e37bd2cce762f283b578bd0ab3c02acf68178db53a4355b4",
+    "db/wt/wdb_page_stream.cpp": "8f80d4c138c2e5e703a6ddc31eb70029af7549bbceae3cf0253e2402746b9153",
+    "db/wt/wdb_sampling.cpp": "9c1e3345a2200e68d5779fbf57baaa7b05a244c04694b5cd22584ed03fc7f933",
+    "db/wt/wdb_shutdown.cpp": "db90c6fb509630bb4bba9727c61dc1bbe51de4c8018a9fba5087ae2b6c190c35",
+    "db/wt/wdb_sync.cpp": "58087ff302837e240f04b92449f444c8ea4ccaaacf1c457e213d864420845efb",
+    "db/wt/wt.cpp": "b359836862ef43a94a07486c88d67e268b8ab6e381f81a1a268e17ca09429e12",
+    "db/wt/wt.h": "e994e8dd84dc03312ce1c585bbe10c565cbcec83108c90a95622329c6902b6a8",
+    "db/wt/wt_bootstrap.cpp": "53e8966a54fbcd8c70652b232a4ecf5207ac49e2c7d654e5c206bac60e73c637",
+    "db/wt/wt_page_stream.cpp": "2ffd658aeb78d82f1f50c7c3ae2b68a06292c3380ee2141ed1d0c8edbe6161f0",
+    "db/wt/wt_sess.cpp": "24464bc96c4ffde6c9217e0b94680d0a7028f75dadad3d2b1a2209c3ee8605f7",
+    "db/wt/wt_sess.h": "6efc1cc862ad800e82aa8fc9265141240bb93e017e18ace45ebef455ed931ff5",
+    "db/wt/wt_sync.cpp": "0a5ae8e8cff8eed0aa05d156b5cb3d62e161937cc65306b1d07864c0ce43612d",
+    "db/zset_cursor.cpp": "79052a0ef3c60cd451b839803c4c469b8dabbd8d0e75a1b4dd5cbf9e26fd48d5",
+    "db/zset_range.cpp": "a6cc47c63df621ef2634c325a59a9b51ce0ea6bac12ce8542d69026588ccbf1a",
+    "db/zset_store.cpp": "a861c5fbbae80677dc3605fc2d4f638e3ae7e6d90b8c367dac7a8f48127bd47e",
+    "db/zset_store.h": "05d427222fde3668908c41700b0deb180eccdc90f555379d00da5ebc53a0996a",
+    "db/zset_transfer.cpp": "99f85cddd22fe41616ad6a7af3b0e49b3f8624d7e507388560156362a2d49295",
+    "main.cpp": "a069c9f2bebba261975b782a32131b33b5108548bd3ff6e107b39f043c0a2729",
+    "master_service.cpp": "87ec16e0e48d4c0dbb8aba968981c23103fe197bcbe4e43d6c54e39e0d56bef4",
+    "master_service.h": "2ed10dfdb28e2a2b5a0b7794f5f8839e040448d2708bbfbb205a07362c2ffaaa",
+    "master_shutdown.cpp": "3a598d3eba3696c4fc835c462546be560481782c4d710e6c87fabfb4e8d32a1a",
+    "rpc/exec_batch.cpp": "d58930c0cf838585ea25c86b3ff89fbc8fbde4e69b4837967e74b127a46e98cf",
+    "rpc/exec_batch.h": "cf5cc72fed755315ccde3c2f528ba21cbb0404646e8515a7de664cefca76a5da",
+    "rpc/exec_group.cpp": "f2f5eb8ca713f1cc1a65cf07537648996a17258b2ddf254d20afe643db04e5ee",
+    "rpc/exec_stream.cpp": "e041707dcdd1ce0f3e092fbd51c1cfd7b12d0caab6bb01f70110f492bd2fca3a",
+    "rpc/exec_stream.h": "b7b54eea0649d5cee0335b3c8e43e752432869346d65d264a45b131c835f444a",
+    "rpc/move_intent.cpp": "305a1fe6c1542f61bfbe1f51a7f989645ac925d9711407a8f5bf2bb5066abab6",
+    "rpc/move_intent.h": "af375f2afdc5954107c1747a837b3f5944b442641856d1bf3941a547529f5203",
+    "rpc/ordered_batch.cpp": "dd19bf3d6d78967a1d5108e920f6a05ee1c3ff433e9900c286e7e06ed5e23ff6",
+    "rpc/ordered_receiver.cpp": "53e6890439712f63b59d29a3178c47ee3c23794fffde34677cef4dcd9f39097a",
+    "rpc/ordered_receiver.h": "52e982cd1ed3c38ac8800199f94a92f8467c2f21f3735ac927d2b1d529fed0a8",
+    "rpc/page_batch.cpp": "1e3abad457f31890b0711999d8ad45a12615f2bce01f7a610a31f92b2f7c966f",
+    "rpc/page_batch.h": "efef7bb74c0e438fe712b0ad99bbb48f458a28d7639de3f7f8ac567f01453b56",
+    "rpc/page_sequence.cpp": "e8222948297c44c766c889637f1eece6bafc7fc31003e236258e6f8d94778faf",
+    "rpc/page_sequence.h": "aabdd1fab5a0c30566b9dec4659da5725c5747349ceeaf0974581e1502742643",
+    "rpc/page_stream.cpp": "d3edb997ebf89d8351fff9cb3f337817df894f76c51a9686bf2a38f4eda7cb07",
+    "rpc/page_stream.h": "6e71a86ec00f2b06588d58770de07f0d23e01200eae962d57f7b225b808ab2df",
+    "rpc/page_wire.h": "28ef8d50edd66e4cfc23e0b086cde39bffbcb5e700c2a9985e9d0d80329a3ab2",
+    "rpc/password_handshake.cpp": "f91b21fca4aff04cb41a6b4650e36d1ac4e78c64163fffd6d7c0fe3f2ed19d25",
+    "rpc/password_handshake.h": "591461c77f4a8d12014aed5db9b47885482bd0f1f0aeef440ccae8566fa6ab8d",
+    "rpc/rpc_message.cpp": "7a9a53e7056ffa24b6284e8945ef6049a690c29adaeeb0e20e6895e23133753c",
+    "rpc/rpc_message.h": "0bdd0a2dd9daf2ab8f3a557ef904549f410e9525a4b0a0ec822539b145299083",
+    "rpc/rpc_reader.cpp": "fad798cf73a64a2718f77f82cfea10a7a4b4df743901d3cddddcaec830bbd14e",
+    "rpc/rpc_reader.h": "2b7577bb32212cb21b6badeb92bb68e7c68ca8f00ddb598e6a4a8dc7679176da",
+    "rpc/rpc_sender.cpp": "85e8caf9f85243721b69c1b1be07c4cac0ec8f96f19ecb604ebf70351d002d15",
+    "rpc/rpc_sender.h": "4e3383889e7666b1415f4ccd6dc8aa1013678b7d183e475a247def3c47e6506c",
+    "slave/replica_scope.cpp": "b3400f12baff54e49e291ee287fb84a0d84738e2ef919593ca6cf02280706b8a",
+    "slave/replica_scope.h": "568e2a881b5cb39ea331bf360244f45baa285ab403c846dcf0a79d33eb8046bb",
+    "slave/slave_client.cpp": "72054d3c58c8f6b09e784865ef2a5b723f8981ce84b290c03186408346491b26",
+    "slave/slave_client.h": "b87a5f8ac4811dc776859543ead9049e8ee20f2cbd96cffef3ac4923e1760d3e",
+    "slave/slave_exec.cpp": "48cda7b422487f1c9da22ff1b8481df84a8fb093bcc6215aedf07c8beadc3dc3",
+    "slave/slave_string.cpp": "c0093b5de8d58531e74b0d9515dee9714a6a86a6580d35e8db99b1af1a2e05b9",
+    "slave/slave_watcher.cpp": "f2b80ba7851762f0e91289eb5ac3aade7f4c0fd4fbaacf88c3c267da77383560",
+    "slave/slave_watcher.h": "f7702a1b7f6e16c21bd3bfa705decb6e403602816999199dbbffcd12163cfff4",
+    "slave/tbb_box.h": "31b5ba771e558a504bedbbf2d37b6eb131248faee1ee2927a65b4819a6161e82",
+    "stdafx.cpp": "3072919748ae0a27180d983d2080e85c51a6b24c9e48f3795deacd441b3d9a93",
+    "stdafx.h": "30bf27a59e4adb2ef6664ba752ae4ebf181c308f6e321073ccfb284940fa130f",
+    "sync/sync_reader.cpp": "edd94c1ef72a2d5af3193288f64fae46132075af3d031eb73a448bb8690bd8f7",
+    "sync/sync_reader.h": "ec9662289676d4ed7beabe3eb5593a7494a6bdd580f52c9a2f9639424df446f0",
+    "sync/sync_watcher.cpp": "2be635bfc2ba42128dabe178ba10c420b09ffe039fdf33ae75e6c5dff4579504",
+    "sync/sync_watcher.h": "cdd1c53c1cb95abcf93ac1712f945bb5aa990c04e4fc28d89968d53e16b25be5",
+    "test/test.cpp": "9f11f886f6d5a6f53cb80834007541c09650f52f14fc496e89fe7a41e789bb9f",
+    "test/test.h": "0fbaf8c7f5d540b05b6e3886a5e1bb2917cfecf4ed7560bf9d9255a316604391",
+    "test/test_coder.cpp": "c7392efc3237e7daf22dda4836ddd52eb7d527d5bc2d90b6828ef9492516a6bf",
+    "test/test_coder.h": "20946545c50a338b220a8475e988d89f115b8cd725ce298af82046b8e13ba310",
+    "test/test_db.cpp": "61200d2f18e87a82a2a543438bee3a529be8820b0efc908ea698cfdb99bb959c",
+    "test/test_db.h": "e6ce19fbb6e88f48a4d1b8c67131d6faa837b4f96a9504df26b7f1fffd359f5d",
+    "tests/CMakeLists.txt": "0dca9a7ce46e376ada1f8ee63449270544ef85606c8959f147d644b6acc18f9e",
+    "tests/acl_audit_test.cpp": "475215bdb863a9568c53a3ab07678bb187a246b685274480a6cb3bb48b3a24f3",
+    "tests/acl_file_test.cpp": "b2f12769ac72d740dc702e8e0fd2591ee9921f12a68b90e5fc24fd38b1a60626",
+    "tests/acl_file_test.py": "1b231d337ea90ff0ae4fdc124f76d0140b0edb52f340ef672cf448b65af27715",
+    "tests/acl_log_test.py": "cdcfd3a238c81657daebc07b6a10fba10b44dd07dbe2585abeded570c0b13c53",
+    "tests/acl_policy_test.cpp": "717034b734251b124fd22866f966dc02be565dfb0b32bafe07197030e4bcbba9",
+    "tests/acl_test.py": "3e4cd1ffe17fa0ca265cd3995d9776ab9ee95079a202b90a93b5875b5168ed29",
+    "tests/active_expiry_socket_test.py": "4dfa35f1680b753c44bf867c7cadb1358d2e4647e4479d75f5f2505c59502846",
+    "tests/active_expiry_test.cpp": "b240808ddd285a61a7ee377aeabd063b63800e85ded67ba55d4db7119234160b",
+    "tests/active_expiry_test.py": "2959f5b3ec567d8085f607699532d9e11af7b0ec5aa9972505d7238cced6fe61",
+    "tests/auth_test.py": "26852fa6979116a67a71c3e0780cd892d2c49fc488b4e40d677dca36af215919",
+    "tests/batch_failure_test.cpp": "2e587ef71f07f8d3ac8d11cc96889d503ca619b5b3f4a61b8b939149ef9742e6",
+    "tests/bitfield_test.cpp": "9e9a01016a2890fb77130ee58ae84b0639a68d0c5c03fd288def38286d350be3",
+    "tests/bitfield_test.py": "2e01e75e494c443f807b6a3870bf37b2fa3b2855ae4504252512af4331e2a447",
+    "tests/bitmap_test.cpp": "17e5ae7813061e9288cbb3c565ba94dd6d84b939b6e3fc69f0bcef58a6a5a639",
+    "tests/bitmap_test.py": "224b37a1ca1ae3b470242393e92280d807928ee07240d03487e5696e469f3818",
+    "tests/bitop_test.cpp": "964409b63cb2d8171ea8b71fd542f6f1e23cceb94d4752adf28a3fc89f2f7ca8",
+    "tests/bitop_test.py": "e249d164d74d0185262b8b4a1ae08060d25f78371c2c56f3b838944f04f916d3",
+    "tests/blocking_io_test.cpp": "6c673d8e98f6460a33c8a05b87d4a2e6dec5944ca5c46e797ff838761419894a",
+    "tests/blocking_list_test.py": "c051d36d90a1ecc60e035e8232875f59e81ba1020da59345c13b7a3ff1dc2cca",
+    "tests/blocking_zset_test.py": "2891af033d3849b28d4d6ef1f5913ffedb28c57c2cbf609567f05b32816dcfda",
+    "tests/client_activity_test.cpp": "9a8a136ec0865ea599f48c812a6198351f5e68bd7f2cd8fd192dcb26fa1870d5",
+    "tests/client_info_test.py": "86edaca479d12bcba23c4f49da1bb23b3a6fe4410df612a9eb17ced8a780c608",
+    "tests/client_input_test.cpp": "39f7ea34bdce07e2fae928fcf68ef94bab0c6f87dd1ab80b4db4a24ad16df4c5",
+    "tests/client_kill_core_test.cpp": "8be2ab406951040fee502613c0dacb6c7b4b2cc170acb1e920b63c182e380ba7",
+    "tests/client_kill_test.py": "93f61782861875c06da7c986e989c79b972e7ef0e55d0b6a122748d27c8099c8",
+    "tests/client_lifecycle_test.cpp": "6f28c42ebb3ec3e7bb3b5d8ae7997fcb1a0980e97d1a9de844c58a03d21fc001",
+    "tests/client_registry_test.cpp": "3385a6ea51189e85737963cb3778eab82302cb72a96fd734b0e1e67b9dffe623",
+    "tests/client_snapshot_bench.cpp": "d468f315c69f55368ad3c8cd5b1c3f8382854aa525a952c01df4f86efd9b850d",
+    "tests/client_snapshot_test.cpp": "e3fef3c18a2d97336e0af470de2103a62510f4521279fd4bd5b0e52a2a081b02",
+    "tests/client_state_test.cpp": "445cb6814ab49b758c30e62f07cc3d97db73109b8c5af707895d450a8aa92fe1",
+    "tests/client_test.py": "185578d47ca20ee9a269a3b06cdcc8792120c626067dec19d22e27db077a743e",
+    "tests/codec_bench.cpp": "1b6cb3367f33fdae2de70db4edc23a975cfabd2d94bf48557faf9e15da4ad227",
+    "tests/codec_test.cpp": "dad86d0019b96581d2005d99c911fa70b866481c6f39d566f0bbcb7c91914710",
+    "tests/command_catalog_test.cpp": "d6e00490179a002801c6fff2bf95a06114b79efb125018186fa3f2ee2cd7616c",
+    "tests/command_info_test.py": "2c4401ab59e61415e5563342e1eb1686a519944c013de01a97d3c19327efc1ac",
+    "tests/configuration_test.cpp": "c6e50b6accdf37df3bf3e01f2578772f8eb179acffbe6e5313934f5bfa9527f7",
+    "tests/configuration_test.py": "d89a88bcfb9e9796089afb4a044342ec3f33c25bcac961e6be6082e120a94095",
+    "tests/connection_output_test.cpp": "97c5ad94def0ee79f5faa8d620cfff0dd2d4793971461a72e31400c7e1ff6ab4",
+    "tests/database_shutdown_test.cpp": "e710ea0c0921043b740dd56d6b10a1d28fe445f00ed7122bb1d1f4f3ccafd943",
+    "tests/dbsize_test.py": "611dd63d7e427700d15f47beb65cda0098ab7223b246f9994bdb5dcb80bb57a0",
+    "tests/dense_index_test.cpp": "f45a71610bd4b6dae16b827740430da8b584a56e67b3135ba2f2c9166f3e8e8e",
+    "tests/digest_test.py": "456295a4620d0463960fc84adc5c948d73a25c1005a6a96af50e20366339e95a",
+    "tests/durability_disk_test.cpp": "6a87a07ee675247200988ea5e9e91ae4ae2fe4b7a9ce81053bad17b6c90f9578",
+    "tests/durability_disk_test.py": "216620d7c8cf2931b141740fe5b51ebe85de4fa028b111f142c76a842188aaa9",
+    "tests/durability_test.cpp": "5b1585e0b7a07a39380ff53b6d6e7410c4bd7aa227715e3bf900499ce262b88c",
+    "tests/exec_live_test.py": "b5d7dc643dd6f4dc0338993b95534f15d36736622d47d01eb5d263b483721e18",
+    "tests/exec_replication_test.cpp": "220909a88698311a2a9d975f4b478756c9bf7bd8bc6fd211e7db85cc7176a23f",
+    "tests/execution_gate_test.cpp": "b66a2f25314a06f0bb103006bd4245e7e9e248480c9ae9624fd24e5c0e004c33",
+    "tests/expiry_path_bench.cpp": "bfee4b1000dc05e02247b572e7abb2f8b3fe2ee3be933aa55c99077f28d48cd2",
+    "tests/expiry_snapshot_test.cpp": "58a99492eae99cfde15b7776e94ef8699361e782313e65ece74d4f1de934a211",
+    "tests/family_plan_cases.h": "4c6618eb688ac9d34a2435cc5da482ed351ee5d61599e0bd34abed2e9ec5d91b",
+    "tests/family_plan_crash_test.py": "9de66c0a83a10224c315aa09003ac35d8e1232b1968cdabae322384e34c63a47",
+    "tests/family_plan_support.h": "f06e7bdb4fc645ecc019393c46e7c8c6d37767d071de2ac4282b93dd7e0ee431",
+    "tests/family_plan_test.cpp": "e9f2fe3dce07830938ec6a61c84ecd61fc17fd7754f5d1dbd2c920e5fef6b5c4",
+    "tests/family_workspace_cases.h": "ee2d437fc76c16887d8b2344c73bd5a8ac1a5b44f3bc58fb0286e1f8915bc3f7",
+    "tests/family_workspace_slots.h": "f725b0651c3cbfc2c8414ef73a91266ab1321f316eacaca15dc632fa719955ee",
+    "tests/family_workspace_support.h": "18a1eefe6c82860022c13081f58ed60a4832b7e95084a295deade2d89a6acf7f",
+    "tests/family_workspace_test.cpp": "98341bdc4602edf2fc3666577b1d6a46d283956c47c183f93a668c61be788790",
+    "tests/float_increment_test.cpp": "922ddc8e7e68f16ac2005bf0dadb29ddfe270c8bd320429aed94fe1a0173aac7",
+    "tests/float_increment_test.py": "1ebd326f7d5a2db8d520f99cfd5a3d8a02d34d144e32a3b95d317baad95ff6c1",
+    "tests/geo_radius_keys_test.cpp": "9a54f79c4435185e189c0e851d74a9b4146252fc0eafbbd458d41162699920e7",
+    "tests/geo_radius_test.py": "e7646c1ae956d4c2a1bc2aaf88bf904dde54160dadead0445efa6e008334f0d2",
+    "tests/geo_search_test.cpp": "078ecb2c8aa1ed81488d1c769eb181de598892a7d4ca8bd7fea20189b30e45b5",
+    "tests/geo_search_test.py": "839ddad39af7b87a335de2c30aea26115a2d507eee6297394981633a88a303cc",
+    "tests/geo_test.cpp": "5eef19bd1b71a748158a4ccb43cbf07aa454c3783d28263b19312b9acabd1c90",
+    "tests/geo_test.py": "d9dbe51d218628bbd7e14dd15f28c3049095a20c14230b26430f1f99e4d0e6a3",
+    "tests/hash_sampling_test.py": "68048616e98b4d150154f681529ce821096cc21aa2121bcc829374bc11d37be3",
+    "tests/hgetdel_backend_test.py": "c0d9f86ba22d4511ed1d1b94860ce84d9bbec27e2addb62641ec9cff128d61b4",
+    "tests/hgetdel_test.cpp": "10ee4b1441c2ebe3cf23c96c0d1ea753c54aed28dfed3cbb390fe3ff81493ebf",
+    "tests/hgetdel_test.py": "b12c6d445a3f45ba3990d9131ae9d4ad55bb9ed1d94fc7dee5ca18821da14c12",
+    "tests/hyperloglog_fault_test.cpp": "d4dc1a8d850a2cb68ecef4be29230bcf561b0c7758073896485680dda6be2bbd",
+    "tests/hyperloglog_test.cpp": "4b3e6eb12255c1e26b495233006571c32b7d3b9c0fe1e7e216219e1d2d4f3d06",
+    "tests/hyperloglog_test.py": "a4ec76adc3558f290eff7e9a0011acd2e9f5f6dbcc0fcd88b50fbca2563f48d1",
+    "tests/info_test.py": "e46a41ff7b5258f8148c722b002d25382cff509ad4cc811aea1d51c5b1d98035",
+    "tests/inline_string_test.cpp": "0d33db5cfcaf54e73f0a4694551cb2e7f257ea2cb96b69ba6fb5fd663bf10644",
+    "tests/integration_test.py": "1b88c9d00403be2d0e7eff90fa6516eb6d5ab2761a8640612a178dfe1273a593",
+    "tests/key_count_test.cpp": "218430bd3a28726aec8876e2b74494482ebbeefdceeeef1089ad16ae0899016a",
+    "tests/key_count_test.py": "025ce0cab2fe5bb1ae91b3b690eaa303e7c6d2effff4f30f0b91a373337bde48",
+    "tests/key_sampling_backend_test.py": "a5f455cb1af27943e4cf97baee7a1289e421a50ae3dc30d2e3c1f9411553aa1b",
+    "tests/key_sampling_test.cpp": "f7c19fcdba9ab792b187f3d90f97c561375a176b471be1cabdfa6ba175cb9bff",
+    "tests/key_wait_heap_test.cpp": "4ef8e6e052ee612f4f6f1f9a4d83485caae9ef38a62820dee3f58d6aaec05152",
+    "tests/key_wait_index_test.cpp": "2774615b37c06c67a3f75f6b1d46a09ae3476d089ed3fd819e8df8d3a2a46fc5",
+    "tests/key_wait_test.cpp": "df1179a55142f64768346d3bdd3ccf3fa83f6aa922b8efc746380494681af7da",
+    "tests/key_wait_test.py": "773a9416c34b8c9d0a2c954bef6d122bc48edd8cce4b39c5a9b7fec891f8375b",
+    "tests/keyspace_test.cpp": "ee578b381a9b0c5eb5c097e8e8e15ab6d4b3852e9a4d734fefd964ccf03b5cd8",
+    "tests/keyspace_test.py": "0b96a8d372058ce8e1d628212369f01191682d2d25291834284d10de2aed20d9",
+    "tests/lcs_test.cpp": "077d4a39387725b800f4964103ba2be7771b011f076bfbb659eb6273c26715f2",
+    "tests/lcs_test.py": "20f32c1efc497baa31980221b65883de4e15c96c74f81881fa32c605dcd69ca5",
+    "tests/legacy_expiry_test.cpp": "65340a3b0cdda4a03afda457746e0d123ae60a555a2aab272197a2e69b13095d",
+    "tests/legacy_expiry_test.py": "9d38fbeffe793a7e1af3067bc464e7adf7c28b286886b445dcc7296d401733c8",
+    "tests/legacy_transfer_test.cpp": "cf6c7272ea93e37e7c3fd9bdd4c19de16c39ea3ecde9ac1a9457c35a9141cd04",
+    "tests/legacy_transfer_test.py": "f71b5a8e1dabd8516bbedf29c4862ebbd79fa03f93cf5eafa9aa5720a9f24356",
+    "tests/list_edit_test.cpp": "16995fd1848198a3c3bb54a77d0d53af86ee62ed9a088ea39656f1fcc04df3be",
+    "tests/list_page_test.cpp": "0f9ce6545ea55a3e3eb280d0395e233e09491a958cbbc6b20dfdd8417b18b87c",
+    "tests/list_ready_test.cpp": "be56be5ca6da2ef3e50f3e0b93244f4b506209d7725b2c2b5098dacacda6b207",
+    "tests/list_store_test.cpp": "2e4dca8f75cf2f70176cb66a57be415a11bd716960cee991b6c3dff15f62673d",
+    "tests/live_page_replication_test.cpp": "444fcefea7f99d3168c84cb38a662d4edf20c7bd76160e0a06e3fb1900751cad",
+    "tests/map_iteration_test.cpp": "44839cd120a79b970d4a697b84032dd3eb61cee422726c89652d77b758eab039",
+    "tests/map_store_test.cpp": "f41ee419578f81082ffb83b8140ec6e0874ff1ccd1310ee888b1e9605439f8be",
+    "tests/memory_backend_bench.cpp": "cba96ca995f64966df05b5f8bca1bed08f26cccc5c968413fa4fc6690b5c713c",
+    "tests/move_domain_test.cpp": "6cfe607376796fa6267422728bd2dc8fa623d5fe73c3b5e2fe81250b7bcafe59",
+    "tests/move_journal_crash_test.cpp": "990300130b5efaa74cea5ccecca03aff97b79cb3d3072d4c68462b0ed592aa66",
+    "tests/move_journal_crash_test.py": "cebb1ab4df83c7aa230db783a0b1f1465beb2de4f8fe73476f80f654f632e222",
+    "tests/move_journal_test.cpp": "eab7fabf952b21decad2c8259dbdbba35ff44385cc07ba0c700e9a51b6c713db",
+    "tests/move_journal_test_support.h": "6644388abdcbef24c1304bb643aad303360f42d6da032aac15ec6a319673368f",
+    "tests/move_memory_crash_test.py": "c8f26ca9ad02816c0d738507989904e97807ff4b25a08c07ef89d7f43a67e047",
+    "tests/move_memory_support.h": "159d3c76a449e0324095cdfacc7e43a5b292c9285282588d7c2da3e55423c0cc",
+    "tests/move_memory_test.cpp": "997be71e463798d7a53e518997b7f10294eaf8107a2e3b62cc0edcab33ee82fc",
+    "tests/move_recovery_disk_test.cpp": "5b58bc4a368e55a8eb5295b9a49afdeb02c219094814549d1ebe23d5c8c3318a",
+    "tests/move_recovery_disk_test.py": "9e8dfe6af1d8399dd3b5a7b75468a95e5688e7cccde48f5502e4adec996edcec",
+    "tests/move_recovery_support.h": "9eae004abd9826355387cbd1faff232ddce3589df97984290fe5a81a8680a41e",
+    "tests/move_recovery_types.h": "479d96355a929531604a8b0a3e1d4c0263c17c3d1cf5f5785abe46cdc746811b",
+    "tests/move_startup_seed.cpp": "c24429340ade106666a19e53649dd0bb07e2daf69455a09aaa6117397d4e19cb",
+    "tests/move_startup_test.py": "10051cda8579e515df402190364c039e2c616fdb711320145207530c92daba55",
+    "tests/move_storage_disk_test.cpp": "5d05b139dc24d85a3b4cd6534550624ef50edcfcc44c9167935a10c20cefce86",
+    "tests/move_storage_disk_test.py": "e2ca546115a7f8c4e165cdcfdc6d8ea15a438ecc76af5a968361efc52f8d31dd",
+    "tests/move_storage_test.cpp": "7eb678d8a4826304e1bd1cb73ed66125eded66cbb18ac971fcef98e5849e7103",
+    "tests/msetex_backend_test.py": "d39140b33428bcc4ca0b2cbb213a0f607af51b0ba19af426c5579cea65d02e79",
+    "tests/msetex_test.cpp": "466acbc5909545306c794efd8f7f95df2ad63e07f87f4d1ab2e7fdc7cfe3b098",
+    "tests/msetex_test.py": "178bcf3ccb02ddf1e5778d39e360971aaf6a7ca82025d791628b48e4efdf0545",
+    "tests/native_commit_buffers_test.cpp": "27c93793a8550e5eacb7b84b9a66f5ec04d0547e2ed92b250473c6d375243c73",
+    "tests/ordered_live_test.py": "b5d261eb3d872648a3cb0af54d7fe5e00bf2a7b33d37173c0988009d63360685",
+    "tests/ordered_replication_test.cpp": "fd6e758c90723328741e6b4a4841a0ad2b215ce224f97d811b227b3a4a198b47",
+    "tests/page_live_test.py": "aa98b3e9f3713e26cd417cb32fd29d53ee1503691db4e7009da65520681e5f05",
+    "tests/page_pair_test.cpp": "a9cd8e54c52fca8697a63adec9cdefcf1eb50e0a17cbe5cb9e272cbc7c679539",
+    "tests/page_replication_test.cpp": "aae70a2807cac63f1fd701245267acf674221a2702ff9e91e090146b5e268a06",
+    "tests/page_sequence_test.cpp": "65d81560b6a5ccc13589ebd472552a9c322deb378aa764cd37609b845c6f7ad8",
+    "tests/page_sequence_test.py": "9f896f29267a1f6e904ae82c739247f827aea8dd6021b2211572633046827966",
+    "tests/page_storage_test.cpp": "bdce4ffaeccf95ca0abc97421bb2dd20eff3fee8b1759f56e8454464361b3cba",
+    "tests/page_workspace_test.cpp": "6a3b112ef744cfdb2c1c850fd281ae72931106ac4c3ce988805c8c13da1b6e2b",
+    "tests/page_workspace_test.py": "425d3d3be9d85dc3f176b1b25490012ebd868214b1282b2925008731a56119bc",
+    "tests/paged_hash_test.cpp": "31dc90ac9e9cfbdc036a43919ab58d58828c0c98daf565192b555abcb202d5a2",
+    "tests/paged_key_test.cpp": "27df5679d63262e0f0683fbcf47aac39010220f679ec095a845bfe452a9130e5",
+    "tests/paged_list_test.cpp": "8aec9c88a8d8b93e1f1a3a8ca9d62afd17a94e78f4a01b3dd02efc6d93fdc409",
+    "tests/paged_set_test.cpp": "0f0d82e4565f879341b9f5f9ce18d5cebbf49e6c38abadd479c863ba69e95d6c",
+    "tests/paged_string_test.cpp": "10ec9749541aa71c03670bde55df908f1c6848ecd62015766b84220e9e65bf6d",
+    "tests/paged_zset_test.cpp": "bd58d1eab74b4a06b54a6a307635ff9744b2a30165e71048a567c69f31fcc710",
+    "tests/password_policy_test.cpp": "8c773907a9c774619bd68a7910669929a715ca9bd4c100bbdc6f240ea3cacbae",
+    "tests/pubsub_handler_test.cpp": "f5a7f5be3514fb3f11b8286bfc46fe9f00a5bdd54e218643f7d3c2f5daa87101",
+    "tests/pubsub_test.cpp": "3319e662ef2adb1cbe33fe3d4c2e65e6cdc0f803ec47c3ff5f2df75f3720f565",
+    "tests/pubsub_test.py": "dd12c76ed09efa568cb665c40a25bdc1719e3f5f619330aec65596e6d52dd4ed",
+    "tests/random_key_time_test.py": "92369455648d3af99e4b463d471b834dcabf9ba293552dffefd653f2c045752c",
+    "tests/rdb_storage_test.cpp": "7266055669c14be3fc68904c991b81f97e8552f820ad717875431079baf89a5e",
+    "tests/replica_group_support.h": "1ea9bb98a8fdd676de5a00a62808d5fe5e1c9aeaa099b341d1b26261ee9f0472",
+    "tests/replica_group_test.cpp": "bb8d420002a7a0e537830824a2812054738dcf50860ed55911da6b85a8e8cbe8",
+    "tests/replica_group_types.h": "71015eab6692151e4d33a6da016886d86ebc4697d5586daf0fa375c57504143c",
+    "tests/replica_limits_test.py": "e0e855bcb4431b0a9bf56ec08fd48df732082807db2887bc6124d46b03da951d",
+    "tests/replica_readonly_test.py": "f805cdad9ea76cf1fcd6b5b82e1a0fb36bbbe0f885f8519c885c5e8414897399",
+    "tests/replica_retention_support.h": "6e8be430e0f82700809a748a9b40d31ac3ccc21e2d454c3ace8f55cc46e48170",
+    "tests/replica_retention_test.cpp": "47c17784c1f6daa6aba1de930f7849fcdb1cbd4c5ad0b7c936d15a1994404d0c",
+    "tests/replica_retention_test.py": "f2d89fb6d5364d37dda7bf64c224aaceecfe86fdc8003a5c02f418f71bda6f2a",
+    "tests/replication_test.py": "636fafbb984968f59522610fe74488e0c7748f812654d76ba7a4ecc0a35a4163",
+    "tests/resp3_client.py": "07e4b74c57605c2a891db2c4944535b2f5d169032b7a18ade4315d384544a412",
+    "tests/resp3_test.py": "cfb4590ce1881efa18b809fb5cfedcf9dcd4eddb1686622b692e73756ed71962",
+    "tests/resp_allocation_test.cpp": "9f91e2f80441f767efe962b1571b114e0aec1e9f1321ca5e95e870911baaa167",
+    "tests/resp_test.cpp": "38bd7a0e593b7fd45647f32f609b8d5d16923f35cdd244053ae1cae14a39a467",
+    "tests/response_cases.h": "7d47dc885afcf1fff4b5100e680424e2162f6678b95574ae3bb9dd5c05a44730",
+    "tests/response_writer_test.cpp": "81cb4764b7da5ad1ce6194a66abb822187fd0fd38ed9f17bc6f60cc838a36072",
+    "tests/rocksdb_crash_test.py": "0c195d5fd1ce9f9916baed733b112edafd2ae252923af9da0c39d10a55be9805",
+    "tests/rpc_test.cpp": "be563ffea3e55fb447467c6a423a2084e59309ae90040e84018c126c9e579e1c",
+    "tests/scan_bench.py": "362b1a7dc241ca0424626456a0edcc8370dc6727081c3180e4f2760ab980bd3d",
+    "tests/server_callback_exit_test.py": "cb6ff73f880be335c68306f1249a482f3c5555a86cb623221a5f87469e1533cd",
+    "tests/server_exit_test.py": "34db076594ada14ced78e2eee7219efaa1f869cb519b6c1bfb6a2946f78b420b",
+    "tests/server_statistics_test.cpp": "5861b3c98886f420f004e228709ee1e4b7a402f6d4c0f3ea15519dc9a31a77ae",
+    "tests/set_compare_test.cpp": "abbbbf13c188a7df072867848c7d6ad63dc2d8b40c39932ddcd1ac8e65ec4f48",
+    "tests/set_compare_test.py": "ad563e523d5d4b360a1491c41e7f9dfc8d63397d09d0eb5cd2d41ccc8bfae9b2",
+    "tests/source_exec_bench.py": "405e6df45f766c3f50fd1da2d93be3e7b4289938791c4c4aebb9bc560d445fd1",
+    "tests/source_exec_test.cpp": "9353e2acbed9f96179a478e0eb36c769bda9b9deaf2c0a926d004e9665bba3b6",
+    "tests/source_exec_test.py": "43ee36113230bd2cb80f7566e6d072dcf3d285e1a3827b1c6568c306725663bf",
+    "tests/startup_signal_helper.cpp": "f3addc8585694ef0926b1003224c6e5a45812067da399de3a38029818f63d118",
+    "tests/startup_signal_test.py": "6b8696c3d813bef2d879d6d9efb00144c4b1be09f0eaedfcb92344441509f0d3",
+    "tests/storage_test.cpp": "500a9562edc622ccedb2668b1c2de5abf8e23e0d0aa0e23884c2fc46e559b89b",
+    "tests/string_digest_test.cpp": "1c1d5200bcb0b45bd86d0451098c52b80575dac369c103150e4683f8e8488933",
+    "tests/string_disk_test.py": "079ccace0349a649a9f1f4b2374b8adc99307f64b727e077ca2c7473c2f486e3",
+    "tests/string_storage_bench.cpp": "c353e8ad28fffeced133c9202c7f999c85875f2c47470426355ad591ae1824ef",
+    "tests/string_store_test.cpp": "d525dd51b7f043bc6942e4865d391c997771cb262b2f801b5d4703cb17f3b855",
+    "tests/tbb_storage_test.cpp": "27bb92a8625adf59caabf71c0fa856cae72c942dff86ede859df1c056e9893e9",
+    "tests/transaction_queue_test.cpp": "5be73e0e6bd5f3f07a1546567800418da8d4ed85974697ee06e9d72ca3a1d4cf",
+    "tests/transaction_test.py": "725f880705acbac600f6bd634be6e25551cf7b5acce1212c11c86ceb60489eb9",
+    "tests/watch_test.cpp": "c01d16ee97e124c695b2a33f2ce3eeb8823a2f085e093480bca245c52f14c24d",
+    "tests/wdb_storage_test.cpp": "2765215438e7ce58c3f4e8427da835410300c88121746417130ac086272497c6",
+    "tests/wiredtiger_crash_test.py": "54d0a5ae39bc9f5a640123bef897fa95137f5b62c1afdc9f1bb8eb6693eb4ae0",
+    "tests/wt_clean_exit_check.cpp": "4a13ab3bc35e01eeb02fdc52fe790e8224830cbe83831b7a24e382dcae75d823",
+    "tests/wt_read_errors_test.cpp": "999182a2493cc2e2078cf7dd9e142ca9ab182c39b5d49457283debb2346b7f6d",
+    "tests/zset_range_test.cpp": "461cf996bfb71d77e83b100756441c94cebd39d5624673963283a9cf700443b7",
+    "tests/zset_ready_test.cpp": "23d59d0630ef36cd9d0ac9b683d51888ea92d3948420d64c0de856ac5f68ade0",
+    "tests/zset_store_test.cpp": "476f359ee980cd6ba44a622beaabfbb2a7f6da570495699625c764226da91feb",
+    "third_party/fpconv/fpconv_dtoa.c": "38f5d3f52e6c9487eab7c40ecd60f1387e1b19585d917602a3dd48558709814d",
+    "third_party/fpconv/fpconv_dtoa.h": "8aaf2fe7435b148760ebf1f24c1b6a0da204f35eda961e6f5106c7fb3fa4e6c7",
+    "third_party/fpconv/fpconv_powers.h": "dc1f5da3d54ee64234384d89fcd567632d87966113aad88b52791196dc6bac66",
+    "third_party/redis-geohash/LICENSE": "226a5501d735e8e620a874e3efd6a68ebcb1c64387788cae47a30beac4ccf438",
+    "tools/benchmark_key_sampling.cpp": "1d0e0dfa793374359c31360f74ad4ff476e0819afd6f280cb4b9e8a4383dc8fd",
+    "tools/benchmark_key_updates.py": "153ad9bb44b3d2469b3f088063c469afb55938da13418cf7d27aa0d4c0791ff4",
+    "tools/benchmark_key_wait.cpp": "3f381bbf777df66c760e157c0d23431ac0ce34a1b6c86e451176fc860eddb66b",
+    "tools/benchmark_resp3_get.py": "c26461eebcf8ce8d30d1c235b59616c946fbbfd23959a282d71dc059e80ee9aa",
+    "tools/build_acl_fiber_asan.py": "f91be0a150538dffb64b5690ad7fa824d95a2f4ebd07b1b81d9adbfb7c66fb26",
+    "tools/check_geo_grid.cpp": "cf62140879d350cd6b16091b165beebabf5bd62761c298803d43136f615e57c5",
+    "tools/check_wait_cancellation.cpp": "b03aa71688ad8debecb5d4637c3329ec0230f50c5a8cd7671aab143b59331f10",
+    "tools/generate_command_catalog.py": "18b62a3fcea804cee0a34330e6a1aaa71fcce5d30cd1e3b8ce57ff2c51dfbeea"
+  },
+  "parent_validation": {
+    "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/startup-cancellation-validation-2026-11-02.json",
+    "sha256": "05a6b151af64b8b6f75645c7dd71aa44ee076b368e5852c7873799d692dccd90",
+    "bytes": 268693
+  },
+  "modified_parent_sources": [
+    "cluster/cluster_client.cpp",
+    "cluster/cluster_client.h",
+    "common/kv_message.cpp",
+    "db/family_workspace.h",
+    "rpc/exec_batch.cpp",
+    "rpc/exec_batch.h",
+    "rpc/exec_group.cpp",
+    "rpc/exec_stream.cpp",
+    "rpc/exec_stream.h",
+    "rpc/page_batch.cpp",
+    "rpc/page_batch.h",
+    "rpc/page_stream.cpp",
+    "rpc/page_wire.h",
+    "rpc/rpc_reader.cpp",
+    "rpc/rpc_sender.cpp",
+    "slave/slave_client.cpp",
+    "tests/CMakeLists.txt",
+    "tests/exec_live_test.py",
+    "tests/page_live_test.py",
+    "tests/replication_test.py"
+  ],
+  "added_sources": [
+    "db/family_move.h",
+    "rpc/move_intent.cpp",
+    "rpc/move_intent.h",
+    "rpc/ordered_batch.cpp",
+    "rpc/ordered_receiver.cpp",
+    "rpc/ordered_receiver.h",
+    "tests/ordered_live_test.py",
+    "tests/ordered_replication_test.cpp"
+  ],
+  "style_checks": {
+    "cluster/cluster_client.cpp": {
+      "maximum_changed_line_width": 70,
+      "maximum_touched_function_or_block_span": 39
+    },
+    "cluster/cluster_client.h": {
+      "maximum_changed_line_width": 36,
+      "maximum_touched_function_or_block_span": 0
+    },
+    "common/kv_message.cpp": {
+      "maximum_changed_line_width": 42,
+      "maximum_touched_function_or_block_span": 0
+    },
+    "db/family_workspace.h": {
+      "maximum_changed_line_width": 24,
+      "maximum_touched_function_or_block_span": 0
+    },
+    "rpc/exec_batch.cpp": {
+      "maximum_changed_line_width": 54,
+      "maximum_touched_function_or_block_span": 7
+    },
+    "rpc/exec_batch.h": {
+      "maximum_changed_line_width": 77,
+      "maximum_touched_function_or_block_span": 1
+    },
+    "rpc/exec_group.cpp": {
+      "maximum_changed_line_width": 79,
+      "maximum_touched_function_or_block_span": 19
+    },
+    "rpc/exec_stream.cpp": {
+      "maximum_changed_line_width": 75,
+      "maximum_touched_function_or_block_span": 23
+    },
+    "rpc/exec_stream.h": {
+      "maximum_changed_line_width": 77,
+      "maximum_touched_function_or_block_span": 0
+    },
+    "rpc/page_batch.cpp": {
+      "maximum_changed_line_width": 53,
+      "maximum_touched_function_or_block_span": 27
+    },
+    "rpc/page_batch.h": {
+      "maximum_changed_line_width": 21,
+      "maximum_touched_function_or_block_span": 0
+    },
+    "rpc/page_stream.cpp": {
+      "maximum_changed_line_width": 75,
+      "maximum_touched_function_or_block_span": 44
+    },
+    "rpc/page_wire.h": {
+      "maximum_changed_line_width": 69,
+      "maximum_touched_function_or_block_span": 4
+    },
+    "rpc/rpc_reader.cpp": {
+      "maximum_changed_line_width": 59,
+      "maximum_touched_function_or_block_span": 71
+    },
+    "rpc/rpc_sender.cpp": {
+      "maximum_changed_line_width": 78,
+      "maximum_touched_function_or_block_span": 44
+    },
+    "slave/slave_client.cpp": {
+      "maximum_changed_line_width": 63,
+      "maximum_touched_function_or_block_span": 101
+    },
+    "tests/CMakeLists.txt": {
+      "maximum_changed_line_width": 80,
+      "maximum_touched_function_or_block_span": 0
+    },
+    "tests/exec_live_test.py": {
+      "maximum_changed_line_width": 63,
+      "maximum_touched_function_or_block_span": 9
+    },
+    "tests/page_live_test.py": {
+      "maximum_changed_line_width": 69,
+      "maximum_touched_function_or_block_span": 95
+    },
+    "tests/replication_test.py": {
+      "maximum_changed_line_width": 65,
+      "maximum_touched_function_or_block_span": 122
+    },
+    "db/family_move.h": {
+      "maximum_changed_line_width": 77,
+      "maximum_touched_function_or_block_span": 0
+    },
+    "rpc/move_intent.cpp": {
+      "maximum_changed_line_width": 78,
+      "maximum_touched_function_or_block_span": 27
+    },
+    "rpc/move_intent.h": {
+      "maximum_changed_line_width": 78,
+      "maximum_touched_function_or_block_span": 0
+    },
+    "rpc/ordered_batch.cpp": {
+      "maximum_changed_line_width": 79,
+      "maximum_touched_function_or_block_span": 33
+    },
+    "rpc/ordered_receiver.cpp": {
+      "maximum_changed_line_width": 75,
+      "maximum_touched_function_or_block_span": 42
+    },
+    "rpc/ordered_receiver.h": {
+      "maximum_changed_line_width": 77,
+      "maximum_touched_function_or_block_span": 1
+    },
+    "tests/ordered_live_test.py": {
+      "maximum_changed_line_width": 80,
+      "maximum_touched_function_or_block_span": 76
+    },
+    "tests/ordered_replication_test.cpp": {
+      "maximum_changed_line_width": 79,
+      "maximum_touched_function_or_block_span": 46
+    }
+  },
+  "archives": {
+    "final": {
+      "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/source672.tar.gz",
+      "sha256": "04d0cfd97e9165a1cb6480bcb04de3e5dd854bd7cf7c27bc1fd35b56db75671d",
+      "bytes": 815987
+    },
+    "first": {
+      "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/first-source672.tar.gz",
+      "sha256": "254a0773e05d2afd5b981d081099092cb99edfacaf4d80d70d1dc44d7ad93bd3",
+      "bytes": 815346
+    }
+  },
+  "results": [
+    {
+      "build": "memory",
+      "passed": 62,
+      "tests": [
+        "execution_gate",
+        "watch",
+        "page_sequence",
+        "page_workspace",
+        "page_pair",
+        "native_commit_buffers",
+        "durability",
+        "move_storage",
+        "move_memory",
+        "replica_group",
+        "replica_retention",
+        "family_plan",
+        "family_workspace",
+        "database_shutdown",
+        "legacy_expiry",
+        "legacy_transfer",
+        "keyspace",
+        "key_count",
+        "key_sampling",
+        "dense_index",
+        "active_expiry",
+        "hyperloglog",
+        "hyperloglog_fault",
+        "inline_string",
+        "list_ready",
+        "zset_ready",
+        "move_memory_crash",
+        "family_plan_crash",
+        "family_workspace_crash",
+        "move_startup_mdb",
+        "bitfield_storage",
+        "bitop_storage",
+        "bitmap_storage",
+        "float_increment_storage",
+        "batch_allocation_failure",
+        "page_storage",
+        "storage",
+        "source_exec",
+        "exec_replication",
+        "ordered_replication",
+        "live_page_replication",
+        "page_replication",
+        "keyspace_commands",
+        "random_key_time_commands",
+        "configuration_commands",
+        "hyperloglog_commands",
+        "replica_readonly_commands",
+        "auth_commands",
+        "command_metadata",
+        "server_exit",
+        "server_callback_exit",
+        "startup_signal",
+        "active_expiry_cleanup",
+        "socket_compatibility",
+        "transaction_commands",
+        "exec_live_stream",
+        "ordered_live_stream",
+        "replica_retention_stream",
+        "replication_stream",
+        "page_live_stream",
+        "replica_queue_limits",
+        "cluster_routing"
+      ],
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "dependencies": {
+        "ACL_LIBRARY": {
+          "path": "/usr/local/lib/libacl_all.a",
+          "sha256": "fe73e10e37df37a88b788455d5ba5c92f550893c7ebe1fcbb429abae13414839",
+          "bytes": 74697192,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libacl_all.a"
+        },
+        "FIBER_CPP_LIBRARY": {
+          "path": "/usr/local/lib/libfiber_cpp.a",
+          "sha256": "816277753d411187b49c8a54c9424ab55f4fc27db1ead1e07e6707d9ce4afc4a",
+          "bytes": 3269464,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber_cpp.a"
+        },
+        "FIBER_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-asan-runtime/libfiber.a",
+          "sha256": "0befebce8c3cd5da52fc9f00b78b29b9054e526aff2fb7159e98873fe683f80d",
+          "bytes": 988248,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/fiber-asan/libfiber.a"
+        }
+      },
+      "stages": [
+        {
+          "stage": "configure",
+          "returncode": 0,
+          "seconds": 0.32740412500000005
+        },
+        {
+          "stage": "build",
+          "returncode": 0,
+          "seconds": 3.2483721670000003
+        },
+        {
+          "stage": "selection",
+          "returncode": 0,
+          "seconds": 0.00949858300000006
+        },
+        {
+          "stage": "test",
+          "returncode": 0,
+          "seconds": 76.783350833
+        }
+      ],
+      "logs": {
+        "configure": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/memory/configure.log",
+          "sha256": "3c8043fb6f091f126a11b2f9532688598868e3f0625c5028cff5c7c296df500c",
+          "bytes": 123
+        },
+        "build": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/memory/build.log",
+          "sha256": "b1c773c415c4aa60607ea7bc72cf4d6b415f3229f2f2c00cd743ea29a0de568c",
+          "bytes": 3853
+        },
+        "selection": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/memory/selection.log",
+          "sha256": "0b0753582cc288597bf5b3c39528c577a411b71d852e9c5bbf179b5cefe5c200",
+          "bytes": 43688
+        },
+        "test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/memory/test.log",
+          "sha256": "b3393b83fa28bcb2ad36c4765736803ac54fac894518f007c8a63e612b773341",
+          "bytes": 6730
+        },
+        "details": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/memory/details.log",
+          "sha256": "8afaa309bf208f837aeaaa9c2c40eeea300020caf7b899de51c5d1392463252f",
+          "bytes": 45767
+        }
+      },
+      "binaries": {
+        "pkv": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/memory/pkv",
+          "sha256": "d335c65e439608ebdf1a67e2ff5fc047c1ec67dcae5d9314a3ff586b18d562ee",
+          "bytes": 15984752,
+          "uuid": "A022EB20-0FDD-375A-83A9-3278160F4A3F",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/memory/pkv.dSYM"
+        },
+        "ordered_replication_test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/memory/ordered_replication_test",
+          "sha256": "f668c5bbe00c7ec4d6b632b682b145b0ec5889ee971423abd8283a4142a60a3d",
+          "bytes": 5178376,
+          "uuid": "3AD72C80-0845-3E4F-986D-C5316E1E6809",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/memory/ordered_replication_test.dSYM"
+        }
+      }
+    },
+    {
+      "build": "c11",
+      "passed": 62,
+      "tests": [
+        "execution_gate",
+        "watch",
+        "page_sequence",
+        "page_workspace",
+        "page_pair",
+        "native_commit_buffers",
+        "durability",
+        "move_storage",
+        "move_memory",
+        "replica_group",
+        "replica_retention",
+        "family_plan",
+        "family_workspace",
+        "database_shutdown",
+        "legacy_expiry",
+        "legacy_transfer",
+        "keyspace",
+        "key_count",
+        "key_sampling",
+        "dense_index",
+        "active_expiry",
+        "hyperloglog",
+        "hyperloglog_fault",
+        "inline_string",
+        "list_ready",
+        "zset_ready",
+        "move_memory_crash",
+        "family_plan_crash",
+        "family_workspace_crash",
+        "move_startup_mdb",
+        "bitfield_storage",
+        "bitop_storage",
+        "bitmap_storage",
+        "float_increment_storage",
+        "batch_allocation_failure",
+        "page_storage",
+        "storage",
+        "source_exec",
+        "exec_replication",
+        "ordered_replication",
+        "live_page_replication",
+        "page_replication",
+        "keyspace_commands",
+        "random_key_time_commands",
+        "configuration_commands",
+        "hyperloglog_commands",
+        "replica_readonly_commands",
+        "auth_commands",
+        "command_metadata",
+        "server_exit",
+        "server_callback_exit",
+        "startup_signal",
+        "active_expiry_cleanup",
+        "socket_compatibility",
+        "transaction_commands",
+        "exec_live_stream",
+        "ordered_live_stream",
+        "replica_retention_stream",
+        "replication_stream",
+        "page_live_stream",
+        "replica_queue_limits",
+        "cluster_routing"
+      ],
+      "configuration": {
+        "BUILD_WITH_C11": "YES",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "dependencies": {
+        "ACL_LIBRARY": {
+          "path": "/usr/local/lib/libacl_all.a",
+          "sha256": "fe73e10e37df37a88b788455d5ba5c92f550893c7ebe1fcbb429abae13414839",
+          "bytes": 74697192,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libacl_all.a"
+        },
+        "FIBER_CPP_LIBRARY": {
+          "path": "/usr/local/lib/libfiber_cpp.a",
+          "sha256": "816277753d411187b49c8a54c9424ab55f4fc27db1ead1e07e6707d9ce4afc4a",
+          "bytes": 3269464,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber_cpp.a"
+        },
+        "FIBER_LIBRARY": {
+          "path": "/usr/local/lib/libfiber.a",
+          "sha256": "9ed1db1e73298429926034c9cc369a279a1a9c954892aaae6905393a147c964a",
+          "bytes": 987104,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber.a"
+        }
+      },
+      "stages": [
+        {
+          "stage": "configure",
+          "returncode": 0,
+          "seconds": 0.33039483300000005
+        },
+        {
+          "stage": "build",
+          "returncode": 0,
+          "seconds": 3.200721375
+        },
+        {
+          "stage": "selection",
+          "returncode": 0,
+          "seconds": 0.01070424999999986
+        },
+        {
+          "stage": "test",
+          "returncode": 0,
+          "seconds": 64.20910475000001
+        }
+      ],
+      "logs": {
+        "configure": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/c11/configure.log",
+          "sha256": "1c8e447f5e1d0614867a246eab264ed59384b6fb307d1fd7120f01a5582284a1",
+          "bytes": 120
+        },
+        "build": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/c11/build.log",
+          "sha256": "d12913e8f0dcf22bc0cf1bc9b4365b14ec99ddcc33653e30755fc4f1fcf95b7b",
+          "bytes": 3853
+        },
+        "selection": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/c11/selection.log",
+          "sha256": "10cdfd2a8eef771423800cb729125a1f054eef8aa33b2fb25e513d5d95546a1e",
+          "bytes": 43313
+        },
+        "test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/c11/test.log",
+          "sha256": "e1554c7700f3d7641cc65fec96dd14f11598bb28505a02a277296955f3eb1f0e",
+          "bytes": 6727
+        },
+        "details": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/c11/details.log",
+          "sha256": "27501074a4c5bd10b6f83a3ce43575e04386af2554d62b6e25491963a47553bb",
+          "bytes": 45392
+        }
+      },
+      "binaries": {
+        "pkv": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/c11/pkv",
+          "sha256": "5b84e94ce96db3ccd0321093e02f32a0fb42c9903b0cd5b704cab42e317c1e23",
+          "bytes": 3079136,
+          "uuid": "2AA89DE5-A2D9-387A-B4D6-EADB7CEEF783",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/c11/pkv.dSYM"
+        },
+        "ordered_replication_test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/c11/ordered_replication_test",
+          "sha256": "d9cad3eaf12dfc78a41c401639dc8b1e3c8f522f58cce35e947c96c51f7fccea",
+          "bytes": 833896,
+          "uuid": "CA1EDAD5-18EA-3FB6-8166-DD7A29ABF8FF",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/c11/ordered_replication_test.dSYM"
+        }
+      }
+    },
+    {
+      "build": "tbb",
+      "passed": 71,
+      "tests": [
+        "execution_gate",
+        "watch",
+        "page_sequence",
+        "page_workspace",
+        "page_pair",
+        "native_commit_buffers",
+        "durability",
+        "move_storage",
+        "move_memory",
+        "replica_group",
+        "replica_retention",
+        "family_plan",
+        "family_workspace",
+        "database_shutdown",
+        "legacy_expiry",
+        "legacy_transfer",
+        "keyspace",
+        "key_count",
+        "key_sampling",
+        "dense_index",
+        "active_expiry",
+        "hyperloglog",
+        "hyperloglog_fault",
+        "inline_string",
+        "list_ready",
+        "zset_ready",
+        "move_memory_crash",
+        "family_plan_crash",
+        "family_workspace_crash",
+        "move_startup_mdb",
+        "move_startup_tbb",
+        "active_expiry_tbb",
+        "key_count_tbb",
+        "key_sampling_tbb",
+        "page_sequence_tbb",
+        "page_workspace_tbb",
+        "legacy_expiry_tbb",
+        "legacy_transfer_tbb",
+        "bitfield_storage",
+        "bitop_storage",
+        "bitmap_storage",
+        "float_increment_storage",
+        "tbb_native_storage",
+        "batch_allocation_failure",
+        "page_storage",
+        "storage",
+        "source_exec",
+        "exec_replication",
+        "ordered_replication",
+        "live_page_replication",
+        "page_replication",
+        "keyspace_commands",
+        "random_key_time_commands",
+        "configuration_commands",
+        "hyperloglog_commands",
+        "replica_readonly_commands",
+        "auth_commands",
+        "command_metadata",
+        "server_exit",
+        "server_callback_exit",
+        "startup_signal",
+        "active_expiry_cleanup",
+        "socket_compatibility",
+        "transaction_commands",
+        "exec_live_stream",
+        "ordered_live_stream",
+        "replica_retention_stream",
+        "replication_stream",
+        "page_live_stream",
+        "replica_queue_limits",
+        "cluster_routing"
+      ],
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "dependencies": {
+        "ACL_LIBRARY": {
+          "path": "/usr/local/lib/libacl_all.a",
+          "sha256": "fe73e10e37df37a88b788455d5ba5c92f550893c7ebe1fcbb429abae13414839",
+          "bytes": 74697192,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libacl_all.a"
+        },
+        "FIBER_CPP_LIBRARY": {
+          "path": "/usr/local/lib/libfiber_cpp.a",
+          "sha256": "816277753d411187b49c8a54c9424ab55f4fc27db1ead1e07e6707d9ce4afc4a",
+          "bytes": 3269464,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber_cpp.a"
+        },
+        "FIBER_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-asan-runtime/libfiber.a",
+          "sha256": "0befebce8c3cd5da52fc9f00b78b29b9054e526aff2fb7159e98873fe683f80d",
+          "bytes": 988248,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/fiber-asan/libfiber.a"
+        },
+        "TBB_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-tbb-dependency-build/appleclang_17.0_cxx11_64_release/libtbb.12.10.dylib",
+          "sha256": "7b29a55e3cf20ec5e41fac08577134503181721fdb03ce68b823bd79b4d0d5bb",
+          "bytes": 335184,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/tbb/libtbb.dylib"
+        }
+      },
+      "stages": [
+        {
+          "stage": "configure",
+          "returncode": 0,
+          "seconds": 0.38512437500000374
+        },
+        {
+          "stage": "build",
+          "returncode": 0,
+          "seconds": 46.08754675
+        },
+        {
+          "stage": "selection",
+          "returncode": 0,
+          "seconds": 0.012271749999996473
+        },
+        {
+          "stage": "test",
+          "returncode": 0,
+          "seconds": 112.64573941600001
+        }
+      ],
+      "logs": {
+        "configure": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb/configure.log",
+          "sha256": "516a329b597f0cb92a24aad572bcf3b839fc5bda7b56588b271a11735d84a5ff",
+          "bytes": 120
+        },
+        "build": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb/build.log",
+          "sha256": "7a1c816cebc5d5ae6bdf029e1acc4f48479f3d5af24d1fdfcf53ec9a86aaef8d",
+          "bytes": 13336
+        },
+        "selection": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb/selection.log",
+          "sha256": "6df6000ed2f579740811e1f401a39649317b91aa3149906175930f22d92ca3dd",
+          "bytes": 52903
+        },
+        "test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb/test.log",
+          "sha256": "b32265e5c211d4985d671e961d55dff317fb9327a1903e5274ba76d5e6d548c8",
+          "bytes": 7697
+        },
+        "details": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb/details.log",
+          "sha256": "2afce0a11bd2a6dbd73ccc21299090b30a0f80070c28c24453931d01550609fe",
+          "bytes": 53518
+        }
+      },
+      "binaries": {
+        "pkv": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/tbb/pkv",
+          "sha256": "71a74cda142d9deb91d9f6edffba948f038b439e3e02c7bb46901833695cfb0e",
+          "bytes": 16464032,
+          "uuid": "CCB73A43-E2CD-3D5E-83AD-91105E7F2AAC",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/tbb/pkv.dSYM"
+        },
+        "ordered_replication_test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/tbb/ordered_replication_test",
+          "sha256": "7984160bb0ecad6b637d124f8bd78fbbf45c413b60245768977add2c193584ff",
+          "bytes": 5680888,
+          "uuid": "7F908FE7-CE1F-363C-9D31-0DDDE054D781",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/tbb/ordered_replication_test.dSYM"
+        }
+      }
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 71,
+      "tests": [
+        "execution_gate",
+        "watch",
+        "page_sequence",
+        "page_workspace",
+        "page_pair",
+        "native_commit_buffers",
+        "durability",
+        "move_storage",
+        "move_memory",
+        "replica_group",
+        "replica_retention",
+        "family_plan",
+        "family_workspace",
+        "database_shutdown",
+        "legacy_expiry",
+        "legacy_transfer",
+        "keyspace",
+        "key_count",
+        "key_sampling",
+        "dense_index",
+        "active_expiry",
+        "hyperloglog",
+        "hyperloglog_fault",
+        "inline_string",
+        "list_ready",
+        "zset_ready",
+        "move_memory_crash",
+        "family_plan_crash",
+        "family_workspace_crash",
+        "move_startup_mdb",
+        "move_startup_tbb",
+        "active_expiry_tbb",
+        "key_count_tbb",
+        "key_sampling_tbb",
+        "page_sequence_tbb",
+        "page_workspace_tbb",
+        "legacy_expiry_tbb",
+        "legacy_transfer_tbb",
+        "bitfield_storage",
+        "bitop_storage",
+        "bitmap_storage",
+        "float_increment_storage",
+        "tbb_native_storage",
+        "batch_allocation_failure",
+        "page_storage",
+        "storage",
+        "source_exec",
+        "exec_replication",
+        "ordered_replication",
+        "live_page_replication",
+        "page_replication",
+        "keyspace_commands",
+        "random_key_time_commands",
+        "configuration_commands",
+        "hyperloglog_commands",
+        "replica_readonly_commands",
+        "auth_commands",
+        "command_metadata",
+        "server_exit",
+        "server_callback_exit",
+        "startup_signal",
+        "active_expiry_cleanup",
+        "socket_compatibility",
+        "transaction_commands",
+        "exec_live_stream",
+        "ordered_live_stream",
+        "replica_retention_stream",
+        "replication_stream",
+        "page_live_stream",
+        "replica_queue_limits",
+        "cluster_routing"
+      ],
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "dependencies": {
+        "ACL_LIBRARY": {
+          "path": "/usr/local/lib/libacl_all.a",
+          "sha256": "fe73e10e37df37a88b788455d5ba5c92f550893c7ebe1fcbb429abae13414839",
+          "bytes": 74697192,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libacl_all.a"
+        },
+        "FIBER_CPP_LIBRARY": {
+          "path": "/usr/local/lib/libfiber_cpp.a",
+          "sha256": "816277753d411187b49c8a54c9424ab55f4fc27db1ead1e07e6707d9ce4afc4a",
+          "bytes": 3269464,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber_cpp.a"
+        },
+        "FIBER_LIBRARY": {
+          "path": "/usr/local/lib/libfiber.a",
+          "sha256": "9ed1db1e73298429926034c9cc369a279a1a9c954892aaae6905393a147c964a",
+          "bytes": 987104,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber.a"
+        },
+        "TBB_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-tbb-dependency-build/appleclang_17.0_cxx11_64_release/libtbb.12.10.dylib",
+          "sha256": "7b29a55e3cf20ec5e41fac08577134503181721fdb03ce68b823bd79b4d0d5bb",
+          "bytes": 335184,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/tbb/libtbb.dylib"
+        }
+      },
+      "stages": [
+        {
+          "stage": "configure",
+          "returncode": 0,
+          "seconds": 0.384942959
+        },
+        {
+          "stage": "build",
+          "returncode": 0,
+          "seconds": 35.32118249999999
+        },
+        {
+          "stage": "selection",
+          "returncode": 0,
+          "seconds": 0.028213708000009774
+        },
+        {
+          "stage": "test",
+          "returncode": 0,
+          "seconds": 97.754057125
+        }
+      ],
+      "logs": {
+        "configure": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb-c11/configure.log",
+          "sha256": "44e049a0c0dc5cdb03204f771c2902a0c4abfae0da65a8db3a10d54b1dd58964",
+          "bytes": 124
+        },
+        "build": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb-c11/build.log",
+          "sha256": "6b98a4ad973d405b766a07b15fcc9f7800d26b8e4bfdc82f7b4a0ae5d7593bdb",
+          "bytes": 13336
+        },
+        "selection": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb-c11/selection.log",
+          "sha256": "a36b767008d80547f8eefded2e5fc56f313e206c8a05cfc8d9ad6cc0ffd56bb1",
+          "bytes": 53475
+        },
+        "test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb-c11/test.log",
+          "sha256": "7a8ac85227f657bf6e1bd522a328ddd6d98fa638881bcfc28de16a8e0e42f6be",
+          "bytes": 7701
+        },
+        "details": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/tbb-c11/details.log",
+          "sha256": "73ee681455e5c13c678b40fc0f72f21b015fd1773409de63c5a2f2476c9f4158",
+          "bytes": 54090
+        }
+      },
+      "binaries": {
+        "pkv": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/tbb-c11/pkv",
+          "sha256": "eeaf82bb09f00804af885ae62e41e0d090d7bce88ca8811469fa26c7a133d57c",
+          "bytes": 3133952,
+          "uuid": "3C8599FC-ED34-3055-9507-D4D714D25E9B",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/tbb-c11/pkv.dSYM"
+        },
+        "ordered_replication_test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/tbb-c11/ordered_replication_test",
+          "sha256": "043b494343d1df92e87b9c560df22cb44bd274949d6284d453a290ace2c968e1",
+          "bytes": 892200,
+          "uuid": "5C865160-20A3-385C-B481-1F239EF15773",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/tbb-c11/ordered_replication_test.dSYM"
+        }
+      }
+    },
+    {
+      "build": "rocks",
+      "passed": 76,
+      "tests": [
+        "execution_gate",
+        "watch",
+        "page_sequence",
+        "page_workspace",
+        "page_pair",
+        "native_commit_buffers",
+        "durability",
+        "move_storage",
+        "move_memory",
+        "replica_group",
+        "replica_retention",
+        "family_plan",
+        "family_workspace",
+        "database_shutdown",
+        "legacy_expiry",
+        "legacy_transfer",
+        "keyspace",
+        "key_count",
+        "key_sampling",
+        "dense_index",
+        "active_expiry",
+        "hyperloglog",
+        "hyperloglog_fault",
+        "inline_string",
+        "list_ready",
+        "zset_ready",
+        "move_memory_crash",
+        "family_plan_crash",
+        "family_workspace_crash",
+        "move_storage_rdb",
+        "move_recovery_rdb",
+        "move_startup_mdb",
+        "move_startup_rdb",
+        "durability_rdb",
+        "durability_crash_rdb",
+        "active_expiry_rdb",
+        "key_count_rdb",
+        "key_sampling_rdb",
+        "page_sequence_rdb",
+        "page_workspace_rdb",
+        "legacy_expiry_rdb",
+        "legacy_transfer_rdb",
+        "bitfield_storage",
+        "bitop_storage",
+        "bitmap_storage",
+        "float_increment_storage",
+        "rocksdb_native_storage",
+        "batch_allocation_failure",
+        "page_storage",
+        "storage",
+        "source_exec",
+        "source_exec_rdb",
+        "exec_replication",
+        "ordered_replication",
+        "live_page_replication",
+        "page_replication",
+        "keyspace_commands",
+        "random_key_time_commands",
+        "configuration_commands",
+        "hyperloglog_commands",
+        "replica_readonly_commands",
+        "auth_commands",
+        "command_metadata",
+        "server_exit",
+        "server_callback_exit",
+        "startup_signal",
+        "active_expiry_cleanup",
+        "socket_compatibility",
+        "transaction_commands",
+        "exec_live_stream",
+        "ordered_live_stream",
+        "replica_retention_stream",
+        "replication_stream",
+        "page_live_stream",
+        "replica_queue_limits",
+        "cluster_routing"
+      ],
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "dependencies": {
+        "ACL_LIBRARY": {
+          "path": "/usr/local/lib/libacl_all.a",
+          "sha256": "fe73e10e37df37a88b788455d5ba5c92f550893c7ebe1fcbb429abae13414839",
+          "bytes": 74697192,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libacl_all.a"
+        },
+        "FIBER_CPP_LIBRARY": {
+          "path": "/usr/local/lib/libfiber_cpp.a",
+          "sha256": "816277753d411187b49c8a54c9424ab55f4fc27db1ead1e07e6707d9ce4afc4a",
+          "bytes": 3269464,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber_cpp.a"
+        },
+        "FIBER_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-asan-runtime/libfiber.a",
+          "sha256": "0befebce8c3cd5da52fc9f00b78b29b9054e526aff2fb7159e98873fe683f80d",
+          "bytes": 988248,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/fiber-asan/libfiber.a"
+        },
+        "ROCKSDB_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-rocks-rtti-dependency-build/librocksdb.8.3.2.dylib",
+          "sha256": "5071da41c1a46b3c6ccb077796c36072f47a595e6180bd7e7f653713566ba71c",
+          "bytes": 9301072,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/rocksdb-asan/librocksdb.dylib"
+        }
+      },
+      "stages": [
+        {
+          "stage": "configure",
+          "returncode": 0,
+          "seconds": 0.4077693750000151
+        },
+        {
+          "stage": "build",
+          "returncode": 0,
+          "seconds": 48.959628208
+        },
+        {
+          "stage": "selection",
+          "returncode": 0,
+          "seconds": 0.011995749999982763
+        },
+        {
+          "stage": "test",
+          "returncode": 0,
+          "seconds": 256.98745625
+        }
+      ],
+      "logs": {
+        "configure": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks/configure.log",
+          "sha256": "92060d39f1d328d8d0f576d7a6ffe07b9b7a30b522355d99b0121ef1e15e03b6",
+          "bytes": 122
+        },
+        "build": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks/build.log",
+          "sha256": "26d08d0555b12a8b2634976920cec3633b9c97ad6807d9a6848d9a28b8b07682",
+          "bytes": 13994
+        },
+        "selection": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks/selection.log",
+          "sha256": "b42f9fbea680aea73d6fd7764c145d3d5fe9ea3b82dc44f40bedb954ff654624",
+          "bytes": 57309
+        },
+        "test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks/test.log",
+          "sha256": "d6aa9a4623dddd5b1d42e55a776aa94403a8e66eada827009ed2426a6c15f067",
+          "bytes": 8240
+        },
+        "details": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks/details.log",
+          "sha256": "800321a4296ff15ff971426967edaa34adb3c09a7e88a12da901361104acd4e6",
+          "bytes": 56063
+        }
+      },
+      "binaries": {
+        "pkv": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/rocks/pkv",
+          "sha256": "0f4345c4f10a3746b355a43e4d2baeba1774d212f6486f72e8e24502028085b9",
+          "bytes": 16276688,
+          "uuid": "CB6F2E12-2C95-3338-B749-D702790C774F",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/rocks/pkv.dSYM"
+        },
+        "ordered_replication_test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/rocks/ordered_replication_test",
+          "sha256": "a62e66581a42a1418cb7c1f410568ee5ae94c57da839773582f979bd55135178",
+          "bytes": 5182728,
+          "uuid": "15A88718-CA93-34DA-9717-4B12801FD472",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/rocks/ordered_replication_test.dSYM"
+        }
+      }
+    },
+    {
+      "build": "rocks-release",
+      "passed": 76,
+      "tests": [
+        "execution_gate",
+        "watch",
+        "page_sequence",
+        "page_workspace",
+        "page_pair",
+        "native_commit_buffers",
+        "durability",
+        "move_storage",
+        "move_memory",
+        "replica_group",
+        "replica_retention",
+        "family_plan",
+        "family_workspace",
+        "database_shutdown",
+        "legacy_expiry",
+        "legacy_transfer",
+        "keyspace",
+        "key_count",
+        "key_sampling",
+        "dense_index",
+        "active_expiry",
+        "hyperloglog",
+        "hyperloglog_fault",
+        "inline_string",
+        "list_ready",
+        "zset_ready",
+        "move_memory_crash",
+        "family_plan_crash",
+        "family_workspace_crash",
+        "move_storage_rdb",
+        "move_recovery_rdb",
+        "move_startup_mdb",
+        "move_startup_rdb",
+        "durability_rdb",
+        "durability_crash_rdb",
+        "active_expiry_rdb",
+        "key_count_rdb",
+        "key_sampling_rdb",
+        "page_sequence_rdb",
+        "page_workspace_rdb",
+        "legacy_expiry_rdb",
+        "legacy_transfer_rdb",
+        "bitfield_storage",
+        "bitop_storage",
+        "bitmap_storage",
+        "float_increment_storage",
+        "rocksdb_native_storage",
+        "batch_allocation_failure",
+        "page_storage",
+        "storage",
+        "source_exec",
+        "source_exec_rdb",
+        "exec_replication",
+        "ordered_replication",
+        "live_page_replication",
+        "page_replication",
+        "keyspace_commands",
+        "random_key_time_commands",
+        "configuration_commands",
+        "hyperloglog_commands",
+        "replica_readonly_commands",
+        "auth_commands",
+        "command_metadata",
+        "server_exit",
+        "server_callback_exit",
+        "startup_signal",
+        "active_expiry_cleanup",
+        "socket_compatibility",
+        "transaction_commands",
+        "exec_live_stream",
+        "ordered_live_stream",
+        "replica_retention_stream",
+        "replication_stream",
+        "page_live_stream",
+        "replica_queue_limits",
+        "cluster_routing"
+      ],
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "dependencies": {
+        "ACL_LIBRARY": {
+          "path": "/usr/local/lib/libacl_all.a",
+          "sha256": "fe73e10e37df37a88b788455d5ba5c92f550893c7ebe1fcbb429abae13414839",
+          "bytes": 74697192,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libacl_all.a"
+        },
+        "FIBER_CPP_LIBRARY": {
+          "path": "/usr/local/lib/libfiber_cpp.a",
+          "sha256": "816277753d411187b49c8a54c9424ab55f4fc27db1ead1e07e6707d9ce4afc4a",
+          "bytes": 3269464,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber_cpp.a"
+        },
+        "FIBER_LIBRARY": {
+          "path": "/usr/local/lib/libfiber.a",
+          "sha256": "9ed1db1e73298429926034c9cc369a279a1a9c954892aaae6905393a147c964a",
+          "bytes": 987104,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber.a"
+        },
+        "ROCKSDB_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-rocks-dependency-build/librocksdb.8.3.2.dylib",
+          "sha256": "7b2b254fe268b57f711071a92d8c6e3965a5cb193c80c621a49e5e3e5f442c5b",
+          "bytes": 8493344,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/rocksdb-release/librocksdb.dylib"
+        }
+      },
+      "stages": [
+        {
+          "stage": "configure",
+          "returncode": 0,
+          "seconds": 0.40765137500000037
+        },
+        {
+          "stage": "build",
+          "returncode": 0,
+          "seconds": 38.13977054199998
+        },
+        {
+          "stage": "selection",
+          "returncode": 0,
+          "seconds": 0.02741499999996222
+        },
+        {
+          "stage": "test",
+          "returncode": 0,
+          "seconds": 216.17957795899997
+        }
+      ],
+      "logs": {
+        "configure": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks-release/configure.log",
+          "sha256": "209b0b8fd8c07b08109d97426f939800d3dff5ecea40651a7b28fdc1c4638b0b",
+          "bytes": 130
+        },
+        "build": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks-release/build.log",
+          "sha256": "d3b5bc9c7326eec3af01c244996f547f9307156e73f6e1fe7420cc4f87cc1b00",
+          "bytes": 13994
+        },
+        "selection": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks-release/selection.log",
+          "sha256": "c8afaa2187f956db2a0b1ad7ead3ead882ec4673d87f08abf023f1b2c3cdac4d",
+          "bytes": 58549
+        },
+        "test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks-release/test.log",
+          "sha256": "6dc74635cf2f6b44653449f3e2ddfc0f1fdf386cda98634eefbcf82fcf43ffa5",
+          "bytes": 8248
+        },
+        "details": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/rocks-release/details.log",
+          "sha256": "2d645c621a22567a2d7ee0c8c98e977df0613a31db18760c708fd990bc5ef154",
+          "bytes": 57303
+        }
+      },
+      "binaries": {
+        "pkv": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/rocks-release/pkv",
+          "sha256": "9d77ce17ac84067073d6061ccd4e28c9a6b5347a144dc7845fd37a6728bd6224",
+          "bytes": 3107936,
+          "uuid": "189824B0-404B-3641-808C-929BBCBDB78C",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/rocks-release/pkv.dSYM"
+        },
+        "ordered_replication_test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/rocks-release/ordered_replication_test",
+          "sha256": "f8ab30bfdc693d1a87188a8926874249e6554bd42d4d4594bc0653fa3326ba1a",
+          "bytes": 835256,
+          "uuid": "F91DE428-DA11-3F82-8D48-AEE705C17DE4",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/rocks-release/ordered_replication_test.dSYM"
+        }
+      }
+    },
+    {
+      "build": "wt",
+      "passed": 77,
+      "tests": [
+        "execution_gate",
+        "watch",
+        "page_sequence",
+        "page_workspace",
+        "page_pair",
+        "native_commit_buffers",
+        "durability",
+        "move_storage",
+        "move_memory",
+        "replica_group",
+        "replica_retention",
+        "family_plan",
+        "family_workspace",
+        "database_shutdown",
+        "legacy_expiry",
+        "legacy_transfer",
+        "keyspace",
+        "key_count",
+        "key_sampling",
+        "dense_index",
+        "active_expiry",
+        "hyperloglog",
+        "hyperloglog_fault",
+        "inline_string",
+        "list_ready",
+        "zset_ready",
+        "move_memory_crash",
+        "family_plan_crash",
+        "family_workspace_crash",
+        "move_storage_wdb",
+        "move_recovery_wdb",
+        "wt_read_errors",
+        "move_startup_mdb",
+        "move_startup_wdb",
+        "durability_wdb",
+        "durability_crash_wdb",
+        "active_expiry_wdb",
+        "key_count_wdb",
+        "key_sampling_wdb",
+        "page_sequence_wdb",
+        "page_workspace_wdb",
+        "legacy_expiry_wdb",
+        "legacy_transfer_wdb",
+        "bitfield_storage",
+        "bitop_storage",
+        "bitmap_storage",
+        "float_increment_storage",
+        "wiredtiger_native_storage",
+        "batch_allocation_failure",
+        "page_storage",
+        "storage",
+        "source_exec",
+        "source_exec_wdb",
+        "exec_replication",
+        "ordered_replication",
+        "live_page_replication",
+        "page_replication",
+        "keyspace_commands",
+        "random_key_time_commands",
+        "configuration_commands",
+        "hyperloglog_commands",
+        "replica_readonly_commands",
+        "auth_commands",
+        "command_metadata",
+        "server_exit",
+        "server_callback_exit",
+        "startup_signal",
+        "active_expiry_cleanup",
+        "socket_compatibility",
+        "transaction_commands",
+        "exec_live_stream",
+        "ordered_live_stream",
+        "replica_retention_stream",
+        "replication_stream",
+        "page_live_stream",
+        "replica_queue_limits",
+        "cluster_routing"
+      ],
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "dependencies": {
+        "ACL_LIBRARY": {
+          "path": "/usr/local/lib/libacl_all.a",
+          "sha256": "fe73e10e37df37a88b788455d5ba5c92f550893c7ebe1fcbb429abae13414839",
+          "bytes": 74697192,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libacl_all.a"
+        },
+        "FIBER_CPP_LIBRARY": {
+          "path": "/usr/local/lib/libfiber_cpp.a",
+          "sha256": "816277753d411187b49c8a54c9424ab55f4fc27db1ead1e07e6707d9ce4afc4a",
+          "bytes": 3269464,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber_cpp.a"
+        },
+        "FIBER_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-asan-runtime/libfiber.a",
+          "sha256": "0befebce8c3cd5da52fc9f00b78b29b9054e526aff2fb7159e98873fe683f80d",
+          "bytes": 988248,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/fiber-asan/libfiber.a"
+        },
+        "WIREDTIGER_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-wt-dependency-build/libwiredtiger.10.0.2.dylib",
+          "sha256": "27302435efbe40f671502c5f56f008bec3929aa44ce8d223d86a26473fb7b7c8",
+          "bytes": 1990360,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/wiredtiger/libwiredtiger.dylib"
+        }
+      },
+      "stages": [
+        {
+          "stage": "configure",
+          "returncode": 0,
+          "seconds": 0.3539692079999668
+        },
+        {
+          "stage": "build",
+          "returncode": 0,
+          "seconds": 36.041395207999926
+        },
+        {
+          "stage": "selection",
+          "returncode": 0,
+          "seconds": 0.012649583000097664
+        },
+        {
+          "stage": "test",
+          "returncode": 0,
+          "seconds": 624.0761136670001
+        }
+      ],
+      "logs": {
+        "configure": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt/configure.log",
+          "sha256": "444d5dd929245b08c791c7e332c6e2ea04b2c46c83a6a242c3c725b49b8b521e",
+          "bytes": 119
+        },
+        "build": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt/build.log",
+          "sha256": "92cea210ea4ac7f337e3c76575d38a1e530c9ddf8db2399377e3641793429634",
+          "bytes": 14118
+        },
+        "selection": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt/selection.log",
+          "sha256": "34b9105a1535360c99359aee7d6a2d7f8aac54aac9664206539406a32373b319",
+          "bytes": 57627
+        },
+        "test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt/test.log",
+          "sha256": "7e5af5497191814f185248fede2e5e897073e3e8b7a898df1991a3504f239235",
+          "bytes": 8345
+        },
+        "details": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt/details.log",
+          "sha256": "44042b5c2b05b2d8205b7fa6cb5d44ceaf10e43f5bee55bc731ba3e23eb20e10",
+          "bytes": 57290
+        }
+      },
+      "binaries": {
+        "pkv": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/wt/pkv",
+          "sha256": "67db48b0f050930b50d49604151669c560538b125a11da1258ced050738c142b",
+          "bytes": 16194096,
+          "uuid": "09BCE5C4-FD8D-3470-A36B-BBCB15664274",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/wt/pkv.dSYM"
+        },
+        "ordered_replication_test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/wt/ordered_replication_test",
+          "sha256": "86d541b6952607745543aa53064e19d7a90e036367034caa70ed9ef49d125bdd",
+          "bytes": 5181208,
+          "uuid": "05304FC2-95B1-3040-8BBE-9A57724EB40B",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/wt/ordered_replication_test.dSYM"
+        }
+      }
+    },
+    {
+      "build": "wt-c11",
+      "passed": 77,
+      "tests": [
+        "execution_gate",
+        "watch",
+        "page_sequence",
+        "page_workspace",
+        "page_pair",
+        "native_commit_buffers",
+        "durability",
+        "move_storage",
+        "move_memory",
+        "replica_group",
+        "replica_retention",
+        "family_plan",
+        "family_workspace",
+        "database_shutdown",
+        "legacy_expiry",
+        "legacy_transfer",
+        "keyspace",
+        "key_count",
+        "key_sampling",
+        "dense_index",
+        "active_expiry",
+        "hyperloglog",
+        "hyperloglog_fault",
+        "inline_string",
+        "list_ready",
+        "zset_ready",
+        "move_memory_crash",
+        "family_plan_crash",
+        "family_workspace_crash",
+        "move_storage_wdb",
+        "move_recovery_wdb",
+        "wt_read_errors",
+        "move_startup_mdb",
+        "move_startup_wdb",
+        "durability_wdb",
+        "durability_crash_wdb",
+        "active_expiry_wdb",
+        "key_count_wdb",
+        "key_sampling_wdb",
+        "page_sequence_wdb",
+        "page_workspace_wdb",
+        "legacy_expiry_wdb",
+        "legacy_transfer_wdb",
+        "bitfield_storage",
+        "bitop_storage",
+        "bitmap_storage",
+        "float_increment_storage",
+        "wiredtiger_native_storage",
+        "batch_allocation_failure",
+        "page_storage",
+        "storage",
+        "source_exec",
+        "source_exec_wdb",
+        "exec_replication",
+        "ordered_replication",
+        "live_page_replication",
+        "page_replication",
+        "keyspace_commands",
+        "random_key_time_commands",
+        "configuration_commands",
+        "hyperloglog_commands",
+        "replica_readonly_commands",
+        "auth_commands",
+        "command_metadata",
+        "server_exit",
+        "server_callback_exit",
+        "startup_signal",
+        "active_expiry_cleanup",
+        "socket_compatibility",
+        "transaction_commands",
+        "exec_live_stream",
+        "ordered_live_stream",
+        "replica_retention_stream",
+        "replication_stream",
+        "page_live_stream",
+        "replica_queue_limits",
+        "cluster_routing"
+      ],
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "dependencies": {
+        "ACL_LIBRARY": {
+          "path": "/usr/local/lib/libacl_all.a",
+          "sha256": "fe73e10e37df37a88b788455d5ba5c92f550893c7ebe1fcbb429abae13414839",
+          "bytes": 74697192,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libacl_all.a"
+        },
+        "FIBER_CPP_LIBRARY": {
+          "path": "/usr/local/lib/libfiber_cpp.a",
+          "sha256": "816277753d411187b49c8a54c9424ab55f4fc27db1ead1e07e6707d9ce4afc4a",
+          "bytes": 3269464,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber_cpp.a"
+        },
+        "FIBER_LIBRARY": {
+          "path": "/usr/local/lib/libfiber.a",
+          "sha256": "9ed1db1e73298429926034c9cc369a279a1a9c954892aaae6905393a147c964a",
+          "bytes": 987104,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/acl/libfiber.a"
+        },
+        "WIREDTIGER_LIBRARY": {
+          "path": "/private/tmp/pkv-exit-wt-dependency-build/libwiredtiger.10.0.2.dylib",
+          "sha256": "27302435efbe40f671502c5f56f008bec3929aa44ce8d223d86a26473fb7b7c8",
+          "bytes": 1990360,
+          "retained_parent_copy": "/Users/zsx/work/gitee/pkv/build/validation/shutdown-2026-11-02/libraries/wiredtiger/libwiredtiger.dylib"
+        }
+      },
+      "stages": [
+        {
+          "stage": "configure",
+          "returncode": 0,
+          "seconds": 0.3476882499999192
+        },
+        {
+          "stage": "build",
+          "returncode": 0,
+          "seconds": 24.293143708000116
+        },
+        {
+          "stage": "selection",
+          "returncode": 0,
+          "seconds": 0.012621040999874822
+        },
+        {
+          "stage": "test",
+          "returncode": 0,
+          "seconds": 576.8407884169999
+        }
+      ],
+      "logs": {
+        "configure": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt-c11/configure.log",
+          "sha256": "e33680dfa4b650ded7c30d64cc5b437a33d88ba3b1e3ad488e965e341acbb532",
+          "bytes": 123
+        },
+        "build": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt-c11/build.log",
+          "sha256": "b7fae2d40688b7c11cfc5195232afe58994b702296dc9972b2908829b9dcab86",
+          "bytes": 14118
+        },
+        "selection": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt-c11/selection.log",
+          "sha256": "de1c2f8724b11c5b53be81b855c2431f8b830d87ea6779844cb19e944c4ffa46",
+          "bytes": 58259
+        },
+        "test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt-c11/test.log",
+          "sha256": "909ddb16ed840961fdf84f0fccdf1df68718bcc5d05f44a71c3dda4c8470a2af",
+          "bytes": 8349
+        },
+        "details": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/logs/wt-c11/details.log",
+          "sha256": "3c849cd244586d6c12d2f47372ca0c6741756ea38641ca1be7782c93e11392f6",
+          "bytes": 57922
+        }
+      },
+      "binaries": {
+        "pkv": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/wt-c11/pkv",
+          "sha256": "6ab0dfb6852ca702b038bd6540f7661c94a5ae60989bd58dc764f665f914620d",
+          "bytes": 3111184,
+          "uuid": "3C54614B-ADCD-314C-A9FD-852D8F29FA35",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/wt-c11/pkv.dSYM"
+        },
+        "ordered_replication_test": {
+          "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/wt-c11/ordered_replication_test",
+          "sha256": "19b616232a691ef6c09caa2f616586a4f6237fbf799e66c0a208d2a660e8a525",
+          "bytes": 834120,
+          "uuid": "86860AC3-272D-35EB-ABB1-69A267DF1C38",
+          "dsym": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/binaries/wt-c11/ordered_replication_test.dSYM"
+        }
+      }
+    }
+  ],
+  "targeted_passes": 572,
+  "new_validation_dumps_since_initial_snapshot": [
+    {
+      "name": "392eb784-a267-4d62-b71f-47a8b3aeb9aa.dmp",
+      "bytes": 1180464,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "f7976eb5-f67c-492b-a883-6c8c15b4be45.dmp",
+      "bytes": 25296,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_memory_test"
+    },
+    {
+      "name": "8a99533f-5dfd-47cb-8b08-650c7aa6ba2f.dmp",
+      "bytes": 97728,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "4731b3d9-4ad4-4c43-9041-03d8c4cbd9b5.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "800e32f8-f34c-46c5-8314-07d4eafc7115.dmp",
+      "bytes": 1179280,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "618e9451-08c4-48e0-984e-9a04f67f29c4.dmp",
+      "bytes": 1180464,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "9d5b39e1-71ea-4aa4-96ef-79d49f1de228.dmp",
+      "bytes": 25792,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/family_plan_test"
+    },
+    {
+      "name": "e755ffb4-eae0-4be8-b3f2-f13080b183e8.dmp",
+      "bytes": 1179728,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "6936ae92-dfe0-4d43-a942-008e3d2168d4.dmp",
+      "bytes": 1172080,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "50a66c1a-ab5f-4b2f-92c2-738abae10ab3.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "aa1f9e1d-a11b-4701-9b13-17d03830cd3b.dmp",
+      "bytes": 91376,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "6514b554-fcc4-4cca-add6-56f15e2a6efd.dmp",
+      "bytes": 25312,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/family_plan_test"
+    },
+    {
+      "name": "39e2f288-c479-4591-a345-7b0791464bcc.dmp",
+      "bytes": 96448,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "8ecf065a-5655-4a11-96b6-45cd232d3709.dmp",
+      "bytes": 25296,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_memory_test"
+    },
+    {
+      "name": "f8402371-2168-4350-8859-9fdaac27660f.dmp",
+      "bytes": 25856,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/family_workspace_test"
+    },
+    {
+      "name": "64ebdf4d-4f73-4aed-9b6e-9ade72631ff2.dmp",
+      "bytes": 1172144,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "219c7eed-87b1-4dd8-a4ec-259f69178570.dmp",
+      "bytes": 96480,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "1522f29f-d601-40f5-a5fe-6859b1abcefb.dmp",
+      "bytes": 598480,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "20da4f1d-b14e-458d-9f83-0297eff24253.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "559ceb88-37ea-45c5-b211-a3877bf2afa5.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "e34a9796-8047-41c4-80bb-5b5774995f78.dmp",
+      "bytes": 1171936,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "671cb164-0941-4c06-b33a-0c38ebd23336.dmp",
+      "bytes": 91504,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "e51f4419-18e5-4705-9b8c-1913287de35f.dmp",
+      "bytes": 97760,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "4eb8dbde-bcc4-4784-859b-dc04459b2f1a.dmp",
+      "bytes": 1172160,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "ce2b45e1-edf8-4fd3-9192-68f85cb9e8f4.dmp",
+      "bytes": 1180464,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "74af2571-aa55-44d3-bf8b-3369c5609965.dmp",
+      "bytes": 25312,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/family_plan_test"
+    },
+    {
+      "name": "052fcb31-0822-4e1e-97b1-e13f648b2acf.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "0801dcfe-e112-4b98-b841-86972b86b7a9.dmp",
+      "bytes": 91696,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "19ed876b-3dfa-4552-97fc-e2c60a654e9e.dmp",
+      "bytes": 96544,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "89553f6a-1def-4a6e-ad71-4749aa37f7d8.dmp",
+      "bytes": 50048,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/family_plan_test"
+    },
+    {
+      "name": "d6f14449-5e2b-49cd-8c0c-260467a1a1d8.dmp",
+      "bytes": 1171936,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "1f67de95-a2a3-4114-aa20-0cab006f3b98.dmp",
+      "bytes": 96448,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "43daeebd-9979-411f-8740-60ec0812a359.dmp",
+      "bytes": 1171936,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "97ca611a-f4ba-414e-aea5-00f17e0bb9ce.dmp",
+      "bytes": 1179824,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "a8c439d8-dd8e-4988-881b-d5ca189fb72c.dmp",
+      "bytes": 52624,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/family_plan_test"
+    },
+    {
+      "name": "b6500c24-a050-49d9-a101-265bf938413e.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "0d393006-8737-4945-bfee-fcaf21effb3d.dmp",
+      "bytes": 1172128,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "b04cbdd6-526f-4d31-938b-016fd97b5b61.dmp",
+      "bytes": 50336,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/family_plan_test"
+    },
+    {
+      "name": "e3acffd6-cc94-46fd-aa7d-39cf04d31368.dmp",
+      "bytes": 97664,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "cd9d4c8b-97ac-4ab7-9f7b-d45575236666.dmp",
+      "bytes": 96544,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "9558b340-1133-4e49-a273-9bb7c098256e.dmp",
+      "bytes": 25296,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_memory_test"
+    },
+    {
+      "name": "e4602d3b-772d-486c-aec8-09bc7abb45e3.dmp",
+      "bytes": 1172272,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "5b0f6cb9-ae2a-43db-b44f-12dd6f3468d3.dmp",
+      "bytes": 50048,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/family_plan_test"
+    },
+    {
+      "name": "fea0f1cf-59ac-43a3-8855-a20e7bd82123.dmp",
+      "bytes": 25616,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/family_plan_test"
+    },
+    {
+      "name": "e5774991-be8f-424c-ba67-3b4d4f3d7902.dmp",
+      "bytes": 91696,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "527452d9-6b7a-48b8-9dc0-5e0ee1d8ec7c.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "b67f5ebf-287b-46d3-babd-cdda46364fb8.dmp",
+      "bytes": 91360,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "fe41c05d-7497-4fc6-bcc3-2283f35fcf55.dmp",
+      "bytes": 1172112,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "3c63a264-f773-4473-9d50-4ef5d6f38caf.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "cabada5b-3409-456c-b188-a72593f54843.dmp",
+      "bytes": 97664,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "c5b56628-e1b0-458e-b668-cb3f140e5a56.dmp",
+      "bytes": 97024,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "1f0dccab-bb78-4a6f-a96e-97843e15ea1e.dmp",
+      "bytes": 25296,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_memory_test"
+    },
+    {
+      "name": "2e464dca-c114-48a1-8d89-ed7aedd86646.dmp",
+      "bytes": 25536,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/family_workspace_test"
+    },
+    {
+      "name": "0027009d-fe62-4727-8334-3593fe454718.dmp",
+      "bytes": 1179760,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "36af6be9-0651-4ae9-bed5-265d277aa0f5.dmp",
+      "bytes": 91696,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "b1a116b6-0503-4cde-98b4-1161e9fcc5a4.dmp",
+      "bytes": 25312,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/family_plan_test"
+    },
+    {
+      "name": "174b3707-e31d-46d8-a3f9-7965317bff6c.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "54f6d59b-c516-49ea-8b21-df00eed2e19a.dmp",
+      "bytes": 43424,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_memory_test"
+    },
+    {
+      "name": "6f9c9520-f09c-4619-bcdd-b569e0f48154.dmp",
+      "bytes": 25296,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_memory_test"
+    },
+    {
+      "name": "3e106081-7726-42f4-adca-f7024cd668c3.dmp",
+      "bytes": 1182688,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "795b6dcb-128a-4c42-9263-e064e5746285.dmp",
+      "bytes": 91840,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "84179d5d-7bd3-40ba-8574-e693fc448199.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "5428ed5a-7cb5-423e-b9ec-1af6fdf87de8.dmp",
+      "bytes": 97632,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "501a2174-1d53-4aa8-b6a8-151180527dd6.dmp",
+      "bytes": 50352,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/family_plan_test"
+    },
+    {
+      "name": "4d26c5d4-5bca-4a60-ab8b-18ee53e8d31d.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "caac7d72-d36c-4f80-bdb7-fcffa529a7e9.dmp",
+      "bytes": 96960,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "d338eba1-f3c2-4fd8-be2a-0dbdd276fd60.dmp",
+      "bytes": 96448,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "9a765319-906f-4de5-bf44-ead0b54c3d09.dmp",
+      "bytes": 96448,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "1f53fd0d-399a-4e2b-afd2-33b0eb7a18fc.dmp",
+      "bytes": 26064,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/family_workspace_test"
+    },
+    {
+      "name": "2ba0f045-46d8-495d-97b3-103972403bfa.dmp",
+      "bytes": 1180528,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "a1f835fd-0351-4f35-b649-82dae1aa3cea.dmp",
+      "bytes": 43408,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_memory_test"
+    },
+    {
+      "name": "3f23c8c1-8164-4bb5-b272-bc18b43c5a54.dmp",
+      "bytes": 43424,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_memory_test"
+    },
+    {
+      "name": "bef5c219-7d80-442d-b7aa-4bee39500eab.dmp",
+      "bytes": 25856,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/family_workspace_test"
+    },
+    {
+      "name": "18ea4f5b-cdf9-43c9-a306-326dc67ea0c2.dmp",
+      "bytes": 96448,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "323fd0e0-8c09-4ccd-b6d8-9bfb18679af8.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "79d84780-7418-4427-95bd-fddc53440fda.dmp",
+      "bytes": 604832,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "5fb2c980-fc8a-454c-bd08-b170a3e20338.dmp",
+      "bytes": 91504,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "48696291-b74a-424f-8ede-fe8a7ae8349e.dmp",
+      "bytes": 1180464,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "4dbc4c88-9bd3-44a0-ba25-55aa3019e683.dmp",
+      "bytes": 91840,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "ac9a5957-21cc-4d6b-970f-3b5e077fd983.dmp",
+      "bytes": 1180464,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "fa821465-6a6d-4f38-a3f9-825caebefdd1.dmp",
+      "bytes": 91488,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "9ea9fb22-424a-440f-84f2-94f74af7140d.dmp",
+      "bytes": 25264,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "067bdbdc-b11e-4683-b21b-6fdebf607d10.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "1c5d11b6-2d71-43a2-8e42-364758814a30.dmp",
+      "bytes": 91504,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "474f88eb-d82b-47e3-96a1-9b4d8708dfd5.dmp",
+      "bytes": 1179488,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "589ab19e-387c-4077-8c3e-e4e7bd31a5d3.dmp",
+      "bytes": 1172128,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "efa03747-920d-450d-89b6-a111c83039b4.dmp",
+      "bytes": 1180432,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "34337292-812a-45f9-bad3-7c2a5a0901c0.dmp",
+      "bytes": 25296,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_memory_test"
+    },
+    {
+      "name": "57ca91dd-dc93-4ab3-bca5-479573077e49.dmp",
+      "bytes": 1171920,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "7201a413-26b2-472f-b3f1-8efffe806a87.dmp",
+      "bytes": 91696,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "db67cd0b-2c29-416a-8330-4f329346541b.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "440eb27e-cdec-437d-804e-3ae24fd1779c.dmp",
+      "bytes": 56320,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/family_workspace_test"
+    },
+    {
+      "name": "d5852ef1-0b66-4856-b0e9-e8be70dc48ff.dmp",
+      "bytes": 1180464,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "b693a3f6-9932-4c49-b2fe-37ae88f6ee27.dmp",
+      "bytes": 1179280,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "e7d774bf-506c-40c2-8657-0fed289e4e80.dmp",
+      "bytes": 43424,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_memory_test"
+    },
+    {
+      "name": "f584faf9-dbe2-4086-9fd0-9c2e69de3e62.dmp",
+      "bytes": 1179824,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "e9650dc2-0621-4972-8221-db31859bb8d8.dmp",
+      "bytes": 1171824,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "68041782-50a1-41bd-86ac-ed08c0f8abb2.dmp",
+      "bytes": 50336,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/family_plan_test"
+    },
+    {
+      "name": "156a93e6-c7d0-4395-b6f1-b45d1e6f27d7.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "88c1e2d3-1fc1-4faf-8c56-480e29606c1d.dmp",
+      "bytes": 1179312,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "1a065bcf-ee5a-4f30-8bf3-4f95e5020f8b.dmp",
+      "bytes": 1172304,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "a479178b-912c-4fb5-9e0d-5ee3bc90b7a8.dmp",
+      "bytes": 96448,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "92a15df1-3537-4cc6-a4c5-ea140a73976a.dmp",
+      "bytes": 1172128,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "2084f1fd-03ef-4470-91da-b8841bedc707.dmp",
+      "bytes": 1179488,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "1992cf89-ee18-4031-85a3-fc411e0fcfb0.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "3eae3830-c883-450b-87a5-c288cdbf5fa3.dmp",
+      "bytes": 43424,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_memory_test"
+    },
+    {
+      "name": "e79f2322-7c9a-4d70-a0c4-f7856d3cfc7b.dmp",
+      "bytes": 50352,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/family_plan_test"
+    },
+    {
+      "name": "d4b7a3d3-dc84-40d9-b60c-b404c3924299.dmp",
+      "bytes": 96960,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "abed99df-8d61-4490-991a-9479a7627710.dmp",
+      "bytes": 25264,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "4b62cfc5-0661-4ab1-a34f-ceae4747e5b6.dmp",
+      "bytes": 1171824,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "a3fecca1-0d5e-4bef-9b38-b1e89887a8d2.dmp",
+      "bytes": 91376,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "44bd3e1d-255e-42ae-a29b-3c9163e821c6.dmp",
+      "bytes": 1179728,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "03316b9a-4360-4d56-bac9-0fc4538ebcd8.dmp",
+      "bytes": 52080,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/family_workspace_test"
+    },
+    {
+      "name": "29a326bb-30af-40cd-9d4a-f3c0d7c0004d.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "d6234f5f-2d40-48fa-a541-df9901462d37.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "6eec9949-6747-4c27-9dc1-9857050b3331.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "e1348da1-c1f0-40b5-a86e-c18eb46ab081.dmp",
+      "bytes": 97024,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "3936ef4f-1ade-410e-8d20-855822e8a6d2.dmp",
+      "bytes": 96544,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "17622e72-61b4-4375-b855-9c4b59aa57f6.dmp",
+      "bytes": 56320,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/family_workspace_test"
+    },
+    {
+      "name": "cb64f616-9297-48f9-969d-dcdc158b75d2.dmp",
+      "bytes": 96928,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "116789ba-a189-4449-b78f-e0043e28e59a.dmp",
+      "bytes": 1171952,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "83218df3-e48b-4aa0-b586-f57463babff7.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "b16eef01-a304-4953-8750-1584beb1b1c0.dmp",
+      "bytes": 1179760,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "29f58ef5-02f4-4214-a269-db14b9b52f6d.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "fc3719c8-9b03-4c1a-83a2-e6364ac84d11.dmp",
+      "bytes": 97632,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "98e827a7-6034-4ceb-a263-ffdcfb601874.dmp",
+      "bytes": 1179280,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "a80e41c9-fddb-42b8-98c2-b8344eb43feb.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "220edaba-13df-47f7-b6bb-f0aac2e56e15.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "72196a4e-26ce-45ca-8204-b4fbe848f7b3.dmp",
+      "bytes": 1179824,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "1d19b681-ac70-450a-82de-287aa899fb23.dmp",
+      "bytes": 97632,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "f10874ae-88a6-421e-a660-ce673b6c40e5.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "44e5ab68-04b5-46d2-847f-d6974c90e8a3.dmp",
+      "bytes": 1171936,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "37118bf7-58f2-4860-aab5-12dbc43bd4e1.dmp",
+      "bytes": 1179488,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "4b0ad0e4-fad9-4576-a946-ae8e17f00022.dmp",
+      "bytes": 52384,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/family_workspace_test"
+    },
+    {
+      "name": "5b320f12-de75-481d-b673-9ec714a0d711.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "0e3b1a87-2a95-43b7-bb88-11bbb4be9bc1.dmp",
+      "bytes": 96576,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "8d3e7a88-7390-449e-b65a-6ee277e1e22e.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "8f6ecc8e-3eb1-45d3-869c-6dd35fa05676.dmp",
+      "bytes": 91680,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "db57cc51-0741-41e2-a488-b22c5b713c02.dmp",
+      "bytes": 96544,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "b62a58cd-6d6d-4d83-b86a-2b2e0508dbe6.dmp",
+      "bytes": 1180144,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "e02cc79e-ff0f-4a50-b24c-310d849a2fa8.dmp",
+      "bytes": 1171936,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "43f46ed7-ced5-46e7-9ba6-054282ffd44f.dmp",
+      "bytes": 1179280,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "26929d21-0b5c-47c5-82a1-f1d02e8f9295.dmp",
+      "bytes": 1179344,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "32d7a8d7-33e8-44d9-95bd-e0cb10f2e4b0.dmp",
+      "bytes": 25264,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "3a4c8b26-b35b-4875-9e27-14a5951cbeaa.dmp",
+      "bytes": 1171776,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "4e0958cc-1cdf-4a4d-98e2-b1cb71975316.dmp",
+      "bytes": 1171808,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "5f9994aa-2264-4afe-a8ff-304b7e686dac.dmp",
+      "bytes": 91360,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "64aa331f-c518-47ff-acff-4df4c6b1c3c6.dmp",
+      "bytes": 91360,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "6b2b9998-18a5-4915-8461-ef94b2431084.dmp",
+      "bytes": 1171936,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "bd49ffa3-5d38-4a03-b910-8477ffc98cbd.dmp",
+      "bytes": 91504,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "9f08af2a-3b68-4caa-aad7-6a9e119d050a.dmp",
+      "bytes": 1172288,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "e4d62d1b-5446-4c5f-a0a1-2679aa678542.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "3841b7a6-b3a3-408a-ac00-fd183f4af847.dmp",
+      "bytes": 1171824,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "1b71ac1b-c428-43a4-b674-868816f4d353.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "a6bbe5c5-1df2-4c95-97f5-16723c054baf.dmp",
+      "bytes": 43424,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_memory_test"
+    },
+    {
+      "name": "ca7ee3ea-c097-491b-bfce-25ea0c4f7e9f.dmp",
+      "bytes": 91648,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "f484cf51-1796-42ce-9508-f4bfb289f4fa.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "9a5e0335-5129-498e-8043-491a525bb751.dmp",
+      "bytes": 43408,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_memory_test"
+    },
+    {
+      "name": "0d427090-8f35-4d1c-9bd8-5dcf54f33448.dmp",
+      "bytes": 1179520,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "f6b9cdea-9201-48ef-8459-a00c6581c63a.dmp",
+      "bytes": 1179312,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "d208d698-7b1d-406d-9ee3-63624755f955.dmp",
+      "bytes": 97024,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "5ac05919-a27a-4ee6-a42c-3c5d0647b264.dmp",
+      "bytes": 43408,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_memory_test"
+    },
+    {
+      "name": "7a53bcd9-431b-49f5-b5c7-3c18b3da016e.dmp",
+      "bytes": 25792,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/family_plan_test"
+    },
+    {
+      "name": "c7656500-d967-4d8d-a146-4137731d844a.dmp",
+      "bytes": 1179664,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "594712ef-6288-437d-8d09-4213b5468534.dmp",
+      "bytes": 1171968,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "d97d4d71-205a-48a2-8426-3497ad6a1c60.dmp",
+      "bytes": 25840,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/family_workspace_test"
+    },
+    {
+      "name": "a878e2bf-e38b-46c7-807c-4d11b8cba36c.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "0275e2ff-dc82-430d-8e1a-002de7eb56d9.dmp",
+      "bytes": 1172144,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "222529b8-3abb-406a-b090-41159b16bb1e.dmp",
+      "bytes": 96480,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "278f49cf-020e-4b24-b879-c9faacbbce75.dmp",
+      "bytes": 1172320,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "12808495-e8d3-4cb0-a0cb-0efae21164c6.dmp",
+      "bytes": 1172160,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "894ff7d6-5679-4b0b-bb8e-728b705f60d2.dmp",
+      "bytes": 43424,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_memory_test"
+    },
+    {
+      "name": "582b3a82-c2ed-4a81-a37d-f1ab862a9ada.dmp",
+      "bytes": 91856,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "6e29c151-ae24-447c-b04b-dc07a9f57d01.dmp",
+      "bytes": 1179280,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "e916125d-3cd0-4dca-8950-d0fd16549e46.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "6025b901-7727-45ef-bc0a-44180591212c.dmp",
+      "bytes": 96512,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "400820b8-4ac3-45ed-a5e5-77e8cbd61267.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "f157ae8b-ca6e-4789-910a-87240acae01c.dmp",
+      "bytes": 1180432,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "b00b1e96-910e-4968-a8e6-5bcdc4a3b0e1.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "00c5bffc-6cc8-429f-a141-779ecd8810c1.dmp",
+      "bytes": 43408,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_memory_test"
+    },
+    {
+      "name": "4cc79679-37ce-440c-8d68-e3e224cf5985.dmp",
+      "bytes": 96480,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "e5210af2-6df3-4b16-9350-0e194ae26f61.dmp",
+      "bytes": 97664,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "6b59ad7d-4dcb-4ed3-9418-8229d87c2d44.dmp",
+      "bytes": 91504,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "70be1523-7086-4b63-a285-863dd607e312.dmp",
+      "bytes": 1179552,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "fff3142e-d62a-486f-b902-de21c6b3eacf.dmp",
+      "bytes": 91504,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "a5f3e4c4-35af-4b01-92cd-ed021d2ec1d0.dmp",
+      "bytes": 96480,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "ae8d9147-eeaf-4b80-bc57-8fe95c677d6a.dmp",
+      "bytes": 91648,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "b7fb3dd5-bc43-4d33-b891-1e5016b28c0e.dmp",
+      "bytes": 1179728,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "7b0f4a4d-3274-45fa-ae5e-555fc700a676.dmp",
+      "bytes": 1172160,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "c67fce5d-9799-453e-8b91-64086fbe29b3.dmp",
+      "bytes": 25536,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/family_workspace_test"
+    },
+    {
+      "name": "83d3682c-6aed-44a5-b4eb-36e69c0713ac.dmp",
+      "bytes": 97664,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "9675066b-df23-4541-9441-f206129057ca.dmp",
+      "bytes": 96448,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "f3124470-0991-41d1-b31f-6ccc2f4a088b.dmp",
+      "bytes": 52080,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/family_workspace_test"
+    },
+    {
+      "name": "90cfde38-6ee5-48f2-ac2a-ce6dc2e1827f.dmp",
+      "bytes": 91696,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "423565b6-86ba-44f8-9b24-8aa917b0076c.dmp",
+      "bytes": 1171808,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "0b495a28-4b74-4c5a-86ec-544b1cc5873e.dmp",
+      "bytes": 1171824,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "9f5cf7a8-596d-4f88-aa52-e5d5b22255d3.dmp",
+      "bytes": 91360,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "11d160e8-fa30-466f-b625-5391c11b0695.dmp",
+      "bytes": 97664,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "87266adc-b49e-4d80-b497-d0776215fb17.dmp",
+      "bytes": 25536,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/family_workspace_test"
+    },
+    {
+      "name": "e11c4af5-301d-4e94-a1de-3fc2c2af936a.dmp",
+      "bytes": 25264,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "27626599-bfea-49ad-9c73-a350d25b24b1.dmp",
+      "bytes": 97632,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "bdb954f2-2d3f-45dd-bb7d-37931dac9b36.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "3c5aa480-089a-4c09-9637-d4380d12a3fe.dmp",
+      "bytes": 1179248,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "47647dd6-f292-4685-8932-111e55e84091.dmp",
+      "bytes": 52624,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/family_plan_test"
+    },
+    {
+      "name": "fa34a058-5fea-448a-90f2-4ceb3aa36a4e.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "00a6d1f3-a284-4531-8552-308c53365189.dmp",
+      "bytes": 26064,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/family_workspace_test"
+    },
+    {
+      "name": "c3bc1951-faeb-4f92-807a-a448e6c4fc3b.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "694fb790-807e-4070-8c50-76f81026a817.dmp",
+      "bytes": 97664,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "b3dffe82-b8d8-437e-a556-a628c94251cb.dmp",
+      "bytes": 1172144,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "134ecc67-918a-47d6-b060-3977cee87954.dmp",
+      "bytes": 96512,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "83ed88e7-6f62-44a2-823a-754661aec40e.dmp",
+      "bytes": 96544,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "26e0ae94-b534-47c0-9da1-1b5046dd4e17.dmp",
+      "bytes": 96928,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "e3d59066-462b-4cf3-a6c2-5605e001b23f.dmp",
+      "bytes": 91680,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "8249b67a-1fbb-4228-b6bc-7197bd32a96b.dmp",
+      "bytes": 1172064,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "5ce320fc-0a2c-46d7-9dd2-555ab46ccd1c.dmp",
+      "bytes": 1171952,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "8db05ea4-8a1d-4979-8820-5f0108e9a82f.dmp",
+      "bytes": 52384,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/family_workspace_test"
+    },
+    {
+      "name": "d3e98e29-0c49-4ce8-9e34-fca12dafe910.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "432d0740-f41c-486c-beea-a3cfafcd3777.dmp",
+      "bytes": 25312,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/family_plan_test"
+    },
+    {
+      "name": "2c9ffdb5-6587-4d06-826b-da2e06772654.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "959072a8-f920-4cba-b398-472d6b8e5c0c.dmp",
+      "bytes": 91360,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "894c3df2-8617-46e4-913d-9ca619a27e2c.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "2e929510-dff3-468c-a6bb-1bd838e51564.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "2e7a1d01-41cb-4541-97a5-d05d15033451.dmp",
+      "bytes": 43120,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/move_memory_test"
+    },
+    {
+      "name": "dc85472e-700c-463e-b141-885d1629acc7.dmp",
+      "bytes": 52368,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/family_workspace_test"
+    },
+    {
+      "name": "e37d06d8-3640-4a5c-87e7-3afe1866ec90.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "36f83d96-712d-402e-9edd-dbf67c0da95d.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "8130471d-9726-4d1f-ba8b-29d6a2e75682.dmp",
+      "bytes": 25648,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/family_plan_test"
+    },
+    {
+      "name": "15680552-63f8-44fa-b8dd-77b8d87b977d.dmp",
+      "bytes": 25840,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/family_workspace_test"
+    },
+    {
+      "name": "000f972d-62d3-4cd2-9ccf-a828e4940dbd.dmp",
+      "bytes": 25616,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/family_plan_test"
+    },
+    {
+      "name": "ed6d76d6-7002-4453-9b7f-84444f7f68e3.dmp",
+      "bytes": 96960,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "3f5a0ab9-1d80-45fc-a929-9c6c436a1c69.dmp",
+      "bytes": 91344,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "60caf136-9191-4503-879c-55f6a26467b5.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "236623fc-dbf8-4ff4-90ea-06a72fb97bb9.dmp",
+      "bytes": 91696,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "5fb2f96f-d217-4e12-b20f-acf6615246e7.dmp",
+      "bytes": 1179280,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "93e6323e-f022-447d-80f8-add1a3cadecf.dmp",
+      "bytes": 91360,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "da2ed018-c99b-42f0-8b5e-45c96bff636c.dmp",
+      "bytes": 1179424,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "0326b1d4-ea8d-4985-b6cb-bbe14ca6ac78.dmp",
+      "bytes": 91504,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "e0e4f2af-0d1e-4908-8b4d-2f946f3a9d58.dmp",
+      "bytes": 25264,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "ea092573-d650-4acc-b83b-3e928823957c.dmp",
+      "bytes": 25536,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/family_workspace_test"
+    },
+    {
+      "name": "da88d905-647d-41d3-bd05-e2c43cbabe54.dmp",
+      "bytes": 1172080,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "34322e63-1839-4789-ac18-bebf53f070e8.dmp",
+      "bytes": 52368,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/family_workspace_test"
+    },
+    {
+      "name": "8ac45938-f9ed-43ad-a20a-cbb7eaaaf9a6.dmp",
+      "bytes": 43936,
+      "executable": "/tmp/pkv-exit-final-tbb-build/tests/move_memory_test"
+    },
+    {
+      "name": "2f523570-ae56-492b-8d01-edd00ea45b89.dmp",
+      "bytes": 50048,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/family_plan_test"
+    },
+    {
+      "name": "483f0735-d912-4f62-a7e0-8b7722e19f42.dmp",
+      "bytes": 25648,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/family_plan_test"
+    },
+    {
+      "name": "72804e60-401b-4d42-9c9c-7fb6a8d5dd84.dmp",
+      "bytes": 91488,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "f3d1e0d7-c3a6-45e0-9d85-d19303fa77de.dmp",
+      "bytes": 1180608,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "982d9be5-c228-44dc-9122-2dc944a83206.dmp",
+      "bytes": 91504,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "f805f4c1-70a5-49fa-b1de-14c0980da8b6.dmp",
+      "bytes": 1180464,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "419fc1e5-c064-422d-9ee0-02271ca835ef.dmp",
+      "bytes": 91648,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "bf3d7a9b-b879-4b26-8baa-e402da23ada6.dmp",
+      "bytes": 1171968,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "1ee3e375-c053-426c-b1ec-3c6013bf471e.dmp",
+      "bytes": 25408,
+      "executable": "/tmp/pkv-exit-final-tbb-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "3527a978-4f4a-4ddc-bd46-6417a3bcb8b1.dmp",
+      "bytes": 91376,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "0144223a-a29f-45b5-940e-9d1f8c4a662e.dmp",
+      "bytes": 1172112,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "21f9c412-66ee-4d5a-a470-91b146b51793.dmp",
+      "bytes": 1180432,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "b567c8db-e07c-4441-ae27-9bf47931c19f.dmp",
+      "bytes": 91488,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "94b15228-a738-4265-ae0b-16a3ca5c0b21.dmp",
+      "bytes": 50048,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/family_plan_test"
+    },
+    {
+      "name": "1bac012e-9ac8-412e-8a91-ef9256f24c11.dmp",
+      "bytes": 91680,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "4c4e697a-15c3-45de-95b6-99dda56636cb.dmp",
+      "bytes": 91504,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "4ec6424f-53d4-40f4-974d-ef81eba2743d.dmp",
+      "bytes": 1172080,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "38bc2d36-3223-449f-9be6-166e727484e1.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "bb069de5-e972-4084-8cde-fd26176b45a1.dmp",
+      "bytes": 96960,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "d37ffd4b-3cd5-4f5e-8a58-62fc3fd87410.dmp",
+      "bytes": 97728,
+      "executable": "/tmp/pkv-exit-final-rocks-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "24a02afc-ac7b-4447-a7d2-eb397b211bd8.dmp",
+      "bytes": 25264,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "a33b5b49-6334-425f-9b32-f631e08a54ad.dmp",
+      "bytes": 24960,
+      "executable": "/tmp/pkv-exit-final-c11-build/tests/move_memory_test"
+    },
+    {
+      "name": "6f66a75a-2e8c-4a39-b3b5-c6c969fc3789.dmp",
+      "bytes": 1171824,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "614f7a48-ebb4-488d-a1dc-a9d4091b2acc.dmp",
+      "bytes": 91488,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_storage_disk_test"
+    },
+    {
+      "name": "64c19046-bfc3-496d-b859-0bf7c92f53e7.dmp",
+      "bytes": 91680,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "3acc32b3-e824-4d20-ae5d-c309f396417f.dmp",
+      "bytes": 1179280,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "89f069d0-c0b2-4eb8-a391-ed227bedfd8a.dmp",
+      "bytes": 52080,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/family_workspace_test"
+    },
+    {
+      "name": "e62aa99d-0155-4a40-a5e6-eba50f73a644.dmp",
+      "bytes": 43408,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_memory_test"
+    },
+    {
+      "name": "48567b8a-8164-48a1-af7b-d10d76b18089.dmp",
+      "bytes": 52080,
+      "executable": "/tmp/pkv-exit-final-memory-build/tests/family_workspace_test"
+    },
+    {
+      "name": "2158a888-0e08-4a15-a0a7-56c2a21ed060.dmp",
+      "bytes": 91488,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "20018a9f-0e97-42a3-a35d-c9264bdc2c70.dmp",
+      "bytes": 91360,
+      "executable": "/tmp/pkv-exit-final-rocks-release-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "33baad1a-b23d-48be-8c4a-5bb949442b44.dmp",
+      "bytes": 43408,
+      "executable": "/tmp/pkv-exit-final-wt-build/tests/move_memory_test"
+    },
+    {
+      "name": "9469f6bd-4730-4c5c-b45f-aa46d451455e.dmp",
+      "bytes": 1171840,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_recovery_disk_test"
+    },
+    {
+      "name": "a0e29c6b-ec78-47d7-a1a8-c6ddb2db786e.dmp",
+      "bytes": 1172112,
+      "executable": "/tmp/pkv-exit-final-wt-c11-build/tests/move_storage_disk_test"
+    }
+  ],
+  "unrelated_new_dumps": [],
+  "dump_scope": "Includes first failed matrix and final matrix; paths restricted to expected fault-test executables",
+  "first_focus_failures": [
+    "Same-thread socketpair fixture blocked on bounded send buffer; fixed with concurrent writer.",
+    "Old unknown-version test rejected newly valid version4; updated negative to5.",
+    "Expanded first matrix: memory/c11 each61 of62, only page_live_stream failed on old initial-version expectation; updated full4-to1 fallback fixture. Both failed configurations excluded from final passes."
+  ],
+  "limits": [
+    "macOS execution only.",
+    "TCP mixed-MOVE tests use memory even in disk builds.",
+    "Public MOVE, primary intent capture, PSYNC and durable mixed-disk groups are not implemented.",
+    "No official Redis throughput claim; page ownership/address and constant-wire evidence only.",
+    "Raw dumps remain in Crashpad, not copied into artifacts.",
+    "UUID matching does not promise full optimized/LTO source-line information; symbol generation logs retained.",
+    "Dependency hashes link to retained parent copies; these artifacts are not a portable installer."
+  ],
+  "process_cleanup": {
+    "path": "/Users/zsx/work/gitee/pkv/build/validation/ordered-replication-2026-11-02/diagnostics/owned-processes.json",
+    "sha256": "1253fb3ea4690eab8b162e3572a4c446e50f4b34dee8fe2cf069f33deb3a46f0",
+    "result": {
+      "observed_at_utc": "2026-11-02T05:29:40.495668+00:00",
+      "owned_processes": [],
+      "method": "Exact native executable prefixes; Python script argv; CMake/CTest build arguments"
+    }
+  }
+}

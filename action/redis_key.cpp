@@ -3,7 +3,7 @@
 //
 
 #include "stdafx.h"
-#include "db/db_cursor.h"
+#include "common/redis_integer.h"
 #include "dao/json/json_key.h"
 
 #include "redis_handler.h"
@@ -30,20 +30,30 @@ struct key_handler {
 };
 
 static struct key_handler handlers[] = {
+    { "RENAME",     true,   &redis_key::rename      },
+    { "RENAMENX",   true,   &redis_key::rename      },
     { "DEL",        true,   &redis_key::del         },
+    { "EXISTS",     true,   &redis_key::exists      },
     { "TYPE",       true,   &redis_key::type        },
     { "EXPIRE",     true,   &redis_key::expire      },
+    { "PEXPIRE",    true,   &redis_key::expire      },
+    { "EXPIREAT",   true,   &redis_key::expire      },
+    { "PEXPIREAT",  true,   &redis_key::expire      },
     { "TTL",        true,   &redis_key::ttl         },
+    { "PTTL",       true,   &redis_key::ttl         },
+    { "EXPIRETIME", true,   &redis_key::ttl         },
+    { "PEXPIRETIME", true,  &redis_key::ttl         },
+    { "PERSIST",    true,   &redis_key::persist     },
 
     { nullptr,      false, nullptr            },
 };
 
 bool redis_key::exec(const char* cmd, redis_coder& result) {
+    if (EQ(cmd, "COPY")) return copy(result);
+    if (EQ(cmd, "MOVE")) return move(result);
     for (int i = 0; handlers[i].cmd != nullptr; i++) {
         if (EQ(cmd, handlers[i].cmd)) {
-            if (this->check_cluster_mode(handlers[i].check_slot)) {
-                CHECK_AND_REDIRECT(cmd, obj_, var_cfg_service_addr);
-            }
+            if (check_cluster_mode(handlers[i].check_slot) && route_keys(cmd, result)) return true;
             return (this->*(handlers[i].func))(result);
         }
     }
@@ -52,165 +62,157 @@ bool redis_key::exec(const char* cmd, redis_coder& result) {
     return false;
 }
 
+static bool key_error(dao::key& data, redis_coder& result) {
+    result.create_object().set_error(data.error());
+    return true;
+}
+
+bool redis_key::copy(redis_coder& result) {
+    std::vector<std::string> keys{*obj_.argument(1), *obj_.argument(2)};
+    if (check_cluster_mode(true) && route_keys(keys, result)) {
+        return true;
+    }
+    const auto error = [&](const char* message) {
+        result.create_object().set_error(message);
+        return true;
+    };
+    const auto is = [](const std::string& option, const char* name) {
+        return option.size() == std::strlen(name)
+            && !strncasecmp(option.data(), name, option.size());
+    };
+    long long selected = static_cast<long long>(handler_.selected_database());
+    bool replace = false;
+    for (size_t i = 3; i < obj_.size(); ++i) {
+        const auto& option = *obj_.argument(i);
+        if (is(option, "REPLACE")) {
+            replace = true;
+        } else if (is(option, "DB") && i + 1 < obj_.size()) {
+            if (!parse_redis_integer(*obj_.argument(++i), selected)) {
+                return error("ERR value is not an integer or out of range");
+            }
+            if (selected < INT_MIN || selected > INT_MAX) {
+                return error("ERR value is out of range, value must between -2147483648 and 2147483647");
+            }
+            if (selected < 0 || static_cast<unsigned long long>(selected) >= handler_.database_count()) {
+                return error("ERR DB index is out of range");
+            }
+        } else {
+            return error("ERR syntax error");
+        }
+    }
+    if (var_cfg_cluster_mode && selected != 0) {
+        return error("ERR Copying to another database is not allowed in cluster mode");
+    }
+    auto destination = handler_.database(static_cast<size_t>(selected));
+    if (!destination) {
+        return error("ERR storage operation failed");
+    }
+    bool copied;
+    if (!dao_->copy(handler_.get_db(), keys[0], destination, keys[1], replace, copied)) {
+        return key_error(*dao_, result);
+    }
+    result.create_object().set_number(copied ? 1 : 0);
+    return true;
+}
+
+bool redis_key::rename(redis_coder& result) {
+    const bool nx = EQ(obj_.get_cmd(), "RENAMENX");
+    bool renamed;
+    if (!dao_->rename(handler_.get_db(), *obj_.argument(1), *obj_.argument(2), nx, renamed)) return key_error(*dao_, result);
+    if (nx) result.create_object().set_number(renamed ? 1 : 0);
+    else result.create_object().set_status("OK");
+    return true;
+}
+
 bool redis_key::del(redis_coder& result) {
-    if (obj_.size() < 2) {
-        logger_error("invalid SET params' size=%zd", obj_.size());
-        return false;
-    }
+    std::vector<std::string> keys;
+    for (size_t i = 1; i < obj_.size(); ++i) keys.push_back(*obj_.argument(i));
+    long long removed;
+    if (!dao_->del(handler_.get_db(), keys, removed)) return key_error(*dao_, result);
+    result.create_object().set_number(removed);
+    return true;
+}
 
-    auto key = obj_[1];
-    if (key == nullptr || *key == 0) {
-        logger_error("key null");
-        return false;
-    }
-
-    if (!dao_->del(handler_.get_db(), key)) {
-        logger_error("db del error, key=%s", key);
-        return false;
-    }
-
-    result.create_object().set_number(1);
+bool redis_key::exists(redis_coder& result) {
+    std::vector<std::string> keys;
+    for (size_t i = 1; i < obj_.size(); ++i) keys.push_back(*obj_.argument(i));
+    long long count;
+    if (!dao_->exists(handler_.get_db(), keys, count)) return key_error(*dao_, result);
+    result.create_object().set_number(count);
     return true;
 }
 
 bool redis_key::type(redis_coder& result) {
-    if (obj_.size() < 2) {
-        logger_error("invalid TYPE params' size=%zd", obj_.size());
-        return false;
-    }
-
-    auto key = obj_[1];
-    if (key == nullptr || *key == 0) {
-        logger_error("key null");
-        return false;
-    }
-
-    std::string buff;
-    if (!dao_->type(handler_.get_db(), key, buff)) {
-        return false;
-    }
-
-    result.create_object().set_status(buff);
+    std::string type;
+    if (dao_->type(handler_.get_db(), *obj_.argument(1), type)) {
+        result.create_object().set_status(type);
+    } else if (dao_->status() == dao::dao_base::read_status::missing) {
+        result.create_object().set_status("none");
+    } else return key_error(*dao_, result);
     return true;
 }
 
-bool redis_key::expire(pkv::redis_coder &result) {
-    if (obj_.size() < 3) {
-        logger_error("invalid EXPIRE params' size=%zd", obj_.size());
-        return false;
-    }
-
-    auto key = obj_[1];
-    if (key == nullptr || *key == 0) {
-        logger_error("key null");
-        return false;
-    }
-    auto ptr = obj_[2];
-    if (ptr == nullptr || *ptr == 0) {
-        logger_error("expire time null");
-        return false;
-    }
-
-    char* end;
-    int n = (int) std::strtol(ptr, &end, 10);
-    if (*end != 0) {
-        logger_error("Invalid expire=%s, left=%s", ptr, end);
-        return false;
-    }
-
-    if (!dao_->expire(handler_.get_db(), key, n)) {
-        result.create_object().set_number(0);
-    } else {
-        result.create_object().set_number(1);
-    }
-    return true;
-}
-
-bool redis_key::ttl(pkv::redis_coder &result) {
-    if (obj_.size() < 2) {
-        logger_error("invalid EXPIRE params' size=%zd", obj_.size());
-        return false;
-    }
-
-    auto key = obj_[1];
-    if (key == nullptr || *key == 0) {
-        logger_error("key null");
-        return false;
-    }
-
-    int n;
-    if (!dao_->ttl(handler_.get_db(), key, n)) {
-        result.create_object().set_number(-2);
-    } else {
-        result.create_object().set_number(n);
-    }
-    return true;
-}
-
-bool redis_key::scan(db_cursor& cursor, redis_coder& result) {
-    if (obj_.size() < 2) {
-        logger_error("Invalid SCAN params' size=%zd", obj_.size());
-        return false;
-    }
-
-    char* end;
-    int ncursor = (int) std::strtol(obj_[1], &end, 10);
-    if (*end != 0) {
-        logger_error("Invalid ncursor=%s, left=%s", obj_[1], end);
-        return false;
-    }
-    if (ncursor <= 0) {  // Scan again.
-        cursor.reset();
-    }
-
-    std::string pattern;
-    size_t count = 10;
-
-    if (obj_.size() == 4) {
-        if (strcasecmp(obj_[2], "MATCH") == 0) {
-            pattern = obj_[3];
-        } else if (strcasecmp(obj_[2], "COUNT") == 0) {
-            count = (size_t) std::strtol(obj_[3], &end, 10);
-            if (*end != 0) {
-                logger_error("Invalid COUNT=%s, left=%s", obj_[3], end);
-                return false;
-            }
-        }
-    }
-
-    if (obj_.size() == 6) {
-        if (strcasecmp(obj_[2], "MATCH") == 0) {
-            pattern = obj_[3];
-        }
-        if (strcasecmp(obj_[4], "COUNT") == 0) {
-            count = (size_t) std::strtol(obj_[5], &end, 10);
-            if (*end != 0) {
-                logger_error("Invalid COUNT=%s, left=%s", obj_[5], end);
-                return false;
-            }
-        }
-    }
-
-    std::vector<std::string> keys;
-    if (!dao_->scan(handler_.get_db(), cursor, keys, count)) {
-        logger_error("scan error");
-        return false;
-    }
-
-    if (keys.empty()) {
-        auto& o = result.create_object();
-        o.create_child().set_string("0");
-        o.create_child().set_type(REDIS_OBJ_EMPTY);
+bool redis_key::expire(redis_coder& result) {
+    long long amount;
+    if (!parse_redis_integer(*obj_.argument(2), amount)) {
+        result.create_object().set_error("ERR value is not an integer or out of range");
         return true;
     }
-
-    auto& o = result.create_object();
-    o.create_child().set_string(std::to_string(keys.size()));
-
-    auto& children = o.create_child();
-    for (auto& it : keys) {
-        children.create_child().set_string(it);
+    unsigned conditions = 0;
+    for (size_t i = 3; i < obj_.size(); ++i) {
+        const char* option = obj_[i];
+        if (EQ(option, "NX")) conditions |= dao::key::expire_nx;
+        else if (EQ(option, "XX")) conditions |= dao::key::expire_xx;
+        else if (EQ(option, "GT")) conditions |= dao::key::expire_gt;
+        else if (EQ(option, "LT")) conditions |= dao::key::expire_lt;
+        else { result.create_object().set_error("ERR Unsupported option"); return true; }
     }
+    if ((conditions & dao::key::expire_nx) && (conditions & ~dao::key::expire_nx)) {
+        result.create_object().set_error("ERR NX and XX, GT or LT options at the same time are not compatible");
+        return true;
+    }
+    if ((conditions & dao::key::expire_gt) && (conditions & dao::key::expire_lt)) {
+        result.create_object().set_error("ERR GT and LT options at the same time are not compatible");
+        return true;
+    }
+    const char* command = obj_.get_cmd();
+    const bool milliseconds = EQ(command, "PEXPIRE") || EQ(command, "PEXPIREAT");
+    const bool absolute = EQ(command, "EXPIREAT") || EQ(command, "PEXPIREAT");
+    long long deadline;
+    if (!expiration_deadline(amount, milliseconds ? 1 : 1000, absolute ? 0 : unix_time_ms(), deadline)) {
+        std::string name(command);
+        for (char& ch : name) ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        result.create_object().set_error("ERR invalid expire time in '" + name + "' command");
+        return true;
+    }
+    bool changed = dao_->set_expiry(handler_.get_db(), *obj_.argument(1), deadline, conditions);
+    if (!changed && dao_->status() != dao::dao_base::read_status::missing &&
+        dao_->status() != dao::dao_base::read_status::ok) return key_error(*dao_, result);
+    result.create_object().set_number(changed ? 1 : 0);
+    return true;
+}
+
+bool redis_key::ttl(redis_coder& result) {
+    const char* command = obj_.get_cmd();
+    const bool absolute = EQ(command, "EXPIRETIME") || EQ(command, "PEXPIRETIME");
+    const bool milliseconds = EQ(command, "PTTL") || EQ(command, "PEXPIRETIME");
+    long long value;
+    const bool ok = absolute ? dao_->expiry_time(handler_.get_db(), *obj_.argument(1), value)
+        : dao_->pttl(handler_.get_db(), *obj_.argument(1), value);
+    if (ok) {
+        if (!milliseconds && value >= 0) value = value / 1000 + (value % 1000 >= 500);
+        result.create_object().set_number(value);
+    } else if (dao_->status() == dao::dao_base::read_status::missing) {
+        result.create_object().set_number(-2);
+    } else return key_error(*dao_, result);
+    return true;
+}
+
+bool redis_key::persist(redis_coder& result) {
+    const bool changed = dao_->persist(handler_.get_db(), *obj_.argument(1));
+    if (!changed && dao_->status() != dao::dao_base::read_status::missing &&
+        dao_->status() != dao::dao_base::read_status::ok) return key_error(*dao_, result);
+    result.create_object().set_number(changed ? 1 : 0);
     return true;
 }
 

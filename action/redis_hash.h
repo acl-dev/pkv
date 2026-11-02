@@ -23,10 +23,20 @@ public:
 public:
     bool hset(redis_coder& result);
     bool hget(redis_coder& result);
+    bool hgetdel(redis_coder& result);
     bool hdel(redis_coder& result);
     bool hmset(redis_coder& result);
     bool hmget(redis_coder& result);
     bool hgetall(redis_coder& result);
+    bool hsetnx(redis_coder& result);
+    bool hincrby(redis_coder& result);
+    bool hincrbyfloat(redis_coder& result);
+    bool hlen(redis_coder& result);
+    bool hstrlen(redis_coder& result);
+    bool hexists(redis_coder& result);
+    bool hkeys(redis_coder& result);
+    bool hvals(redis_coder& result);
+    bool hrandfield(redis_coder& result);
    
 private:
     dao::hash* dao_;

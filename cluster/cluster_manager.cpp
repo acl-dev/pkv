@@ -3,6 +3,7 @@
 //
 
 #include "stdafx.h"
+#include "common/redis_slot.h"
 #include "gson/nodes_struct.h"
 #include "gson/nodes_struct.gson.h"
 #include <acl-lib/acl_cpp/serialize/serialize.hpp>
@@ -12,11 +13,19 @@
 
 namespace pkv {
 
+cluster_manager& cluster_manager::get_instance() {
+    static cluster_manager instance;
+    return instance;
+}
+
 void cluster_manager::init(size_t max_slots, bool cluster_mode,
         const char* save_path, const std::string& service_ip,
-        int service_port, int rpc_port, shared_db db)
+        int service_port, int rpc_port, shared_db db,
+        std::shared_ptr<database_pool> databases, std::string password)
 {
+    password_ = std::move(password);
     db_ = db;
+    databases_ = std::move(databases);
 
     if (max_slots > 0) {
         max_slots_ = max_slots;
@@ -150,22 +159,17 @@ shared_node cluster_manager::get_node(const std::string &addr) const {
     return it == nodes_.end() ? nullptr : it->second;
 }
 
-shared_node cluster_manager::get_node(const char *key, size_t& slot) {
-    slot = hash_slot(key);
-    auto node = slots_[slot];
-
-#ifdef DEBUG_CLUSTER
-    if (node == nullptr) {
-        show_null_slots();
-        assert(node);
-    }
-#endif
-    return node;
+shared_node cluster_manager::get_node(const char* key, size_t& slot) {
+    return get_node(std::string(key), slot);
 }
 
-size_t cluster_manager::hash_slot(const char *key) const {
-    unsigned hash = acl_hash_crc32(key, strlen(key));
-    return hash % max_slots_;
+shared_node cluster_manager::get_node(const std::string& key, size_t& slot) {
+    slot = redis_hash_slot(key);
+    return slot < slots_.size() ? slots_[slot] : nullptr;
+}
+
+size_t cluster_manager::hash_slot(const char* key) const {
+    return redis_hash_slot(std::string(key));
 }
 
 long long cluster_manager::get_stamp() {
@@ -292,7 +296,8 @@ void cluster_manager::add_node(const struct pkv_node& node) {
 
 bool cluster_manager::sync_open(const std::string &addr) {
     if (sync_ == nullptr) {
-        sync_ = std::make_shared<cluster_client>(addr, db_);
+        sync_ = std::make_shared<cluster_client>(addr, db_, databases_,
+            password_);
         if (!sync_->open()) {
             sync_ = nullptr;
             return false;

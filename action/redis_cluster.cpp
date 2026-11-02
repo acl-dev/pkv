@@ -3,6 +3,7 @@
 //
 
 #include "stdafx.h"
+#include "common/redis_slot.h"
 #include "coder/redis_coder.h"
 #include "coder/redis_object.h"
 #include "cluster/cluster_manager.h"
@@ -27,6 +28,7 @@ struct cluster_handler {
 };
 
 static struct cluster_handler handlers[] = {
+    { "KEYSLOT",    &redis_cluster::cluster_keyslot         },
     { "SLOTS",      &redis_cluster::cluster_slots           },
     { "NODES",      &redis_cluster::cluster_nodes           },
     { "ADDSLOTS",   &redis_cluster::cluster_addslots        },
@@ -41,6 +43,10 @@ static struct cluster_handler handlers[] = {
 };
 
 bool redis_cluster::exec(const char*, redis_coder& result) {
+    if (!var_cfg_cluster_mode) {
+        result.create_object().set_error("ERR This instance has cluster support disabled");
+        return true;
+    }
     if (obj_.size() < 2) {
         logger_error("Invalid CLUSTER parameters: %zd", obj_.size());
         return false;
@@ -60,6 +66,15 @@ bool redis_cluster::exec(const char*, redis_coder& result) {
 
     logger_error("Not support, cmd=%s", cmd);
     return false;
+}
+
+bool redis_cluster::cluster_keyslot(redis_coder& result) {
+    if (obj_.size() != 3) {
+        result.create_object().set_error("ERR wrong number of arguments for 'cluster|keyslot' command");
+        return true;
+    }
+    result.create_object().set_number(redis_hash_slot(*obj_.argument(2)));
+    return true;
 }
 
 bool redis_cluster::cluster_slots(redis_coder& result) {

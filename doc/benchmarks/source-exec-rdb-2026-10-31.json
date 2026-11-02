@@ -1,0 +1,68 @@
+{
+  "backend": "rdb",
+  "groups": 100,
+  "width": 32,
+  "samples": 3,
+  "warmup_groups": 20,
+  "rows": [
+    {
+      "seconds": 0.02154524999999996,
+      "writes_per_second": 148524.61679488546,
+      "median_group_ms": 0.20845850000017485,
+      "p95_group_ms": 0.2570839999997965,
+      "variant": "before",
+      "sample": 1
+    },
+    {
+      "seconds": 0.020148166999999884,
+      "writes_per_second": 158823.38080680085,
+      "median_group_ms": 0.19718699999993206,
+      "p95_group_ms": 0.21887499999984072,
+      "variant": "after",
+      "sample": 1
+    },
+    {
+      "seconds": 0.02028554199999988,
+      "writes_per_second": 157747.8186187985,
+      "median_group_ms": 0.20233350000009587,
+      "p95_group_ms": 0.21604199999991636,
+      "variant": "after",
+      "sample": 2
+    },
+    {
+      "seconds": 0.02026450000000013,
+      "writes_per_second": 157911.618840829,
+      "median_group_ms": 0.2011250000000242,
+      "p95_group_ms": 0.22204200000031094,
+      "variant": "before",
+      "sample": 2
+    },
+    {
+      "seconds": 0.020142541999999874,
+      "writes_per_second": 158867.73377461592,
+      "median_group_ms": 0.20104200000004013,
+      "p95_group_ms": 0.21433300000017752,
+      "variant": "before",
+      "sample": 3
+    },
+    {
+      "seconds": 0.02104604099999996,
+      "writes_per_second": 152047.59888094896,
+      "median_group_ms": 0.2093749999998451,
+      "p95_group_ms": 0.23179100000003672,
+      "variant": "after",
+      "sample": 3
+    }
+  ],
+  "binaries": {
+    "before": {
+      "path": "/private/tmp/pkv-exec-source-before-rocks-release",
+      "sha256": "a57c29501789d7a65961b4358bcb660bd38f5797a71261c90e90bcdc776efc9b"
+    },
+    "after": {
+      "path": "/private/tmp/pkv-rocks-release-build/pkv",
+      "sha256": "a66b5a6dc2441d03353ef5bf542848378e0559b01b2305be2463ac070dac83c8",
+      "snapshot_path": "/tmp/pkv-exec-source-staged-rocks-release"
+    }
+  }
+}

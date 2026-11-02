@@ -1,0 +1,352 @@
+{
+  "date": "2026-11-01",
+  "platform": "macOS-26.3.1-arm64-arm-64bit",
+  "binary": {
+    "path": "/tmp/pkv-tbb-c11-build/tests/key_sampling_bench",
+    "sha256": "dca9b769ed74f67c8153cc203fe1428f7be638668d153cda9a278a3fc1c1f02f"
+  },
+  "source_sha256": "1d0e0dfa793374359c31360f74ad4ff476e0819afd6f280cb4b9e8a4383dc8fd",
+  "flags": {
+    "/tmp/pkv-tbb-c11-build/tests/CMakeFiles/key_sampling_bench.dir/flags.make": "230f856b3ec063bcaf21683687995fcf3ee83163f0574efef7bd70d856acb735",
+    "/tmp/pkv-tbb-c11-build/CMakeFiles/pkv_core.dir/flags.make": "cbfc84c956be80a93b19f7000642bd7ad7d52b9e9ea2a8b614d311d96f013646"
+  },
+  "results": [
+    {
+      "backend": "mdb",
+      "roots": 1024,
+      "visitor": false,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.000152583
+    },
+    {
+      "backend": "mdb",
+      "roots": 1024,
+      "visitor": true,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.000906708
+    },
+    {
+      "backend": "mdb",
+      "roots": 1024,
+      "visitor": true,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.000899916
+    },
+    {
+      "backend": "mdb",
+      "roots": 1024,
+      "visitor": false,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.000147833
+    },
+    {
+      "backend": "mdb",
+      "roots": 1024,
+      "visitor": false,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.000147083
+    },
+    {
+      "backend": "mdb",
+      "roots": 1024,
+      "visitor": true,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.000847334
+    },
+    {
+      "backend": "tbb",
+      "roots": 1024,
+      "visitor": false,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.00015875
+    },
+    {
+      "backend": "tbb",
+      "roots": 1024,
+      "visitor": true,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.000909625
+    },
+    {
+      "backend": "tbb",
+      "roots": 1024,
+      "visitor": true,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.000894458
+    },
+    {
+      "backend": "tbb",
+      "roots": 1024,
+      "visitor": false,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.000149417
+    },
+    {
+      "backend": "tbb",
+      "roots": 1024,
+      "visitor": false,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.000150083
+    },
+    {
+      "backend": "tbb",
+      "roots": 1024,
+      "visitor": true,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.00085675
+    },
+    {
+      "backend": "mdb",
+      "roots": 16384,
+      "visitor": false,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.000186875
+    },
+    {
+      "backend": "mdb",
+      "roots": 16384,
+      "visitor": true,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.0307049
+    },
+    {
+      "backend": "mdb",
+      "roots": 16384,
+      "visitor": true,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.0329986
+    },
+    {
+      "backend": "mdb",
+      "roots": 16384,
+      "visitor": false,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.000189167
+    },
+    {
+      "backend": "mdb",
+      "roots": 16384,
+      "visitor": false,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.000180792
+    },
+    {
+      "backend": "mdb",
+      "roots": 16384,
+      "visitor": true,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.0319096
+    },
+    {
+      "backend": "tbb",
+      "roots": 16384,
+      "visitor": false,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.00019575
+    },
+    {
+      "backend": "tbb",
+      "roots": 16384,
+      "visitor": true,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.0318423
+    },
+    {
+      "backend": "tbb",
+      "roots": 16384,
+      "visitor": true,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.0326958
+    },
+    {
+      "backend": "tbb",
+      "roots": 16384,
+      "visitor": false,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.000240625
+    },
+    {
+      "backend": "tbb",
+      "roots": 16384,
+      "visitor": false,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.000251542
+    },
+    {
+      "backend": "tbb",
+      "roots": 16384,
+      "visitor": true,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.0319791
+    },
+    {
+      "backend": "mdb",
+      "roots": 131072,
+      "visitor": false,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.000958209
+    },
+    {
+      "backend": "mdb",
+      "roots": 131072,
+      "visitor": true,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.650017
+    },
+    {
+      "backend": "mdb",
+      "roots": 131072,
+      "visitor": true,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.568273
+    },
+    {
+      "backend": "mdb",
+      "roots": 131072,
+      "visitor": false,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.000575083
+    },
+    {
+      "backend": "mdb",
+      "roots": 131072,
+      "visitor": false,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.00058125
+    },
+    {
+      "backend": "mdb",
+      "roots": 131072,
+      "visitor": true,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.601236
+    },
+    {
+      "backend": "tbb",
+      "roots": 131072,
+      "visitor": false,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.00126512
+    },
+    {
+      "backend": "tbb",
+      "roots": 131072,
+      "visitor": true,
+      "round": 0,
+      "samples": 1024,
+      "seconds": 0.453843
+    },
+    {
+      "backend": "tbb",
+      "roots": 131072,
+      "visitor": true,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.465564
+    },
+    {
+      "backend": "tbb",
+      "roots": 131072,
+      "visitor": false,
+      "round": 1,
+      "samples": 1024,
+      "seconds": 0.000578208
+    },
+    {
+      "backend": "tbb",
+      "roots": 131072,
+      "visitor": false,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.000608041
+    },
+    {
+      "backend": "tbb",
+      "roots": 131072,
+      "visitor": true,
+      "round": 2,
+      "samples": 1024,
+      "seconds": 0.462796
+    }
+  ],
+  "medians": [
+    {
+      "backend": "mdb",
+      "roots": 1024,
+      "native_microseconds_per_selection": 0.1443681640625,
+      "visitor_microseconds_per_selection": 0.8788242187499999,
+      "visitor_to_native_ratio": 6.08738238417674
+    },
+    {
+      "backend": "mdb",
+      "roots": 16384,
+      "native_microseconds_per_selection": 0.1824951171875,
+      "visitor_microseconds_per_selection": 31.161718750000002,
+      "visitor_to_native_ratio": 170.75371237458197
+    },
+    {
+      "backend": "mdb",
+      "roots": 131072,
+      "native_microseconds_per_selection": 0.567626953125,
+      "visitor_microseconds_per_selection": 587.14453125,
+      "visitor_to_native_ratio": 1034.3845161290324
+    },
+    {
+      "backend": "tbb",
+      "roots": 1024,
+      "native_microseconds_per_selection": 0.1465654296875,
+      "visitor_microseconds_per_selection": 0.873494140625,
+      "visitor_to_native_ratio": 5.959755601900282
+    },
+    {
+      "backend": "tbb",
+      "roots": 16384,
+      "native_microseconds_per_selection": 0.2349853515625,
+      "visitor_microseconds_per_selection": 31.229589843750002,
+      "visitor_to_native_ratio": 132.90015584415585
+    },
+    {
+      "backend": "tbb",
+      "roots": 131072,
+      "native_microseconds_per_selection": 0.5937900390625,
+      "visitor_microseconds_per_selection": 451.94921875,
+      "visitor_to_native_ratio": 761.1263056274165
+    }
+  ],
+  "log": {
+    "path": "/tmp/pkv-sampling-index.log",
+    "sha256": "72b1edbda551289f3b9fcc460da216e19163faa76504f8b402f430edb77b1ff7"
+  },
+  "scope": "Raw stored-key sampler only, 4 memory shards, same backend and population. Each pair resets the same random engine state and verifies equal returned-key sequence checksums. Three rotating rounds; 1024 selections per sample. No command decode, payload IO, expiry, network or official Redis comparison. This does not prove constant-time cost or statistical significance."
+}

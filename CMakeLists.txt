@@ -1,143 +1,132 @@
-cmake_minimum_required(VERSION 2.8.12)
-project(pkv)
+cmake_minimum_required(VERSION 3.10)
+project(pkv LANGUAGES C CXX)
 
-if (${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
-	message(FATAL_ERROR "Please into another dir to build!")
+if(CMAKE_BINARY_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    message(FATAL_ERROR "Use an out-of-source build: cmake -S . -B build")
 endif()
 
-if (${CMAKE_BINARY_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
-	message(FATAL_ERROR "Please into another dir to build!")
-endif()
+option(BUILD_WITH_C11 "Build with C++11 instead of C++17" OFF)
+option(HAS_ROCKSDB "Enable the RocksDB backend" OFF)
+option(HAS_WT "Enable the WiredTiger backend" OFF)
+option(HAS_TBB "Enable the oneTBB backend" OFF)
+option(HAS_JEMALLOC "Link jemalloc" OFF)
+option(PKV_TEST_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+set(PKV_YYJSON_SOURCE_DIR "" CACHE PATH "Optional yyjson checkout containing src/yyjson.c and src/yyjson.h")
 
-if (CMAKE_BUILD_TYPE STREQUAL "RELEASE")
-    message(STATUS "build pkv for release version")
-elseif (CMAKE_BUILD_TYPE STREQUAL "DEBUG")
-	message(STATUS "build pkv for debug version")
+if(BUILD_WITH_C11)
+    set(CMAKE_CXX_STANDARD 11)
 else()
-    message(STATUS "build pkv for default version")
+    set(CMAKE_CXX_STANDARD 17)
 endif()
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-	add_definitions("-Wno-invalid-source-encoding")
-    include_directories("/usr/local/include")
-    SET(CMAKE_CXX_ARCHIVE_CREATE "<CMAKE_AR> Scr <TARGET> <LINK_FLAGS> <OBJECTS>")
-    SET(CMAKE_CXX_ARCHIVE_FINISH "<CMAKE_RANLIB> -no_warning_for_no_symbols -c <TARGET>")
-elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
+# Explicitly enabled features must have both their headers and library. Default
+# builds need ACL, yyjson and xxHash, with built-in memory backends.
+function(pkv_find_dependency name header library)
+    find_path(${name}_INCLUDE_DIR NAMES ${header})
+    find_library(${name}_LIBRARY NAMES ${library})
+    if(NOT ${name}_INCLUDE_DIR OR NOT ${name}_LIBRARY)
+        message(FATAL_ERROR "Missing ${name}: install headers/library or set ${name}_INCLUDE_DIR and ${name}_LIBRARY (CMAKE_PREFIX_PATH is also supported)")
+    endif()
+    set(PKV_INCLUDE_DIRS ${PKV_INCLUDE_DIRS} ${${name}_INCLUDE_DIR} PARENT_SCOPE)
+    set(PKV_LIBRARIES ${PKV_LIBRARIES} ${${name}_LIBRARY} PARENT_SCOPE)
+endfunction()
+
+pkv_find_dependency(ACL acl-lib/acl_cpp/lib_acl.hpp acl_all)
+pkv_find_dependency(FIBER_CPP acl-lib/fiber/lib_fiber.hpp fiber_cpp)
+pkv_find_dependency(FIBER acl-lib/fiber/lib_fiber.h fiber)
+list(REMOVE_ITEM PKV_LIBRARIES ${ACL_LIBRARY} ${FIBER_CPP_LIBRARY} ${FIBER_LIBRARY})
+
+if(PKV_YYJSON_SOURCE_DIR)
+    if(NOT EXISTS "${PKV_YYJSON_SOURCE_DIR}/src/yyjson.c" OR
+       NOT EXISTS "${PKV_YYJSON_SOURCE_DIR}/src/yyjson.h")
+        message(FATAL_ERROR "PKV_YYJSON_SOURCE_DIR must contain src/yyjson.c and src/yyjson.h")
+    endif()
+    add_library(pkv_yyjson STATIC "${PKV_YYJSON_SOURCE_DIR}/src/yyjson.c")
+    target_include_directories(pkv_yyjson PUBLIC "${PKV_YYJSON_SOURCE_DIR}/src")
+    list(APPEND PKV_LIBRARIES pkv_yyjson)
 else()
-	message(FATAL_ERROR "unknown CMAKE_SYSTEM_NAME=${CMAKE_SYSTEM_NAME}")
+    pkv_find_dependency(YYJSON yyjson.h yyjson)
 endif()
 
-##############################################################################
+set(PKV_XXHASH_SOURCE_DIR "" CACHE PATH "Optional xxHash source checkout")
+if(PKV_XXHASH_SOURCE_DIR)
+    if(NOT EXISTS "${PKV_XXHASH_SOURCE_DIR}/xxhash.c" OR
+       NOT EXISTS "${PKV_XXHASH_SOURCE_DIR}/xxhash.h")
+        message(FATAL_ERROR "PKV_XXHASH_SOURCE_DIR needs xxhash.c and xxhash.h")
+    endif()
+    add_library(pkv_xxhash STATIC "${PKV_XXHASH_SOURCE_DIR}/xxhash.c")
+    target_compile_definitions(pkv_xxhash PRIVATE XXH_NAMESPACE=PKV_)
+    list(APPEND PKV_INCLUDE_DIRS "${PKV_XXHASH_SOURCE_DIR}")
+    list(APPEND PKV_LIBRARIES pkv_xxhash)
+else()
+    pkv_find_dependency(XXHASH xxhash.h xxhash)
+endif()
 
-include_directories(
-    ${CMAKE_CURRENT_SOURCE_DIR}
-)
+if(HAS_ROCKSDB)
+    pkv_find_dependency(ROCKSDB rocksdb/db.h rocksdb)
+endif()
+if(HAS_WT)
+    pkv_find_dependency(WIREDTIGER wiredtiger.h wiredtiger)
+endif()
+if(HAS_TBB)
+    pkv_find_dependency(TBB tbb/concurrent_hash_map.h tbb)
+endif()
+if(HAS_JEMALLOC)
+    pkv_find_dependency(JEMALLOC jemalloc/jemalloc.h jemalloc)
+endif()
+find_package(Threads REQUIRED)
+find_package(ZLIB REQUIRED)
 
-set(base_path ${CMAKE_CURRENT_SOURCE_DIR})
-set(src_paths
-    ${base_path}
-    ${base_path}/common
-    ${base_path}/test
-    ${base_path}/coder
-    ${base_path}/action
-    ${base_path}/dao
-    ${base_path}/dao/json
-    ${base_path}/db
-    ${base_path}/db/rocksdb
-    ${base_path}/db/wt
-    ${base_path}/db/mdb
-    ${base_path}/cluster
-    ${base_path}/cluster/gson
-    ${base_path}/sync
-    ${base_path}/slave
-    ${base_path}/rpc
-)
-
-foreach(iter ${src_paths})
-    aux_source_directory(${iter} src_files)
+set(src_paths . common test coder action dao dao/json db db/rocksdb db/wt
+    db/mdb cluster cluster/gson sync slave rpc)
+foreach(path ${src_paths})
+    aux_source_directory("${CMAKE_CURRENT_SOURCE_DIR}/${path}" src_files)
 endforeach()
 
-##############################################################################
-
-#SET(CMAKE_VERBOSE_MAKEFILE on)
-
-add_definitions(
-    "-g"
-    "-W"
-    "-O3"
-    "-Wall"
-    "-Werror"
-    "-Wshadow"
-    "-Wformat"
-    "-Wpointer-arith"
-    "-D_REENTRANT"
-    "-Wno-long-long"
-    "-Wuninitialized"
-    "-D_POSIX_PTHREAD_SEMANTICS"
-    "-fexceptions"
-    "-Wno-unused-parameter"
-    "-Wno-error=deprecated-declarations"
-    "-Wno-deprecated-declarations"
-    "-fPIC"
-)
-
-if (${BUILD_WITH_C11} MATCHES "YES")
-    add_definitions("-std=c++11")
-else()
-    add_definitions("-std=c++17")
+list(REMOVE_ITEM src_files "${CMAKE_CURRENT_SOURCE_DIR}/./main.cpp" "${CMAKE_CURRENT_SOURCE_DIR}/main.cpp")
+add_library(pkv_fpconv STATIC third_party/fpconv/fpconv_dtoa.c)
+add_library(pkv_core STATIC ${src_files})
+add_executable(pkv main.cpp)
+target_link_libraries(pkv PRIVATE pkv_core)
+target_include_directories(pkv_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PKV_INCLUDE_DIRS})
+# Keep the ACL/fiber static archives in dependency order.
+target_link_libraries(pkv_core PUBLIC ${FIBER_CPP_LIBRARY} ${ACL_LIBRARY}
+    ${PKV_LIBRARIES} pkv_fpconv ${FIBER_LIBRARY} Threads::Threads ZLIB::ZLIB ${CMAKE_DL_LIBS})
+if(APPLE)
+    target_link_libraries(pkv_core PUBLIC iconv)
 endif()
-
-find_library(acl_lib acl_all PATHS /usr/lib /usr/local/lib)
-find_library(fiber_cpp_lib fiber_cpp PATHS /usr/lib /usr/local/lib)
-find_library(fiber_lib fiber PATHS /usr/lib /usr/local/lib)
-
-find_library(yyjson NAMES yyjson PATHS /usr/lib /usr/local/lib)
-set(lib_all ${fiber_cpp_lib} ${acl_lib} ${yyjson})
-
-if(${HAS_ROCKSDB} MATCHES "YES")
-    find_library(rocksdb NAMES rocksdb PATHS /usr/lib /usr/local/lib /usr/local/lib64)
-    set(lib_all ${lib_all} ${rocksdb})
-    add_definitions("-DHAS_ROCKSDB")
+foreach(feature HAS_ROCKSDB HAS_WT HAS_TBB HAS_JEMALLOC)
+    if(${feature})
+        target_compile_definitions(pkv_core PUBLIC ${feature})
+    endif()
+endforeach()
+if(TARGET pkv_xxhash)
+    target_compile_definitions(pkv_core PRIVATE PKV_XXHASH_NAMESPACED)
 endif()
-
-if(${HAS_WT} MATCHES "YES")
-    find_library(wiredtiger NAMES wiredtiger PATHS /usr/lib /usr/local/lib /usr/local/lib64)
-    set(lib_all ${lib_all} ${wiredtiger})
-    add_definitions("-DHAS_WT")
+target_compile_definitions(pkv_core PUBLIC _REENTRANT _POSIX_PTHREAD_SEMANTICS)
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(pkv_core PRIVATE -Wall -Wextra -Werror -Wshadow -Wformat
+        -Wpointer-arith -Wuninitialized -Wno-unused-parameter -Wno-deprecated-declarations)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        target_compile_options(pkv_core PRIVATE -Wno-invalid-source-encoding)
+    endif()
 endif()
-
-if(${HAS_TBB} MATCHES "YES")
-    find_library(tbb_lib tbb PATHS /usr/lib /usr/local/lib)
-    find_library(tbbmalloc_lib tbbmalloc PATHS /usr/lib /usr/local/lib)
-    set(tbb_libs ${tbb_lib} ${tbbmalloc_lib})
-    set(lib_all ${lib_all} ${tbb_libs})
-    add_definitions("-DHAS_TBB")
+if(PKV_TEST_SANITIZERS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
+    target_compile_options(pkv_core PUBLIC -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer)
+    target_link_libraries(pkv_core PUBLIC -fsanitize=address,undefined)
+    target_compile_options(pkv_fpconv PRIVATE -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer)
+    if(TARGET pkv_xxhash)
+        target_compile_options(pkv_xxhash PRIVATE -g -O1
+            -fsanitize=address,undefined -fno-omit-frame-pointer)
+    endif()
+    if(TARGET pkv_yyjson)
+        target_compile_options(pkv_yyjson PRIVATE -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer)
+    endif()
 endif()
-
-if(${HAS_JEMALLOC} MATCHES "YES")
-    find_library(jemalloc NAMES jemalloc PATHS /usr/lib /usr/local/lib /usr/local/lib64)
-    add_definitions("-DHAS_JEAMALLOC")
-    set(lib_all ${lib_all} ${jemalloc})
+# Respect build type and CMAKE_RUNTIME_OUTPUT_DIRECTORY; keep artifacts out of
+# the source checkout by default.
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
 endif()
-
-#set(uring -luring-ffi)
-#set(iconv -liconv)
-
-set(lib_all ${lib_all} ${fiber})
-
-if(CMAKE_SYSTEM_NAME MATCHES "Darwin")
-    set(lib_all ${lib_all} -liconv)
-elseif(CMAKE_SYSTEM_NAME MATCHES "Linux")
-    set(lib_all ${lib_all} ${uring} ${iconv} ${jemalloc})
-endif()
-
-set(lib_all ${lib_all} ${fiber_lib} -lz -lpthread -ldl)
-
-set(output_path ${CMAKE_CURRENT_SOURCE_DIR})
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${output_path})
-link_directories(${output_path})
-
-add_executable(pkv ${src_files})
-target_link_libraries(pkv ${lib_all})
-
-###############################################################################

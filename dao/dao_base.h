@@ -1,48 +1,35 @@
 #pragma once
-#include <yyjson.h>
 #include "db/db.h"
+#include "coder/record_codec.h"
 
 namespace pkv {
 namespace dao {
 
-// This is the declaration of the dao_base class.
 class dao_base {
 public:
-    // Constructor of the dao_base class.
-    dao_base();
-    // Virtual destructor of the dao_base class.
-    virtual ~dao_base();
-
-public:
-    // Static method to save data to the database.
+    dao_base() = default;
+    virtual ~dao_base() = default;
+    enum class read_status {
+        ok, missing, wrong_type, invalid_record, storage_error,
+        unsupported_format, unsupported_operation, invalid_integer,
+        invalid_hash_integer, integer_overflow, decrement_overflow,
+        offset_range, string_too_large, invalid_expiry, no_key, index_range,
+        list_count_range, sample_too_large, unsupported_scan, same_object,
+        invalid_score, nan_score, invalid_hash_float, nonfinite_increment,
+        nonfinite_result, bit_offset, invalid_bit, readonly_bitfield,
+        invalid_digest, delex_type, delex_condition, invalid_hll, corrupt_hll
+    };
+    read_status status() const { return read_status_; }
+    const char* error() const;
     static bool save(shared_db& db, const std::string& key, const std::string& data);
-    // Method to read data from the database.
-    yyjson_val* read(shared_db& db, const std::string& key);
-
-public:
-    // Method to reset the dao_base object.
-    void reset();
-
+    bool read(shared_db& db, const std::string& key);
+    void reset() { view_.reset(); read_status_ = read_status::missing; }
 protected:
-    // Flag to indicate if the dao_base object has finished its operation.
-    bool finished_;
-    // Type of the dao_base object.
-    std::string type_;
-    // Expiration time of the dao_base object.
-    time_t expire_;
-    // Result of the dao_base object.
-    char* result_;
-    // JSON writer document of the dao_base object.
-    yyjson_mut_doc* w_doc_;
-    // JSON writer root value of the dao_base object.
-    yyjson_mut_val* w_root_;
-    // JSON reader document of the dao_base object.
-    yyjson_doc* r_doc_;
-    // JSON reader root value of the dao_base object.
-    yyjson_val* r_root_;
-
-    // Method to create the JSON writer document and root value.
-    void create_writer();
+    bool decode(shared_db& db, const std::string& bytes, long long now_ms = -1);
+    bool materialize(value_record& record);
+    bool encode(shared_db& db, const value_record& record, std::string& bytes);
+    read_status read_status_ = read_status::missing;
+    std::unique_ptr<record_view> view_;
 };
 
 } // namespace dao

@@ -124,6 +124,15 @@ service pkv
 #	应用自己的配置选项
 
 	buf_size = 8192
+	# Redis 逻辑数据库数量，与 db_count 物理分片数无关。
+	# 非 0 库支持协商后的实时流，尚不支持全量同步及断线重放。
+	databases = 16
+	# 可选上游 RPC 地址（非 Redis 服务端口）；默认不订阅实时流。
+	# replica_rpc_source = 127.0.0.1:29001
+	# Encoded pending bytes, including records being sent.
+	replica_output_buffer_limit = 67108864
+	replica_publish_buffer_limit = 67108864
+	replica_pending_messages = 65536
 	dbpath = ./data
 	dbtype = mdb
 }

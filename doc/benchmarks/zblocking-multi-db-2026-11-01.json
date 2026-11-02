@@ -1,0 +1,80 @@
+{
+  "runs": [
+    {
+      "label": "new",
+      "binary": "/tmp/pkv-c11-build/pkv",
+      "sha256": "b25ec6420d426c084e7f327543c957b49c43a9ceaad2ba87400fcf3ef49a42d1",
+      "observations": [
+        [
+          [
+            "a",
+            "l"
+          ],
+          [
+            "b",
+            "z",
+            "1"
+          ],
+          [
+            "c",
+            "db3",
+            "2"
+          ]
+        ],
+        [
+          [
+            "a",
+            "l"
+          ],
+          {
+            "error": "WRONGTYPE Operation against a key holding the wrong kind of value"
+          },
+          [
+            "c",
+            "db3",
+            "2"
+          ]
+        ]
+      ]
+    },
+    {
+      "label": "reference",
+      "binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+      "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a",
+      "observations": [
+        [
+          [
+            "a",
+            "l"
+          ],
+          [
+            "b",
+            "z",
+            "1"
+          ],
+          [
+            "c",
+            "db3",
+            "2"
+          ]
+        ],
+        [
+          [
+            "a",
+            "l"
+          ],
+          {
+            "error": "WRONGTYPE Operation against a key holding the wrong kind of value"
+          },
+          [
+            "c",
+            "db3",
+            "2"
+          ]
+        ]
+      ]
+    }
+  ],
+  "probe": "/private/tmp/pkv-zblocking-multi-db.py",
+  "probe_sha256": "467eabc8fd20820b53d22fd09f760d7c47a20abe91683aec7c20f3525752061a"
+}

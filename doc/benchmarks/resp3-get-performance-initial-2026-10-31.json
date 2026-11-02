@@ -1,0 +1,98 @@
+{
+  "results": [
+    {
+      "variant": "baseline_resp2",
+      "repetition": 1,
+      "requests": 1048576,
+      "elapsed_seconds": 0.6815583329999999,
+      "requests_per_second": 1538497.8060271183
+    },
+    {
+      "variant": "new_resp2",
+      "repetition": 1,
+      "requests": 1048576,
+      "elapsed_seconds": 0.687616,
+      "requests_per_second": 1524944.1548771407
+    },
+    {
+      "variant": "new_resp3",
+      "repetition": 1,
+      "requests": 1048576,
+      "elapsed_seconds": 0.6856887079999998,
+      "requests_per_second": 1529230.374900676
+    },
+    {
+      "variant": "new_resp2",
+      "repetition": 2,
+      "requests": 1048576,
+      "elapsed_seconds": 0.6890537080000003,
+      "requests_per_second": 1521762.3645673778
+    },
+    {
+      "variant": "new_resp3",
+      "repetition": 2,
+      "requests": 1048576,
+      "elapsed_seconds": 0.696135334,
+      "requests_per_second": 1506281.823068616
+    },
+    {
+      "variant": "baseline_resp2",
+      "repetition": 2,
+      "requests": 1048576,
+      "elapsed_seconds": 0.677565875,
+      "requests_per_second": 1547563.1797424862
+    },
+    {
+      "variant": "new_resp3",
+      "repetition": 3,
+      "requests": 1048576,
+      "elapsed_seconds": 0.7022123750000002,
+      "requests_per_second": 1493246.2561628877
+    },
+    {
+      "variant": "baseline_resp2",
+      "repetition": 3,
+      "requests": 1048576,
+      "elapsed_seconds": 0.695012417,
+      "requests_per_second": 1508715.4910499966
+    },
+    {
+      "variant": "new_resp2",
+      "repetition": 3,
+      "requests": 1048576,
+      "elapsed_seconds": 0.6911406659999999,
+      "requests_per_second": 1517167.2737312207
+    }
+  ],
+  "median_requests_per_second": {
+    "baseline_resp2": 1538497.8060271183,
+    "new_resp2": 1521762.3645673778,
+    "new_resp3": 1506281.823068616
+  },
+  "delta_percent_vs_baseline": {
+    "baseline_resp2": 0.0,
+    "new_resp2": -1.0877780516929447,
+    "new_resp3": -2.0939895287659938
+  },
+  "binaries": {
+    "/tmp/pkv-resp3-baseline-c11-pkv": "af5b74b6bcd39b3fd081c53c40fbf5ea23b886818c98dd66104edc2de1f04d08",
+    "/tmp/pkv-c11-build/pkv": "4a855bcbf26c1a0d0d490ee5136b17bfcb79f0ce42b7e5b1279d5c4849a958e6"
+  },
+  "compile_flags_sha256": "ecb9ec883fd669a76045b73a481f23a79609271888b347f3d06d8513b48d2154",
+  "script_sha256": "37c68803e786c8c0a863772dffcf659954a94b1c9047552855df446940b14a8f",
+  "platform": "macOS-26.3.1-arm64-arm-64bit",
+  "backend": "mdb",
+  "build": "C++11 Release",
+  "server_threads": 2,
+  "workers": 4,
+  "batch": 256,
+  "payload_bytes": 64,
+  "active_expire": false,
+  "warmup_batches_per_worker": 16,
+  "limits": [
+    "One hot GET key; not mixed workloads or other backends",
+    "Local machine and Python/socket client may limit throughput",
+    "Interleaved samples; no statistical significance claim",
+    "Compares PKV revisions, not stock Redis"
+  ]
+}

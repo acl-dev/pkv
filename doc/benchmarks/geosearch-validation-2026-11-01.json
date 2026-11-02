@@ -1,0 +1,674 @@
+{
+  "date": "2026-11-01",
+  "tested_platform": "macOS-26.3.1-arm64-arm-64bit",
+  "full_matrix_passed": 926,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 106,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-memory-build/pkv",
+        "sha256": "646acfa0a2865707fc37e2f247681e49d6c4ba78ccaff6433246091c5e896dd2"
+      },
+      "flags": {
+        "path": "/tmp/pkv-memory-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "bff4360120cb79e4d86388717c671d8b52718ff0d9fa5674c24a0b973a553a95"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-geosearch-final-memory-configure.log",
+        "sha256": "40a854366ed80d4e9cacb1b63e88b6ba82c8ded3617f2550306751ea4553a5b3"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-geosearch-final-memory-build.log",
+        "sha256": "3850f6d053df12849c0a33b4e982d5d745fc19c4a0ecaea41bff8b2e8606f8a5"
+      },
+      "log": {
+        "path": "/tmp/pkv-geosearch-final-memory-full.log",
+        "sha256": "a1da20d08947cf73b0baa20137f2797c034b32e202f7912f34b752ba1bcb774f"
+      },
+      "details": {
+        "path": "/tmp/pkv-geosearch-final-memory-full-details.log",
+        "sha256": "0fdf16f132ad0e5043f5cec680a6f82cbbd342fa7ee09535b0b6679c33e26f6e"
+      },
+      "elapsed_seconds": 81.63
+    },
+    {
+      "build": "c11",
+      "passed": 106,
+      "configuration": {
+        "BUILD_WITH_C11": "YES",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-c11-build/pkv",
+        "sha256": "f17dd6f69f1c49ffb5525a02abeb7813c7857541f980427cff01d7503019a5e1"
+      },
+      "flags": {
+        "path": "/tmp/pkv-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "292c4614092f47cf791c7dc3a9340e25c7f138c026dc2d76d3a715fd001aaed7"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-geosearch-final-c11-configure.log",
+        "sha256": "1d156687889c5879914a03327477be17eb92d464940475e98f9044848a1f3aed"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-geosearch-final-c11-build.log",
+        "sha256": "a7bd3e9d5582dc7ee8a5fc394d92d0e03b606ce614a653981b7b07900adeb470"
+      },
+      "log": {
+        "path": "/tmp/pkv-geosearch-final-c11-full.log",
+        "sha256": "5abb01945f6dac9da274aafc6ae7819d849518b6585cb6c2f8f90bd908a92bcd"
+      },
+      "details": {
+        "path": "/tmp/pkv-geosearch-final-c11-full-details.log",
+        "sha256": "01f563ee0059d1f784ca16f4f5ac220ae0248eede52f52b368697218bb272548"
+      },
+      "elapsed_seconds": 59.34
+    },
+    {
+      "build": "tbb",
+      "passed": 115,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        },
+        {
+          "backend": "mdb_tbb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        },
+        {
+          "failed": 115,
+          "succeeded": 397,
+          "backend": "mdb_tbb"
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-tbb-build/pkv",
+        "sha256": "e069c42f0b5350d7df1069b23b4f55b165af71e2f05cd9a17af8a6115eae8504"
+      },
+      "flags": {
+        "path": "/tmp/pkv-tbb-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "eee081ff7b839e1e2677648e33a8045d964801e171da91e19aad286ca7d3e034"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-geosearch-final-tbb-configure.log",
+        "sha256": "b6249cec47323d9eb9a544326ffa84ab1cb83d73cad5d0f4e3d4e8acbf1d365e"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-geosearch-final-tbb-build.log",
+        "sha256": "4d4e91ca437e77d125ccd1dc0df9c8ac2f32231d352d42ee948e60db96fc25d4"
+      },
+      "log": {
+        "path": "/tmp/pkv-geosearch-final-tbb-full.log",
+        "sha256": "a6efffb1745e744d528837bae4fbcd05441838c5c6a43f535875e08981ad3efb"
+      },
+      "details": {
+        "path": "/tmp/pkv-geosearch-final-tbb-full-details.log",
+        "sha256": "1c35a420e6fd7a92e2f773f008f6c59b9bd8e27d5241d686ef4a98883cde5852"
+      },
+      "elapsed_seconds": 129.29
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 115,
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        },
+        {
+          "backend": "mdb_tbb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        },
+        {
+          "failed": 115,
+          "succeeded": 397,
+          "backend": "mdb_tbb"
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-tbb-c11-build/pkv",
+        "sha256": "7d029ba4d93525a2cd5b0acd212f6177580f346627e0dd41f12824cd26debfe9"
+      },
+      "flags": {
+        "path": "/tmp/pkv-tbb-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "cbfc84c956be80a93b19f7000642bd7ad7d52b9e9ea2a8b614d311d96f013646"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-geosearch-final-tbb-c11-configure.log",
+        "sha256": "b1256cbab211c127114c50a471bcdc0528e7babbedd84c8712fdcd1f1c23c42d"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-geosearch-final-tbb-c11-build.log",
+        "sha256": "d43951ed64cd9e50bc205416f11edaac97d08ddb473d39400c973bff599887b4"
+      },
+      "log": {
+        "path": "/tmp/pkv-geosearch-final-tbb-c11-full.log",
+        "sha256": "50f047e909c42c502e8e7ab5fe44d499e6e200b797435a536f6e30ce2c0ca223"
+      },
+      "details": {
+        "path": "/tmp/pkv-geosearch-final-tbb-c11-full-details.log",
+        "sha256": "f24c795d5561a84eee688ff968c724b0ac0fe76bbda7c9dee3ee187125c1f8e8"
+      },
+      "elapsed_seconds": 97.67
+    },
+    {
+      "build": "rocks",
+      "passed": 121,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-rocks-build/pkv",
+        "sha256": "78971b61c4e59332aee0668c71639b748739095c38029259187f5566830a8368"
+      },
+      "flags": {
+        "path": "/tmp/pkv-rocks-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "55cc4ad2d8bc4debbcc33772444457f54a89d921b6a630daeac3bf197561757d"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-geosearch-final-rocks-configure.log",
+        "sha256": "6044da1975fc58c94e685d1e8c9b53bfa784c8caf5b2c400aed198d730ad4d7c"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-geosearch-final-rocks-build.log",
+        "sha256": "906054a46d7eb809ff610c2117fea60d02fc32ce381137fd762cd19bd4b199cf"
+      },
+      "log": {
+        "path": "/tmp/pkv-geosearch-final-rocks-full.log",
+        "sha256": "faf9b5869294527292babb9e13e322dffe16c6304c0f76b3c09e2ea98bb486a4"
+      },
+      "details": {
+        "path": "/tmp/pkv-geosearch-final-rocks-full-details.log",
+        "sha256": "336a409519e3c205476186821a9c35f4891ecd698a9b65787d611547bc6da742"
+      },
+      "elapsed_seconds": 155.23
+    },
+    {
+      "build": "rocks-release",
+      "passed": 121,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-rocks-release-build/pkv",
+        "sha256": "ea6a58f776a62577e02115600facf985ed004dd1e326189a8ba446961101cd93"
+      },
+      "flags": {
+        "path": "/tmp/pkv-rocks-release-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "9ecac0f9b31e4517d2ff3d1211a5921bf749da23fa9f9e8924de6e2ed34e4781"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-geosearch-final-rocks-release-configure.log",
+        "sha256": "15d8dc07955d45eaf9550911d79af34190f9ae917220bfdd4b27659af03dc6be"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-geosearch-final-rocks-release-build.log",
+        "sha256": "d4ab405c7d6a75be1596f1fead67107cb0fc7d192dab56551c0463d3ea4cd7d6"
+      },
+      "log": {
+        "path": "/tmp/pkv-geosearch-final-rocks-release-full.log",
+        "sha256": "3681441d82e3e102da6ed7f9c04cab3ca7751f512e6cca5b0680ad9182355279"
+      },
+      "details": {
+        "path": "/tmp/pkv-geosearch-final-rocks-release-full-details.log",
+        "sha256": "0231a543f619a5e302ea59b489c242fc6cc8056b322af5530da1d473408fe8bb"
+      },
+      "elapsed_seconds": 128.21
+    },
+    {
+      "build": "wt",
+      "passed": 121,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-wt-build/pkv",
+        "sha256": "7932170a0cad2513cb1105e173b0bd78745588e9f22d9b5c0d7c34dd44cf9151"
+      },
+      "flags": {
+        "path": "/tmp/pkv-wt-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "934865e863df237dd72842b308b144930a2068b5aa7761f1f23bf7aea740d5dc"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-geosearch-final-wt-configure.log",
+        "sha256": "71c6f5391fba50adb29df307687b2694905849f2fc20e76b592bc6aa4b3b8668"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-geosearch-final-wt-build.log",
+        "sha256": "9366ed97d44c5ed6eefecc6ae88adfb3fd19b2e5ca0aecc7982154b52b48ca22"
+      },
+      "log": {
+        "path": "/tmp/pkv-geosearch-final-wt-full.log",
+        "sha256": "10f83a651a3d4d111d295305ea45c2aa9333b119145861605d220d926b118742"
+      },
+      "details": {
+        "path": "/tmp/pkv-geosearch-final-wt-full-details.log",
+        "sha256": "210654a98b9cf297308113f90f7258b385f08d741bd4137c62f21c4e3f6cdfe0"
+      },
+      "elapsed_seconds": 311.52
+    },
+    {
+      "build": "wt-c11",
+      "passed": 121,
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "geo_index_reads": [
+        {
+          "backend": "mdb",
+          "local": 437,
+          "any": 193
+        }
+      ],
+      "geo_allocation_budgets": [
+        {
+          "failed": 118,
+          "succeeded": 394,
+          "backend": "mdb"
+        }
+      ],
+      "binary": {
+        "path": "/tmp/pkv-wt-c11-build/pkv",
+        "sha256": "be0ac9d81433b2141857d4bfba31844784b9f6a65ac2b8b0965abda2b5e94995"
+      },
+      "flags": {
+        "path": "/tmp/pkv-wt-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "f2c567333a6c283c7049294043e3cfbb559c8d929dcebeeda4434604cd18833b"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-geosearch-final-wt-c11-configure.log",
+        "sha256": "4cfdeefb7211f67c8880ae0a7d2f2f2b37c24228fed43f9bace569d5bb333b19"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-geosearch-final-wt-c11-build.log",
+        "sha256": "22ead1067bbf6aa0be48ec6cb6150972cfa8ec46d4f0ad8950166fed0df80703"
+      },
+      "log": {
+        "path": "/tmp/pkv-geosearch-final-wt-c11-full.log",
+        "sha256": "bdb2c3063a30c4a00a2312a45a34520abcf130072ddb034d01f6ac77363a4c17"
+      },
+      "details": {
+        "path": "/tmp/pkv-geosearch-final-wt-c11-full-details.log",
+        "sha256": "04e0390447e59686aad461a9243b6cc141458ff13636ba6cc9bfb14a21f77427"
+      },
+      "elapsed_seconds": 278.65
+    }
+  ],
+  "source_fingerprints": {
+    "CMakeLists.txt": "469a494c271a914c4877f0a875ed22cd9295ff9cd25b5fad8a53bb21785fcfc6",
+    "action/geo_search_parser.cpp": "b5eb8302b2b80c5e829fc5fc2ac0b0399318f707d4e74539074a9f126c27ebff",
+    "action/geo_search_parser.h": "7b99f35be5a040f7071194934762e1cd2e314169e656e3a94c5e2a91f616f06c",
+    "action/redis_acl.cpp": "b0cacba77517843a6b5536d111e9679580749b4583125ce1459a26fbb93a35f8",
+    "action/redis_acl_file.cpp": "d12dd9b25044250845e6f886c91da8834e28fe65a98b7b249faa309ca954eaa6",
+    "action/redis_acl_log.cpp": "6b930e3395c33efacdb4fb09da235e51a31a6f794584d4f3bc47a8ec279a2df5",
+    "action/redis_auth.cpp": "e390c43617cfdec02e434973581aaa8106c6b4150b8e01350c75e00791396770",
+    "action/redis_client_activity.cpp": "9f3679956b07da4ffdab50b5ebfde2ca157e4e8ad7f8c7c430b0954b3e06124a",
+    "action/redis_client_info.cpp": "7bc95f6169a0a9dacb5047333cdc8a8597694c86b39d65038208576e8f3fea45",
+    "action/redis_client_kill.cpp": "819a6a85db17dcb10f0840dddf354f301549f86dad06f75449de928d8da8f388",
+    "action/redis_configuration.cpp": "9c1639a32a126ca898903053bc40a6aceea69f48e39af5cbefb59db63318a30b",
+    "action/redis_geo.cpp": "be8806e5e01f18d133b038a65cd32d1542f2af6c0a838d9dcd50ee163862a541",
+    "action/redis_geo.h": "5e0577b1022eba62feb1a6b9b2a0089e43f6fe002c6e94d71fd1a42f6ea96165",
+    "action/redis_geo_search.cpp": "d32c26b0e5042de3f72f78375cfb71548132db70b0cd1267905533358d4140cc",
+    "action/redis_handler.cpp": "e6249d189f1c8b7eb06ba8dcee0a39422af49f06a47fc8ebddfb49024823e721",
+    "action/redis_handler.h": "78aa6f12d5899668d09c38faefb8bc5a5a76c7507203db9589bf9fa8ce54d486",
+    "action/redis_handler_acl.cpp": "315acdb2fd5510b320a0d2d3bb3b21b4ae828e4372743bd324b3079ccd5e9e4a",
+    "action/redis_hello.cpp": "7f52af14dcb80c38f2ec81a762c2b7f629eb8b92b90dd9b7854db7bf679419ca",
+    "action/redis_hyperloglog.cpp": "a958fb83cde7f9b9e20c7ebc1423532a5fc67d8b00ad706e06e4d1ff2760e8d6",
+    "action/redis_hyperloglog.h": "498508276815ed2688aede2eec2e067f2e7b5e07a14df1e26cb9e5524e5e1327",
+    "action/redis_info.cpp": "d9a82fcca6f49dc59d093745de3465e72378f1dab1b0d33582dc9dbb0dac8b5f",
+    "action/redis_readonly.cpp": "92f4696ccb46e08083d0c0b752d376a4c7b7d15525bdbf37ad151acf5f8d3c20",
+    "action/redis_server.cpp": "8b66fb3ea720aeab30c5cb6a4325e00bf9d3b33cbb6520bc57f154cdfd31e07b",
+    "action/redis_server.h": "5ecc17b65c7605b6cb330951840b303a7cfe3e5acf6caf140abb29886db54330",
+    "action/redis_service.cpp": "21052ab919a9918ea6cfc28e65036329b80649dc873751bdd08d923d751d8338",
+    "action/redis_service.h": "b4bf60eedfb80e4e0fbcf2991270143787a9d3d871f09f55abd33593f706290f",
+    "action/redis_statistics.cpp": "08f7e5a6a66a82da5e8172b2c159a12d6599d914435900743c5372923fad4a3b",
+    "action/redis_transaction.cpp": "c11e1a75707e56dff155c9d0866cb52c290f42ddfad374b97b8d07ca3a19e3e3",
+    "action/transaction_workspace.cpp": "bfa5b076d0ce8917958f061b2d7d3f349e339fa349d6defa3c76074095cba305",
+    "common/acl_audit.cpp": "2560809b243b000e1a2e699866550419586f5580a55a60874912308610337e44",
+    "common/acl_audit.h": "02e3c64d69a1373c084206ad5a94efcfe1d1c61e1c7162a2dea23740853cd958",
+    "common/acl_description.cpp": "bb9b599e40a126296a833550be2b609cf70b95ff448b7279a2882733f4afe7af",
+    "common/acl_digest.cpp": "fb07d2c249aab4d9e4a93657803bef4a52063ecfe188af82b564d62e6505380f",
+    "common/acl_file.cpp": "dd94ccd9fee6e15746d942b0d9ab1183571ff7ddd200b9ed227d55ef63406b58",
+    "common/acl_file.h": "795f29161e31377435cd54c2dad4e109528d3a2fea27c5468529c56b35c7c0a7",
+    "common/acl_index.cpp": "8d3a6fd4ad8eeead0b688ec618e540a3534ecbf637d5b573aa14a5481f3cc14e",
+    "common/acl_internal.h": "8b5064d1911265c5db8b424a41b88c2e96864b4f9b702ea48fcbe5428f3231f1",
+    "common/acl_policy.cpp": "787c5aa8a2dd6ee8b732d9af79ce7f387eab7bab6e33e9d068f87bef221b9dd5",
+    "common/acl_policy.h": "116e321316bdddbcbda538e6f4fa7b49e50ef2919ef8a7def171470b4903d70c",
+    "common/acl_reload.cpp": "c46a170d7eb5dea353b56b33a11e2455308e7aa7c0a744dc83c2b7637530ebf5",
+    "common/acl_rules.cpp": "d2fb06ea553a7b32ff5e4d2f2de34bbf2f8d6eb3e97b1a95ff20f88eca6ea2e9",
+    "common/acl_tokens.cpp": "8b8f288da8cdf7767ae52c30af0733b0c986818cd9591ad28e05ab433387464b",
+    "common/client_activity.cpp": "1438533ec6437e3c3e3b1324feea531e382e6ba7be9d15312d671718be71f768",
+    "common/client_activity.h": "b4e857539f6283a355a3a37ca1926cb6d8edda834c026035c27b0387ee5b5173",
+    "common/client_description.cpp": "b8e312096a7e930ebfe1abd59bf2e03cb438ca87bbe074c8dafd6ddeaa16dda3",
+    "common/client_description.h": "9557a0fd131543fa942843d0b56d88ca73a383c02ab6f3d207f086779eb12b70",
+    "common/client_memory.h": "aa59abff48d681f94d30a03d8ad17ceedbdb76f8c76f525080ea5e1626d25255",
+    "common/client_registry.cpp": "7a262b9600d1e89033be23626423785734f1b8297f00b6a71c07c7fc1d674b0f",
+    "common/client_registry.h": "260635df1f59659d0b872664e95162d5abe9e4522d425e264103ddb70bf6af76",
+    "common/client_state.cpp": "5b9818069a4f78a8544b880110f886eab0eb9d102a705a74e4296f2d73fb4f4a",
+    "common/client_state.h": "3a648d1def7804b047ad126570b870a3b74afec1189b7ac77f5694e1e69a1f7f",
+    "common/command_catalog.cpp": "af443789b7317c788be40a2beb796996f7c653ceb860a3e67a5e3a14af5a2441",
+    "common/command_catalog.h": "0566cf96b1b7dfb844f0848893b102372d3f7bf6cc5135e8623142ec62a2502c",
+    "common/command_catalog_data.inc": "d5f4791fb026e4f97b4c4b9ff756e5552104c663f5275afd11c6a52de42c0595",
+    "common/command_keys.cpp": "2a0c526ea511023f2cce4facd508e1c255b55e903009448ba46a8cc6e2208a0c",
+    "common/configuration.cpp": "88b59c4953e6f09a3b9b3a37f05e0d5faa6b4a8034bb6929d37736449e5b327d",
+    "common/configuration.h": "18393f9203bf99a8a135626708267993cb379ea3c5a86cdbf61da69c2a877421",
+    "common/geo_cells.cpp": "e8a05cafcc971fe40c95f7e19a7921c231420f16c041c21998c14c7f7d86d9d0",
+    "common/geo_format.cpp": "96aafe89993b5d95c47cd6596eb47e276b041587292a6d6ea4ad7d7350abe728",
+    "common/geo_search.h": "78386301d916e43b048dae54a607a825be98bd7330650b747a5e6997e4503b7e",
+    "common/info_format.cpp": "069fba3d72fc4b7b71a85cdceb182f99c324761bb6dfb576ca74a9290acf08e2",
+    "common/info_format.h": "518e8aaeb22179a4c0f1c7be467eb2f201abb6f396747c53029175aecf964798",
+    "common/password_policy.cpp": "a02bd490ac12dfa00ebd3314cd36d662814987a9ece74fb1ab6a3eac90d1c9cd",
+    "common/password_policy.h": "189c9edc539a278de4619b6f4a2bbb92630848355c6c5dfa0e9678bfbf2d273d",
+    "common/process_info.cpp": "d8755f208f3ce4ec24172be1309c48312d165b8c6e53ae48c124eac3360e86b2",
+    "common/process_info.h": "92864d78a5c0c734edcafd52e18684196fd0bdffc0537d7b0e7a9e6363903a88",
+    "common/redis_geo.cpp": "e93ce2d132d56a6e220af833b8efb61e6afc45008291897a3dcb85d9de327f23",
+    "common/redis_geo.h": "c62cdf09abfac8fe24551d725ad062f6db5219617f6e305216cbb244fef003d8",
+    "common/redis_hll.h": "df05993e165d5a9cdfc0a952b0dc8adf260a4e4c89fd656ccbf507ed0965c0c9",
+    "common/redis_hll_codec.cpp": "91da77485802f9d024e66a9215bb362a0d1a40db0f0ad384f79d7c17250d74c4",
+    "common/redis_hll_count.cpp": "65f94e2896a19671c7785efff4a006f87785f6ab98a330e31c0d54cbbc6a623e",
+    "common/redis_hll_hash.cpp": "3877f7ca2255dd5bdd2d9904fc32b66d0da9e2af915302dbe85ff8ed29015ea7",
+    "common/redis_hll_update.cpp": "00540c11899e6352a0ab806b2689091d431bfa0cd20226d8abdb76ebc8433c9b",
+    "common/server_statistics.cpp": "10995b17dc13ec7839c94fd033d3376dabdaced993cc1e769417485f59319147",
+    "common/server_statistics.h": "a6cbb310c519b6aaecd0c6c8d238174d9e6562cd9dcad9f25662a0aabe3da9d1",
+    "common/transaction_database.cpp": "22c094c530b77662ccbc7307f0a17434cf7e4efa42029901fbf78f63d08cf4e7",
+    "common/transaction_database.h": "28bde43fc54ef6a4ab2f15cafeb2c1ffd36952a9eaab74e233558f0a1756a546",
+    "dao/dao_base.cpp": "f1e6ca8f21482d3c74d35d3421d7c98f051d75eb44ea7cea648c71052b4b353f",
+    "dao/dao_base.h": "d9ef7272a1796222ceb655ffc42768d876c3a6a3de344d2baef8d3134cf47c22",
+    "dao/paged_string.cpp": "d6fdf7027ae989d7f0f5db641dd5dc9d5306671b6b59b4575a16ed5da196ca61",
+    "dao/paged_string.h": "87719973e6d503b5373d180246e6183ee2c51e23ddb1d97c4ea7aea1d1ef5eb0",
+    "dao/paged_string_hll.cpp": "f5416cc7cab7452d55520814078959dbaab4ade51365d9561fe934f63ed721e1",
+    "dao/paged_string_hll_merge.cpp": "8d8afa4a7d2c55db7b324ab8b0c658472d5b0479424cd53e728ac50584c195e8",
+    "dao/paged_zset.h": "94603253a130e2cdab4fd545723b0091a2b2ea12a8f6066eda1827948f843ab6",
+    "dao/paged_zset_geo.cpp": "c53e024b9c966719f436ec2e528fcaae2ca6fa10576103c6250fbbe04491e97b",
+    "dao/string_bitop_source.cpp": "6402d61bd1e266ba46bbb04ba5fb34d7971b3597ec7735337aeb74d05bf2fd89",
+    "dao/string_bitop_source.h": "84ff702e63b6de191b4e64f3da1396c6433c101c94eb4d516e2c269faf685dc5",
+    "db/database_pool.cpp": "98ed333294e61fb77775faf3ef066892770ad60b319677f10fa8f1ef8e3c99d6",
+    "db/database_pool.h": "97b8cae836f518710a0bede1dad5af5bedc79879a5ad90d96d1098a9d168e766",
+    "db/db.cpp": "f3b2ebd21ddff606810ac33fcf57a27378de44029fd060047bed563e49a5eb2a",
+    "db/db.h": "de79db4e0d90bc3e1616acb70c5b66bab2b5c1e2a04a84c52f334e66b2edf770",
+    "db/expiry_index.h": "6d938615f9d5c633d6448be4001f551b08fd630daaefe176217697b5e9235fbb",
+    "db/expiry_snapshot.cpp": "1afd54b392f25201ece0621cf8b0a224f5d7fc98f117602f5f8f198dbc5a92e5",
+    "db/keyspace_statistics.cpp": "59a1a02cf737740f17b73f6b29553056072306c51dd74e7ad832a91d6b39338a",
+    "db/mdb/mdb.cpp": "0ea57eafd65f35b86a1122cbe7ca97aba134e9489c12221aed39c87603d870cb",
+    "db/mdb/mdb.h": "9cdf13602a31f6fb16fc22e44339a572b5a455b4cc8a590380dab88235a6c758",
+    "db/mdb/mdb_tbb.cpp": "b5f3ace3d5ae29f38dae545e01156c7369086d15301a4f2e2c45b033e3f32d0a",
+    "db/mdb/mdb_tbb.h": "727a1bb82642f767ffe2c7527a60bd1a268fda948d06aebffe59ed6038527008",
+    "db/zset_range.cpp": "a6cc47c63df621ef2634c325a59a9b51ce0ea6bac12ce8542d69026588ccbf1a",
+    "db/zset_store.h": "05d427222fde3668908c41700b0deb180eccdc90f555379d00da5ebc53a0996a",
+    "master_service.cpp": "09ad51eb643b16fcea3013bd12be6bbab8b06306649dd7137166303e38f2afff",
+    "master_service.h": "4b2d109ac544631136a50d1b52fb1e9c53774a62d5f29a4f1028ad6d34a78f75",
+    "tests/CMakeLists.txt": "9403591f46376a6caa123ab014365b23b1902b7aab5dc742f840285ba3e14f6f",
+    "tests/acl_audit_test.cpp": "475215bdb863a9568c53a3ab07678bb187a246b685274480a6cb3bb48b3a24f3",
+    "tests/acl_file_test.cpp": "b2f12769ac72d740dc702e8e0fd2591ee9921f12a68b90e5fc24fd38b1a60626",
+    "tests/acl_file_test.py": "1b231d337ea90ff0ae4fdc124f76d0140b0edb52f340ef672cf448b65af27715",
+    "tests/acl_log_test.py": "cdcfd3a238c81657daebc07b6a10fba10b44dd07dbe2585abeded570c0b13c53",
+    "tests/acl_policy_test.cpp": "717034b734251b124fd22866f966dc02be565dfb0b32bafe07197030e4bcbba9",
+    "tests/acl_test.py": "3e4cd1ffe17fa0ca265cd3995d9776ab9ee95079a202b90a93b5875b5168ed29",
+    "tests/active_expiry_socket_test.py": "4dfa35f1680b753c44bf867c7cadb1358d2e4647e4479d75f5f2505c59502846",
+    "tests/auth_test.py": "26852fa6979116a67a71c3e0780cd892d2c49fc488b4e40d677dca36af215919",
+    "tests/client_info_test.py": "86edaca479d12bcba23c4f49da1bb23b3a6fe4410df612a9eb17ced8a780c608",
+    "tests/client_kill_test.py": "93f61782861875c06da7c986e989c79b972e7ef0e55d0b6a122748d27c8099c8",
+    "tests/command_catalog_test.cpp": "d6e00490179a002801c6fff2bf95a06114b79efb125018186fa3f2ee2cd7616c",
+    "tests/command_info_test.py": "2c4401ab59e61415e5563342e1eb1686a519944c013de01a97d3c19327efc1ac",
+    "tests/configuration_test.cpp": "c6e50b6accdf37df3bf3e01f2578772f8eb179acffbe6e5313934f5bfa9527f7",
+    "tests/configuration_test.py": "d89a88bcfb9e9796089afb4a044342ec3f33c25bcac961e6be6082e120a94095",
+    "tests/expiry_snapshot_test.cpp": "58a99492eae99cfde15b7776e94ef8699361e782313e65ece74d4f1de934a211",
+    "tests/geo_search_test.cpp": "078ecb2c8aa1ed81488d1c769eb181de598892a7d4ca8bd7fea20189b30e45b5",
+    "tests/geo_search_test.py": "839ddad39af7b87a335de2c30aea26115a2d507eee6297394981633a88a303cc",
+    "tests/geo_test.cpp": "5eef19bd1b71a748158a4ccb43cbf07aa454c3783d28263b19312b9acabd1c90",
+    "tests/geo_test.py": "d9dbe51d218628bbd7e14dd15f28c3049095a20c14230b26430f1f99e4d0e6a3",
+    "tests/hyperloglog_fault_test.cpp": "d4dc1a8d850a2cb68ecef4be29230bcf561b0c7758073896485680dda6be2bbd",
+    "tests/hyperloglog_test.cpp": "4b3e6eb12255c1e26b495233006571c32b7d3b9c0fe1e7e216219e1d2d4f3d06",
+    "tests/hyperloglog_test.py": "a4ec76adc3558f290eff7e9a0011acd2e9f5f6dbcc0fcd88b50fbca2563f48d1",
+    "tests/info_test.py": "e46a41ff7b5258f8148c722b002d25382cff509ad4cc811aea1d51c5b1d98035",
+    "tests/inline_string_test.cpp": "0d33db5cfcaf54e73f0a4694551cb2e7f257ea2cb96b69ba6fb5fd663bf10644",
+    "tests/integration_test.py": "b853a35505a3d032164e1e7f64bac3720cc5f952ff67da8d0acfd470cc5f56dd",
+    "tests/page_live_test.py": "deb41e5a278492446cf6ab036773a5960f3a1d704e37ee50939b64922240fa93",
+    "tests/replica_readonly_test.py": "1a2c2aafb4e21e1c69286f347654c1557d11a689e826e34c6666d84dac696697",
+    "tests/resp3_client.py": "a0c9e4ba3e681cf73165dd779fe3796fcc0ecac98e127bd903d600ad64f8f007",
+    "tests/resp3_test.py": "3bfc586e8dd5607f68e328f6ad06cf9d143583703c47f16050992047b7a8edb8",
+    "tests/server_statistics_test.cpp": "5861b3c98886f420f004e228709ee1e4b7a402f6d4c0f3ea15519dc9a31a77ae",
+    "third_party/redis-geohash/LICENSE": "226a5501d735e8e620a874e3efd6a68ebcb1c64387788cae47a30beac4ccf438",
+    "tools/benchmark_resp3_get.py": "c26461eebcf8ce8d30d1c235b59616c946fbbfd23959a282d71dc059e80ee9aa",
+    "tools/check_geo_grid.cpp": "cf62140879d350cd6b16091b165beebabf5bd62761c298803d43136f615e57c5",
+    "tools/generate_command_catalog.py": "730a24ea523b99c75e1757ceaf07a93fe9bbb81c0281f7ec8b99abb65a89112c"
+  },
+  "source_file_count": 137,
+  "geometry_regression": {
+    "inputs": 1700000,
+    "before_nonzero": 1699977,
+    "after_nonzero": 0,
+    "before_source": {
+      "path": "/tmp/pkv-geosearch-before-geometry.cpp",
+      "sha256": "eba4b1e59e50fcd4ac44e7fb4493995341837272392ad5280fd2d87ddd28f0d8"
+    },
+    "probe": {
+      "path": "/tmp/pkv-geosearch-distance-probe.cpp",
+      "sha256": "b3a403972e898b7005ef2184fc21f7bc122520e0ceafe897b2983703f9042fc3"
+    },
+    "red_log": {
+      "path": "/tmp/pkv-geosearch-zero-distance-red.log",
+      "sha256": "c6c1deda6ab2b4cfe00b014e258fde0b27af5cab7ad93efed2c775e21aefbe12"
+    },
+    "green_log": {
+      "path": "/tmp/pkv-geosearch-zero-distance-green.log",
+      "sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa"
+    }
+  },
+  "reference_grid": {
+    "cases": 100000,
+    "log": {
+      "path": "/tmp/pkv-geosearch-grid-reference.log",
+      "sha256": "1d882f4023d3943c724a64266f4b8bca6584396933a755cd95416d8d53fff37e"
+    },
+    "probe": {
+      "path": "/Users/zsx/work/gitee/pkv/tools/check_geo_grid.cpp",
+      "sha256": "cf62140879d350cd6b16091b165beebabf5bd62761c298803d43136f615e57c5"
+    },
+    "reference_sources": [
+      {
+        "path": "/Users/zsx/work/github/redis/redis-8.6.2/src/geohash.c",
+        "sha256": "20ebcaa1538e7fa9f1c5f6b0cba1823bfe539136ca7c374f96bca0ac86af1e73"
+      },
+      {
+        "path": "/Users/zsx/work/github/redis/redis-8.6.2/src/geohash_helper.c",
+        "sha256": "03ccfa1553bda7236c9ca687c51540714fcb60b9c137fe4796722238adff134a"
+      }
+    ]
+  },
+  "replica_write_roots": 74,
+  "replica_policy_observations": 119,
+  "performance": {
+    "mdb": {
+      "evidence": {
+        "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/geosearch-get-mdb-2026-11-01.json",
+        "sha256": "09ace42cce428c7d8beba346730355cfe7532ea99f39ddaf9c3292951397632f"
+      },
+      "matched_protocol_delta_percent": {
+        "2": -1.6933264844927964,
+        "3": 0.20111792648405125
+      },
+      "checked_requests": 50331648
+    },
+    "tbb": {
+      "evidence": {
+        "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/geosearch-get-tbb-2026-11-01.json",
+        "sha256": "5f1c7622a1a3f94cc5bc5e31a810b2be4f4614c24b492b8c9f4f16bfeaaa4cb2"
+      },
+      "matched_protocol_delta_percent": {
+        "2": -0.22062105533396936,
+        "3": -0.2561331054937832
+      },
+      "checked_requests": 50331648
+    }
+  },
+  "build_pins": {
+    "path": "/tmp/pkv-inline-build-pins.cmake",
+    "sha256": "1993d4adcfd312ec4c1ce90a3d28336d244063688ecbd19121d82f39bd04e38c"
+  },
+  "reference_binary": {
+    "path": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+    "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a"
+  },
+  "geo_commands": [
+    "GEOADD",
+    "GEOPOS",
+    "GEOHASH",
+    "GEODIST",
+    "GEOSEARCH",
+    "GEOSEARCHSTORE"
+  ],
+  "geo_pending": [
+    "GEORADIUS",
+    "GEORADIUS_RO",
+    "GEORADIUSBYMEMBER",
+    "GEORADIUSBYMEMBER_RO"
+  ],
+  "limits": [
+    "macOS ARM64; Linux/GCC not validated",
+    "Hot inline GET comparison of PKV revisions, not stock Redis",
+    "No claim about mixed workloads, paged reads or disk performance",
+    "Three rotating samples per variant; no significance claim",
+    "GEO uses existing paged ZSet transactions; legacy radius commands pending",
+    "Malformed ZSet score conversion matches the local ARM64 reference",
+    "Complete Redis compatibility remains an active goal"
+  ]
+}

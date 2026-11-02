@@ -1,0 +1,171 @@
+{
+  "total_passed": 710,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 79,
+      "elapsed_seconds": 138.15,
+      "log": "/tmp/pkv-registry-memory-full.log",
+      "log_sha256": "ad2e2914214cba052786fac3e630da5f3d3f6c5d76ac817816ff01f6b390c786",
+      "details": "/tmp/pkv-registry-memory-full-details.log",
+      "details_sha256": "9b62b8cacbec9d7f8b6631aff52739da3186b5995cb45e1cb421ff6a972ea2bf",
+      "build_log": "/tmp/pkv-registry-memory-final-build.log",
+      "build_log_sha256": "79be8b70567d2129a7f3be17bee5e27fbba96fed1fe578569ee5f7dbdd0fe1cf",
+      "binary_sha256": "05c9771c24cc958b84e0d5bd05f8d98c4559b485bd25fc968ec9e614f97ba34b"
+    },
+    {
+      "build": "c11",
+      "passed": 79,
+      "elapsed_seconds": 114.19,
+      "log": "/tmp/pkv-registry-c11-full.log",
+      "log_sha256": "2c7d88684ccbec2101c14497e42c7533f3cd56abc0a6946662d4025e7145eecb",
+      "details": "/tmp/pkv-registry-c11-full-details.log",
+      "details_sha256": "848236a8c8e1ecb476e623836a06ff3a4c441f6e778f7f7396a92fc40ca3b42b",
+      "build_log": "/tmp/pkv-registry-c11-final-build.log",
+      "build_log_sha256": "04b2270e888385185bf9011471383a3a397280c51fa0e75217688fd8d7213f26",
+      "binary_sha256": "2007997684688c388b9718e6f6afbfeb7d002147e049fee4790c2444d70bf578"
+    },
+    {
+      "build": "tbb",
+      "passed": 88,
+      "elapsed_seconds": 135.37,
+      "log": "/tmp/pkv-registry-tbb-full.log",
+      "log_sha256": "e99149d469dbbfc4ce1349fad98b5eeabcd1b46791ebb5a15faf05bf3d42b6e8",
+      "details": "/tmp/pkv-registry-tbb-full-details.log",
+      "details_sha256": "b28960a69358ace0beb68ebcb504c8bce432e4ab73c7ed25cd98095fe638c8ff",
+      "build_log": "/tmp/pkv-registry-tbb-final-build.log",
+      "build_log_sha256": "3f3bb1eff0e5e785296d6585f4208aa151886cff0770de4eacefc63c7d083317",
+      "binary_sha256": "75e667511a2350781329ab873548d1969c8a76578ce2d1eff0d53083e72b27f3"
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 88,
+      "elapsed_seconds": 110.71,
+      "log": "/tmp/pkv-registry-tbb-c11-full.log",
+      "log_sha256": "ddf1a567f33c6cd6d82b2261c7c6eeda541935348cde78f9dd7c9d646e8a9b57",
+      "details": "/tmp/pkv-registry-tbb-c11-full-details.log",
+      "details_sha256": "f660ff3c8ee951298bea4432c6372a0d710f70971088c6b266a4b4cbadbdf073",
+      "build_log": "/tmp/pkv-registry-tbb-c11-final-build.log",
+      "build_log_sha256": "d6617d0c6d49827850605c790c626b2781cbc0d47bb0156e4bff85cedf23a44a",
+      "binary_sha256": "975c900f7b2abfb4cd9409488ab7e5dc4d468c0dc6d736fa2728843d2c67a13d"
+    },
+    {
+      "build": "rocks",
+      "passed": 94,
+      "elapsed_seconds": 146.4,
+      "log": "/tmp/pkv-registry-rocks-full.log",
+      "log_sha256": "a2318a84f250139e9922f56c74ff06507991dd73e1f4ffed61d8341f265ae423",
+      "details": "/tmp/pkv-registry-rocks-full-details.log",
+      "details_sha256": "bdf32f4d0761a1d06d93b00ffd370b9856f0b3fe456b0951285ddd538619a205",
+      "build_log": "/tmp/pkv-registry-rocks-final-build.log",
+      "build_log_sha256": "1bba704d1fe5485d00ad45cdeae17505276dd5a35c1eab2a34047d77dca94ca8",
+      "binary_sha256": "c906605a35743ab9deaf5930776cba176309f59cba09fdbde248c0a1852becc5"
+    },
+    {
+      "build": "rocks-release",
+      "passed": 94,
+      "elapsed_seconds": 125.95,
+      "log": "/tmp/pkv-registry-rocks-release-full.log",
+      "log_sha256": "f2d50a258382d51c3e37371f6fd0c36b82cc1dfe6d2e9e39565bba30fac5a565",
+      "details": "/tmp/pkv-registry-rocks-release-full-details.log",
+      "details_sha256": "fcfefe4e24d936e14db8c5a82d4de60cb8b5827a9f6a057e8493dc84d3773119",
+      "build_log": "/tmp/pkv-registry-rocks-release-final-build.log",
+      "build_log_sha256": "a350f044b8626005ef490d0441671744dff4870a3dc80c8fff2bfde9dda976c1",
+      "binary_sha256": "1f228bbeb2c5071feb2401d4e8289642693930e06cc662f39015cdcfdc217ab6"
+    },
+    {
+      "build": "wt",
+      "passed": 94,
+      "elapsed_seconds": 270.51,
+      "log": "/tmp/pkv-registry-wt-full.log",
+      "log_sha256": "e9df7f28444132cde5a163fcedc6aec2eba81d375d107adcb2f97e7cedcc190b",
+      "details": "/tmp/pkv-registry-wt-full-details.log",
+      "details_sha256": "634062c55bcee1a2e4102bbc505afae36d6a007292640c82e66e853b245e636e",
+      "build_log": "/tmp/pkv-registry-wt-final-build.log",
+      "build_log_sha256": "fb9635e6f7743a6fef4eb8e5b1d329f84c3f00f01fff574f872e40287bca78be",
+      "binary_sha256": "3336ed4f706798f4401bda09d41721ec51495068c3484fc9154e75d4f1ee5b41"
+    },
+    {
+      "build": "wt-c11",
+      "passed": 94,
+      "elapsed_seconds": 254.85,
+      "log": "/tmp/pkv-registry-wt-c11-full.log",
+      "log_sha256": "a0f4ba633dadb5a554352ff39124202eb5f1eb87293a96fa6a77b01034fa9ff8",
+      "details": "/tmp/pkv-registry-wt-c11-full-details.log",
+      "details_sha256": "a48d09a8eb3d25618c129542a7d69fa1ead1d822de16681653b197e0964aab9a",
+      "build_log": "/tmp/pkv-registry-wt-c11-final-build.log",
+      "build_log_sha256": "5f357ae7ce2d8d0c40bed14b20d5485692dc724a7a7a42c2649c559a88515739",
+      "binary_sha256": "491cc590317175d138bb1644385f1e03d4f229b7f33bed31bf97e8db4ab9c83a"
+    }
+  ],
+  "all_sessions_terminal": true,
+  "schedule": "At most two configurations tested concurrently; WT Debug and WT C++11 each tested in isolation",
+  "existing_test_concurrency_timeouts_and_durability_unchanged": true,
+  "source_sha256": {
+    "common/client_registry.h": "b94f2c619de1a4307cd9f9f630dcbda4d4abff9b4368bedf9955ab7399e7b78e",
+    "common/client_registry.cpp": "6e2575f0400a08696922f08ba855d819011cc1b4f81475e614dc463a01059425",
+    "action/redis_service.h": "c5317535a26f8409012290cd593de9f3f04cd86ad6342920e608366a7cf10504",
+    "action/redis_handler.h": "9f4a586bf5044a298913a210c9465fe6ca59edc8fcdb7b40b8b8c947a624396b",
+    "action/redis_handler.cpp": "f6f8c5f42477aa47beb989188809b06ff4001f39ee7b1113da70f949b1140ac1",
+    "tests/CMakeLists.txt": "eb73b3267155e4cddaace8cf12bdb9ddbc4b92248a4daf13f70804e7aa393614",
+    "tests/client_registry_test.cpp": "27973dee821e7d1a982013979b6a95a4e05c4e8553e9067c0eea7341676ae5b4",
+    "tests/client_lifecycle_test.cpp": "6f28c42ebb3ec3e7bb3b5d8ae7997fcb1a0980e97d1a9de844c58a03d21fc001"
+  },
+  "sanitizers": {
+    "asan_ubsan": [
+      "memory",
+      "tbb",
+      "rocks",
+      "wt"
+    ],
+    "standalone_tsan": {
+      "binary": "/tmp/pkv-client-registry-tsan",
+      "binary_sha256": "8ad70e5074ff2f0a362a387a0e64754f0122bf6bb62df96dce972f2677a48fe4",
+      "log": "/tmp/pkv-registry-tsan.log",
+      "log_sha256": "3d7d2b8c9c6ea94dd93f56c424cc10935d95e8ea6d6b9a5de975b1717965df74",
+      "compiler": "Apple clang version 17.0.0 (clang-1700.6.3.2)\nTarget: arm64-apple-darwin25.3.0\nThread model: posix\nInstalledDir: /Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/bin\n",
+      "scope": "Registry unit test only, not the complete ACL server"
+    }
+  },
+  "assertions": [
+    "64-striped consistent-membership snapshots",
+    "Duplicate, invalid, stale and foreign record rejection",
+    "Allocation failure leaves membership and mutexes usable",
+    "8 workers x 2000 add/find/retire iterations",
+    "500 forced descriptor-reuse cases with retained snapshots",
+    "300 concurrent stop/retire/descriptor-reuse races",
+    "Deferred stop permits final bytes; escalation counts once",
+    "Management shutdown never closes the owner descriptor",
+    "Real ACL handlers register and retire before owner close",
+    "Stopped pipelines cannot change the database",
+    "Independent handler lifetimes and retained records"
+  ],
+  "installed_acl_error_probe": {
+    "source": "/tmp/pkv-registry-acl-errors.cpp",
+    "source_sha256": "2e6934c1ecb59fc42947a166bbf6d748f5a191ab284fa62c6ee48716e47ec537",
+    "binary_sha256": "02f8f9a9c172acf09022702b9614ef23f860649e7eabf5678f6d06b289c2cedb",
+    "log": "/tmp/pkv-registry-acl-errors.log",
+    "log_sha256": "5580d80cd67543a5f3c510fc1ca462713574000eca8321446d1050ce354716fb"
+  },
+  "code_style": {
+    "new_source_lines_at_most": 80,
+    "new_functions_at_most": 200,
+    "whitespace_check_passed": true
+  },
+  "benchmark": {
+    "path": "doc/benchmarks/client-registry-get-2026-10-31.json",
+    "sha256": "110d990e0a76e47c97f92069ec2426a0ea8b9838f95cc856ea39a1a0e52ed7a2",
+    "raw_log": "/tmp/pkv-registry-get-bench.log",
+    "raw_log_sha256": "0fb8274daeb2d194d4b3c3997ea959699453714ce6ca16f0890b9fdefec23bf5"
+  },
+  "limitations": [
+    "CLIENT INFO/LIST/KILL are not implemented or advertised",
+    "No synchronized client metadata snapshot yet",
+    "No mid-command rollback or EXEC cancellation",
+    "Deferred stop is for use by the owning command handler only",
+    "Replication transport connections are outside the registry",
+    "Registry must outlive its handlers",
+    "Windows shutdown branch not executed on this macOS host",
+    "No general speed advantage over Redis established"
+  ]
+}

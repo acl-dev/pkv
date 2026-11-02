@@ -1,0 +1,526 @@
+{
+  "date": "2026-11-01",
+  "full_matrix_passed": 830,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 94,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "binary": {
+        "path": "/tmp/pkv-memory-build/pkv",
+        "sha256": "50577ccd6ad44b645cf46aca4e5b584f5eaef95ca45b483abde59484359c197a"
+      },
+      "flags": {
+        "path": "/tmp/pkv-memory-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "bff4360120cb79e4d86388717c671d8b52718ff0d9fa5674c24a0b973a553a95"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-config-memory-configure.log",
+        "sha256": "89b0ed39c018577ec9752dc824051676a7ad42395b3c96ee155af9000e979466"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-config-memory-build.log",
+        "sha256": "125e5673bd647722e261320b4d8d78d9098b24e42052b39c74b2837c9dad2464"
+      },
+      "log": {
+        "path": "/tmp/pkv-config-memory-full.log",
+        "sha256": "071b16a787f01057cc9d1813fd845b17ee09f1f9379cd002330183f1659bf8aa"
+      },
+      "details": {
+        "path": "/tmp/pkv-config-memory-full-details.log",
+        "sha256": "2ddb117f39b57f64368c1e66721dbebd78215d4316a930e2c09cb421b9fc6f5d"
+      },
+      "elapsed_seconds": 111.51
+    },
+    {
+      "build": "c11",
+      "passed": 94,
+      "configuration": {
+        "BUILD_WITH_C11": "YES",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "binary": {
+        "path": "/tmp/pkv-c11-build/pkv",
+        "sha256": "fc3d135c67ce531c56c2b59aab2c513db956b8e87b47ababe89d845eff5bbdde"
+      },
+      "flags": {
+        "path": "/tmp/pkv-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "292c4614092f47cf791c7dc3a9340e25c7f138c026dc2d76d3a715fd001aaed7"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-config-c11-configure.log",
+        "sha256": "1d156687889c5879914a03327477be17eb92d464940475e98f9044848a1f3aed"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-config-c11-build.log",
+        "sha256": "73a7991f163ae27da5f1f00fe0063632e97857f2c7f63d4a45250cf5f13e003e"
+      },
+      "log": {
+        "path": "/tmp/pkv-config-c11-full.log",
+        "sha256": "77fb6aa9fde59565a23210615deed32172de20812ec4cdff9b654e64aa331462"
+      },
+      "details": {
+        "path": "/tmp/pkv-config-c11-full-details.log",
+        "sha256": "e6a6ed017d495da1dfe5d31e2bf20fa7d94c95f83e5f93bac9d6482ddda98221"
+      },
+      "elapsed_seconds": 96.16
+    },
+    {
+      "build": "tbb",
+      "passed": 103,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "binary": {
+        "path": "/tmp/pkv-tbb-build/pkv",
+        "sha256": "465375f63f57a2d496ea7d6b219f6e8fadce54b279a7d0916e00d331336b2750"
+      },
+      "flags": {
+        "path": "/tmp/pkv-tbb-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "eee081ff7b839e1e2677648e33a8045d964801e171da91e19aad286ca7d3e034"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-config-tbb-configure.log",
+        "sha256": "b6249cec47323d9eb9a544326ffa84ab1cb83d73cad5d0f4e3d4e8acbf1d365e"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-config-tbb-build.log",
+        "sha256": "5818d79b5173cb8b81075146bef7b97d1bfeda04b8c7e7c291ab42ae4e33e099"
+      },
+      "log": {
+        "path": "/tmp/pkv-config-tbb-full.log",
+        "sha256": "fadda85a8ec57a1eacbc5557292e03abf51567544e73ec408ac27367db980c0b"
+      },
+      "details": {
+        "path": "/tmp/pkv-config-tbb-full-details.log",
+        "sha256": "8caf588ce7a2458587c7db7fedda4c3ea54b410079cfb0a53243e3f9de401ad1"
+      },
+      "elapsed_seconds": 119.91
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 103,
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "ON",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "binary": {
+        "path": "/tmp/pkv-tbb-c11-build/pkv",
+        "sha256": "daace1cb850d0c942ed4974e6f79ef218601dc5abca111b16380be22abe6b42d"
+      },
+      "flags": {
+        "path": "/tmp/pkv-tbb-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "cbfc84c956be80a93b19f7000642bd7ad7d52b9e9ea2a8b614d311d96f013646"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-config-tbb-c11-configure.log",
+        "sha256": "b1256cbab211c127114c50a471bcdc0528e7babbedd84c8712fdcd1f1c23c42d"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-config-tbb-c11-build.log",
+        "sha256": "08ea0a7af74a438bfe8827811c57715c1181f62cafbd108a90197783ef6eb465"
+      },
+      "log": {
+        "path": "/tmp/pkv-config-tbb-c11-full.log",
+        "sha256": "52c55c94406443aa9049f59d8fabbfd3d13def43ebff2dd45d30ef24d0f2c545"
+      },
+      "details": {
+        "path": "/tmp/pkv-config-tbb-c11-full-details.log",
+        "sha256": "575b4cd0711d7f4484eeda47563bc40446cecbe9d71db198fad419dd40d32e36"
+      },
+      "elapsed_seconds": 105.36
+    },
+    {
+      "build": "rocks",
+      "passed": 109,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "binary": {
+        "path": "/tmp/pkv-rocks-build/pkv",
+        "sha256": "34e1106c32730650b84bf5c846a2de351e1765c8ea6425be574b5849e44c3a89"
+      },
+      "flags": {
+        "path": "/tmp/pkv-rocks-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "55cc4ad2d8bc4debbcc33772444457f54a89d921b6a630daeac3bf197561757d"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-config-rocks-configure.log",
+        "sha256": "6044da1975fc58c94e685d1e8c9b53bfa784c8caf5b2c400aed198d730ad4d7c"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-config-rocks-build.log",
+        "sha256": "4becade824e8b415b8fc2cb745223e438b3f5d6666e7440810ca87ca167394cc"
+      },
+      "log": {
+        "path": "/tmp/pkv-config-rocks-full.log",
+        "sha256": "b07cfb01a4419fbf0d6adcd1209b159d4f093d07661e0ca3a1caac3b9ed5ade4"
+      },
+      "details": {
+        "path": "/tmp/pkv-config-rocks-full-details.log",
+        "sha256": "3550d8e936b3edf4ffc242361ece054cf8d5438445f5e4d7e8fbde4e8d08dc61"
+      },
+      "elapsed_seconds": 145.49
+    },
+    {
+      "build": "rocks-release",
+      "passed": 109,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "ON",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "OFF",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "binary": {
+        "path": "/tmp/pkv-rocks-release-build/pkv",
+        "sha256": "598b9133a99dea956fa31128034bf0c94d67cb24dbb551357a40db1423666820"
+      },
+      "flags": {
+        "path": "/tmp/pkv-rocks-release-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "9ecac0f9b31e4517d2ff3d1211a5921bf749da23fa9f9e8924de6e2ed34e4781"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-config-rocks-release-configure.log",
+        "sha256": "15d8dc07955d45eaf9550911d79af34190f9ae917220bfdd4b27659af03dc6be"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-config-rocks-release-build.log",
+        "sha256": "de537799b55051c39ea1cf1c49bf9163b86fb17151bc6d2a1a7ff65d29e3bb54"
+      },
+      "log": {
+        "path": "/tmp/pkv-config-rocks-release-full.log",
+        "sha256": "9d9ee06c66abbda06b4bdc9e7ce6d24ddd7e1f79e4d23ff05b44012b7944b90c"
+      },
+      "details": {
+        "path": "/tmp/pkv-config-rocks-release-full-details.log",
+        "sha256": "33601841736487473c8a37fee044eef58d5a9abde2bbc988f41512a5afcdf35b"
+      },
+      "elapsed_seconds": 122.7
+    },
+    {
+      "build": "wt",
+      "passed": 109,
+      "configuration": {
+        "BUILD_WITH_C11": "OFF",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "ON"
+      },
+      "binary": {
+        "path": "/tmp/pkv-wt-build/pkv",
+        "sha256": "4a035626d0b120de3cbb046613b8cde9469c258944002cf377516d5eba512222"
+      },
+      "flags": {
+        "path": "/tmp/pkv-wt-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "934865e863df237dd72842b308b144930a2068b5aa7761f1f23bf7aea740d5dc"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-config-wt-configure.log",
+        "sha256": "71c6f5391fba50adb29df307687b2694905849f2fc20e76b592bc6aa4b3b8668"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-config-wt-build.log",
+        "sha256": "235d31ad9eb76e95f4637ac519088c1dc4f4664edde9082531d3f394c3e458ac"
+      },
+      "log": {
+        "path": "/tmp/pkv-config-wt-full.log",
+        "sha256": "04d2380eeca61fc7112d34cb3e0d8358babf33293e4fcf257ada7587f41b39f5"
+      },
+      "details": {
+        "path": "/tmp/pkv-config-wt-full-details.log",
+        "sha256": "f7253fbb04ad67e3d96816bb3b5530f1cd74567270af0478279e0e68c1141b6e"
+      },
+      "elapsed_seconds": 283.8
+    },
+    {
+      "build": "wt-c11",
+      "passed": 109,
+      "configuration": {
+        "BUILD_WITH_C11": "ON",
+        "CMAKE_BUILD_TYPE": "Release",
+        "HAS_ROCKSDB": "OFF",
+        "HAS_TBB": "OFF",
+        "HAS_WT": "ON",
+        "PKV_TEST_SANITIZERS": "OFF"
+      },
+      "binary": {
+        "path": "/tmp/pkv-wt-c11-build/pkv",
+        "sha256": "2a292802317b659cdc211e1b0599da09860ff11c2031a84f6f374c73f0ad879e"
+      },
+      "flags": {
+        "path": "/tmp/pkv-wt-c11-build/CMakeFiles/pkv_core.dir/flags.make",
+        "sha256": "f2c567333a6c283c7049294043e3cfbb559c8d929dcebeeda4434604cd18833b"
+      },
+      "configure_log": {
+        "path": "/tmp/pkv-config-wt-c11-configure.log",
+        "sha256": "4cfdeefb7211f67c8880ae0a7d2f2f2b37c24228fed43f9bace569d5bb333b19"
+      },
+      "build_log": {
+        "path": "/tmp/pkv-config-wt-c11-build.log",
+        "sha256": "e00ba41bb19cc3bdf7e2c8403fe7be0f7da0b001efbc7c7f635052379a5f623f"
+      },
+      "log": {
+        "path": "/tmp/pkv-config-wt-c11-full.log",
+        "sha256": "406ff83dd03ddbf77615bb9a3d824ba9fdb01c143fb515775f61ecbd2ff32829"
+      },
+      "details": {
+        "path": "/tmp/pkv-config-wt-c11-full-details.log",
+        "sha256": "ed03910a0ce1b2d3ac370a08b0d75f635249f27f0616d2b0cb516aceff1997a0"
+      },
+      "elapsed_seconds": 260.13
+    }
+  ],
+  "source_sha256": {
+    "CMakeLists.txt": "469a494c271a914c4877f0a875ed22cd9295ff9cd25b5fad8a53bb21785fcfc6",
+    "action/redis_acl.cpp": "b0cacba77517843a6b5536d111e9679580749b4583125ce1459a26fbb93a35f8",
+    "action/redis_acl_file.cpp": "d12dd9b25044250845e6f886c91da8834e28fe65a98b7b249faa309ca954eaa6",
+    "action/redis_acl_log.cpp": "6b930e3395c33efacdb4fb09da235e51a31a6f794584d4f3bc47a8ec279a2df5",
+    "action/redis_auth.cpp": "e390c43617cfdec02e434973581aaa8106c6b4150b8e01350c75e00791396770",
+    "action/redis_client_activity.cpp": "43ad3331ea0d8fbebd43e9c0ff5b32ee66fd684a82799f951883c554f10ac7e9",
+    "action/redis_client_info.cpp": "7bc95f6169a0a9dacb5047333cdc8a8597694c86b39d65038208576e8f3fea45",
+    "action/redis_client_kill.cpp": "819a6a85db17dcb10f0840dddf354f301549f86dad06f75449de928d8da8f388",
+    "action/redis_configuration.cpp": "02ebb7e914a7623b605dac5ea1b43036fe1270a8a87eb47958eba83c0770391e",
+    "action/redis_handler.cpp": "6021e495678a02ceff448f5f045a24a70a15fe9cf9f3e7995bd04aacd521cdef",
+    "action/redis_handler.h": "afc545dbe9572c71cedd7c153dc3a164575717054c8e5cf6baa075c98f99e2ec",
+    "action/redis_handler_acl.cpp": "39b3f360f5368610a21b88e832182ac7d138d25d455c74ecf28fa3a1040135b4",
+    "action/redis_hello.cpp": "7f52af14dcb80c38f2ec81a762c2b7f629eb8b92b90dd9b7854db7bf679419ca",
+    "action/redis_server.cpp": "1a15fa21b1e0fb723e5c93ef728f42f350256bc32e60f1ea0205f8d61f083cbc",
+    "action/redis_server.h": "2cd7c1ae8fac42621c08a1fbdf5623009f59ca706616b463c4d2b7b154dfb266",
+    "action/redis_service.cpp": "793082968f2ddb5ec90e536252659337a750818da2be16fb03e6533414955227",
+    "action/redis_service.h": "370a406d10a4483323d436c74f3d9257d32ca6900103338b8860f028ea5e5b20",
+    "action/redis_transaction.cpp": "1ee718bd19634192da76c52376d30fc7a8510ecea3b77e6f56fa71bb09dc739a",
+    "action/transaction_workspace.cpp": "bfa5b076d0ce8917958f061b2d7d3f349e339fa349d6defa3c76074095cba305",
+    "common/acl_audit.cpp": "2560809b243b000e1a2e699866550419586f5580a55a60874912308610337e44",
+    "common/acl_audit.h": "02e3c64d69a1373c084206ad5a94efcfe1d1c61e1c7162a2dea23740853cd958",
+    "common/acl_description.cpp": "bb9b599e40a126296a833550be2b609cf70b95ff448b7279a2882733f4afe7af",
+    "common/acl_digest.cpp": "fb07d2c249aab4d9e4a93657803bef4a52063ecfe188af82b564d62e6505380f",
+    "common/acl_file.cpp": "dd94ccd9fee6e15746d942b0d9ab1183571ff7ddd200b9ed227d55ef63406b58",
+    "common/acl_file.h": "795f29161e31377435cd54c2dad4e109528d3a2fea27c5468529c56b35c7c0a7",
+    "common/acl_index.cpp": "8d3a6fd4ad8eeead0b688ec618e540a3534ecbf637d5b573aa14a5481f3cc14e",
+    "common/acl_internal.h": "8b5064d1911265c5db8b424a41b88c2e96864b4f9b702ea48fcbe5428f3231f1",
+    "common/acl_policy.cpp": "787c5aa8a2dd6ee8b732d9af79ce7f387eab7bab6e33e9d068f87bef221b9dd5",
+    "common/acl_policy.h": "116e321316bdddbcbda538e6f4fa7b49e50ef2919ef8a7def171470b4903d70c",
+    "common/acl_reload.cpp": "c46a170d7eb5dea353b56b33a11e2455308e7aa7c0a744dc83c2b7637530ebf5",
+    "common/acl_rules.cpp": "d2fb06ea553a7b32ff5e4d2f2de34bbf2f8d6eb3e97b1a95ff20f88eca6ea2e9",
+    "common/acl_tokens.cpp": "8b8f288da8cdf7767ae52c30af0733b0c986818cd9591ad28e05ab433387464b",
+    "common/client_activity.cpp": "1438533ec6437e3c3e3b1324feea531e382e6ba7be9d15312d671718be71f768",
+    "common/client_activity.h": "b4e857539f6283a355a3a37ca1926cb6d8edda834c026035c27b0387ee5b5173",
+    "common/client_description.cpp": "b8e312096a7e930ebfe1abd59bf2e03cb438ca87bbe074c8dafd6ddeaa16dda3",
+    "common/client_description.h": "9557a0fd131543fa942843d0b56d88ca73a383c02ab6f3d207f086779eb12b70",
+    "common/client_memory.h": "aa59abff48d681f94d30a03d8ad17ceedbdb76f8c76f525080ea5e1626d25255",
+    "common/client_registry.cpp": "7a262b9600d1e89033be23626423785734f1b8297f00b6a71c07c7fc1d674b0f",
+    "common/client_registry.h": "260635df1f59659d0b872664e95162d5abe9e4522d425e264103ddb70bf6af76",
+    "common/client_state.cpp": "5b9818069a4f78a8544b880110f886eab0eb9d102a705a74e4296f2d73fb4f4a",
+    "common/client_state.h": "3a648d1def7804b047ad126570b870a3b74afec1189b7ac77f5694e1e69a1f7f",
+    "common/command_catalog.cpp": "af443789b7317c788be40a2beb796996f7c653ceb860a3e67a5e3a14af5a2441",
+    "common/command_catalog.h": "0566cf96b1b7dfb844f0848893b102372d3f7bf6cc5135e8623142ec62a2502c",
+    "common/command_catalog_data.inc": "e853c01e80b6b84538600c1b00eef072ee9ae6f0950efe197cb8f8cf59e8e2a2",
+    "common/command_keys.cpp": "9e8ce75c7b728a7f7e0ec15edc77e6f371bc1a03da27dcd1b54c7657844b6e93",
+    "common/configuration.cpp": "3182e7a40c01c725601903c8aa4b2d24e49b036968053f812f0752b7de684f5c",
+    "common/configuration.h": "117623bfbee55b5ed86787b1060c3293c9f158e0f3240d3fdec613b4b2c55e38",
+    "common/password_policy.cpp": "a02bd490ac12dfa00ebd3314cd36d662814987a9ece74fb1ab6a3eac90d1c9cd",
+    "common/password_policy.h": "189c9edc539a278de4619b6f4a2bbb92630848355c6c5dfa0e9678bfbf2d273d",
+    "common/transaction_database.cpp": "d58082c941bc363beb225831c575b0869a6cb051345343e655e38ced819ed157",
+    "common/transaction_database.h": "28bde43fc54ef6a4ab2f15cafeb2c1ffd36952a9eaab74e233558f0a1756a546",
+    "master_service.cpp": "ce1f9b4eddeeee112cdc77582db92ee92d5e683ec2c122fb2612417d484c8775",
+    "tests/CMakeLists.txt": "6157f6666687308f0598a7dfe26a45a8880fc32c14b4c1c10bc06bcb977b5161",
+    "tests/acl_audit_test.cpp": "475215bdb863a9568c53a3ab07678bb187a246b685274480a6cb3bb48b3a24f3",
+    "tests/acl_file_test.cpp": "b2f12769ac72d740dc702e8e0fd2591ee9921f12a68b90e5fc24fd38b1a60626",
+    "tests/acl_file_test.py": "1b231d337ea90ff0ae4fdc124f76d0140b0edb52f340ef672cf448b65af27715",
+    "tests/acl_log_test.py": "cdcfd3a238c81657daebc07b6a10fba10b44dd07dbe2585abeded570c0b13c53",
+    "tests/acl_policy_test.cpp": "717034b734251b124fd22866f966dc02be565dfb0b32bafe07197030e4bcbba9",
+    "tests/acl_test.py": "3e4cd1ffe17fa0ca265cd3995d9776ab9ee95079a202b90a93b5875b5168ed29",
+    "tests/auth_test.py": "26852fa6979116a67a71c3e0780cd892d2c49fc488b4e40d677dca36af215919",
+    "tests/client_info_test.py": "86edaca479d12bcba23c4f49da1bb23b3a6fe4410df612a9eb17ced8a780c608",
+    "tests/client_kill_test.py": "93f61782861875c06da7c986e989c79b972e7ef0e55d0b6a122748d27c8099c8",
+    "tests/command_info_test.py": "3de3429dbf5b6ea1c53be9a5b4b087098361262818853a105c18be7c527d319c",
+    "tests/configuration_test.cpp": "5bc059c060b4ff5053aa25a5cc115dde8a469adb4508f25ebcd7b5a9b2c2a70f",
+    "tests/configuration_test.py": "ef6db4f03d350fd8b12d3e5d30edfc2174282729d151fc920d3d444877c2825e",
+    "tests/integration_test.py": "b7c09ece2614ae15d8dfff2bfd87c95debcaf3b900e790cc4411447eeadfc1f2",
+    "tests/resp3_client.py": "a0c9e4ba3e681cf73165dd779fe3796fcc0ecac98e127bd903d600ad64f8f007",
+    "tests/resp3_test.py": "4cbc07961fcdc6ad925f693c6f504795457d5cb66fcb0fbe8f7130dbe32f2b0d",
+    "tools/generate_command_catalog.py": "cd6438cbfdaa17fa9359e9510f96b912bce2cedb3ca5445fe921602d583a5285"
+  },
+  "changed_from_previous": [
+    "action/redis_configuration.cpp",
+    "action/redis_handler.cpp",
+    "action/redis_handler.h",
+    "action/redis_handler_acl.cpp",
+    "action/redis_server.cpp",
+    "action/redis_server.h",
+    "action/redis_service.h",
+    "common/acl_audit.cpp",
+    "common/acl_audit.h",
+    "common/command_catalog_data.inc",
+    "common/configuration.cpp",
+    "common/configuration.h",
+    "common/transaction_database.cpp",
+    "tests/CMakeLists.txt",
+    "tests/acl_audit_test.cpp",
+    "tests/command_info_test.py",
+    "tests/configuration_test.cpp",
+    "tests/configuration_test.py",
+    "tests/resp3_test.py",
+    "tools/generate_command_catalog.py"
+  ],
+  "prior_validation": {
+    "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/acl-log-validation-2026-11-01.json",
+    "sha256": "97e3389406478b752755aa3e897dc951fbf548e4a110bfd10993097dbe7abecf"
+  },
+  "source_freeze": {
+    "path": "/tmp/pkv-config-source-freeze.json",
+    "sha256": "ca6cb37fd98e0cffc9c118edfc9e310291b2ce513028f56996ad0dd776f84210"
+  },
+  "runner": {
+    "path": "/tmp/pkv-config-matrix.py",
+    "sha256": "b64803eb7afdb83c2073772a140015842d9a3f16afb39ab8181c8d488afb8309"
+  },
+  "thread_sanitizer": {
+    "binary": {
+      "path": "/tmp/pkv-config-audit-tsan",
+      "sha256": "d6a6d5ecd20586590fb287bced1832074676eb8bdee215aee989fc68deff700a"
+    },
+    "log": {
+      "path": "/tmp/pkv-config-audit-tsan.log",
+      "sha256": "406ac181321fe309785a66b8fd867e4f8e552864b509a7fa3379910927c58729"
+    },
+    "build_log": {
+      "path": "/tmp/pkv-config-audit-tsan-build.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "scope": "Native audit core with deferred capacity, record/reset/limit races and snapshots. Not whole-server or fiber-runtime race freedom."
+  },
+  "allocation_failure": {
+    "preparation_budgets": 32,
+    "publication_budgets": 512,
+    "invariant": "Failed preparation leaves the old plan. Failed service publication preserves remembered password, default ACL snapshot and audit limit. No allocation after policy publication."
+  },
+  "network_concurrency": {
+    "readers": 4,
+    "reads_each": 150,
+    "password_limit_updates": 100,
+    "synchronized_start": true,
+    "coherent_published_pairs": true
+  },
+  "differential_assertions": {
+    "config_observations": 31,
+    "acl": 72,
+    "resp3": 257,
+    "auth": 72,
+    "client_info": 121,
+    "client_kill": 32,
+    "acl_log": 18
+  },
+  "settings": [
+    "aclfile",
+    "acllog-max-len",
+    "appendonly",
+    "cluster-enabled",
+    "databases",
+    "requirepass",
+    "save"
+  ],
+  "semantics": {
+    "subcommands": [
+      "get",
+      "set",
+      "help"
+    ],
+    "get": "Case-insensitive names/globs, exact input spelling retained. First matching pattern determines spelling; deduplicated fields. Unknown/no-match results are empty RESP2 arrays/RESP3 maps.",
+    "set": "Validate all names/immutable/duplicate errors before values; stage the entire update before exclusive-admission publication.",
+    "password": "Default-user passwords only. Keep enabled state and all permissions. An unchanged remembered requirepass does not overwrite later ACL password edits. Remembered plaintext may differ from ACL.",
+    "rpc": "Startup requirepass/masterauth policy stays separate and immutable.",
+    "audit": "Runtime limit change defers cleanup. Coalescing does not trim; new distinct events trim. Zero clears old entries on the next failure without constructing a new entry.",
+    "persistence": "save is empty; appendonly is no. No-op disabling works. Unimplemented activation fails without changing other parameters. Native RocksDB/WiredTiger durability is independent.",
+    "transaction": "CONFIG SET disables native workspace planning; ordinary per-command storage under exclusive EXEC admission. Read-only GET does not disable an otherwise eligible workspace.",
+    "storage": "No root/page/value encoding change."
+  },
+  "reference": {
+    "binary": {
+      "path": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+      "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a"
+    },
+    "version": "Redis 8.6.2 sha=00000000:1 malloc=libc",
+    "scope": "Local modified reference, not stock Redis speed evidence"
+  },
+  "performance": {
+    "get": {
+      "path": "/Users/zsx/work/gitee/pkv/doc/benchmarks/config-get-2026-11-01.json",
+      "sha256": "fdd6e1e1f12f60d4e589da3a22211f0ca01fe790eadff88c7b11d5348b96133f"
+    },
+    "requests_checked": 37748736,
+    "delta_percent": {
+      "baseline_resp2": 0.0,
+      "new_resp2": -0.3061675122022489,
+      "new_resp3": -1.6168241966137087
+    },
+    "limits": [
+      "One hot GET key; not mixed workloads or other backends",
+      "Local machine and Python/socket client may limit throughput",
+      "Interleaved samples; no statistical significance claim",
+      "Compares PKV revisions, not stock Redis"
+    ],
+    "baseline": {
+      "path": "/tmp/pkv-acl-log-measured-c11-pkv",
+      "sha256": "bc97053c77d3075d10edaf58efb3e6b1c0838c4a7a0a8c4aea7d648d225e4822"
+    },
+    "baseline_flags": {
+      "path": "/tmp/pkv-acl-log-c11-flags.make",
+      "sha256": "292c4614092f47cf791c7dc3a9340e25c7f138c026dc2d76d3a715fd001aaed7"
+    },
+    "measured": {
+      "path": "/tmp/pkv-config-measured-c11-pkv",
+      "sha256": "fc3d135c67ce531c56c2b59aab2c513db956b8e87b47ababe89d845eff5bbdde"
+    },
+    "measured_flags": {
+      "path": "/tmp/pkv-config-c11-flags.make",
+      "sha256": "292c4614092f47cf791c7dc3a9340e25c7f138c026dc2d76d3a715fd001aaed7"
+    }
+  },
+  "verification": {
+    "max_parallel_matrix_configurations": 2,
+    "wiredtiger_isolated": true,
+    "existing_timeouts_preserved": true,
+    "concurrency_assertions_preserved": true,
+    "disk_sync_preserved": true,
+    "no_source_changes_during_matrix": true
+  },
+  "remaining": [
+    "Full Redis configuration inventory",
+    "CONFIG REWRITE/RESETSTAT",
+    "Redis RDB/AOF",
+    "live RPC transport-secret rotation",
+    "full replication",
+    "blocking and other command families"
+  ],
+  "overall_redis_goal": "active"
+}

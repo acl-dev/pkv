@@ -23,7 +23,10 @@ namespace pkv {
 #endif
 
 redis_ocache::redis_ocache(size_t max) : max_(max) {
-#ifndef USE_VECTOR
+#ifdef USE_VECTOR
+    // Returning objects, including recursive children, must not allocate.
+    cache_.reserve(max_);
+#else
     cache_ = new redis_object* [max];
     for (size_t i = 0; i < max; i++) {
         cache_[i] = NULL;
@@ -34,12 +37,14 @@ redis_ocache::redis_ocache(size_t max) : max_(max) {
 
 redis_ocache::~redis_ocache() {
 #ifdef USE_VECTOR
-    for (auto o : cache_) {
+    while (!cache_.empty()) {
+        auto o = cache_.back();
+        cache_.pop_back();
         o->destroy();
     }
 #else
-    for (size_t i = 0; i < pos_; i++) {
-        cache_[i]->destroy();
+    while (pos_ > 0) {
+        cache_[--pos_]->destroy();
     }
     delete [] cache_;
 #endif
@@ -66,16 +71,18 @@ redis_object *redis_ocache::get() {
 void redis_ocache::put(redis_object* obj) {
 #ifdef USE_VECTOR
     if (cache_.size() < max_) {
-        cache_.push_back(obj);
         obj->reset();
+        if (cache_.size() < max_) cache_.push_back(obj);
+        else obj->destroy();
     } else {
         obj->destroy();
     }
 #else
     if (LIKELY(pos_ < max_)) {
         assert(obj);
-        cache_[pos_++] = obj;
-    	obj->reset();
+        obj->reset();
+        if (pos_ < max_) cache_[pos_++] = obj;
+        else obj->destroy();
     } else {
         obj->destroy();
     }

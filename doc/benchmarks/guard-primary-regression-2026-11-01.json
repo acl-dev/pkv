@@ -1,0 +1,1076 @@
+{
+  "date": "2026-11-01",
+  "platform": "macOS-26.3.1-arm64-arm-64bit",
+  "purpose": "Primary hot-path regression probe for disabled replica-read guard fast path",
+  "source_freeze_sha256": "4263d7b2cfbdb479310bc6a3bba2d91565bd6b0dd9ce9d921edef6e8873acb9a",
+  "script": {
+    "path": "/tmp/pkv-guard-primary-bench.py",
+    "sha256": "4517cb467d0978ee256cf0cf9f8ccda825ee3b353c4b45958eec79249e2d91b2"
+  },
+  "helpers": {
+    "/Users/zsx/work/gitee/pkv/tools/benchmark_resp3_get.py": "c26461eebcf8ce8d30d1c235b59616c946fbbfd23959a282d71dc059e80ee9aa",
+    "/Users/zsx/work/gitee/pkv/tools/benchmark_key_updates.py": "153ad9bb44b3d2469b3f088063c469afb55938da13418cf7d27aa0d4c0791ff4"
+  },
+  "artifacts": {
+    "c11": {
+      "baseline": {
+        "path": "/tmp/pkv-retention-validated-c11-pkv",
+        "sha256": "cdb69980b148113ca6968835eb412378f87b9351990c2690efa43eb843c795c2"
+      },
+      "current": {
+        "path": "/tmp/pkv-guard-validated-c11-pkv",
+        "sha256": "5bdaad0af54bf26434cd3e0821c25f81b12d8a82db3265cb3ab1deaf724be2aa"
+      },
+      "flags": {
+        "path": "/tmp/pkv-guard-c11-flags.make",
+        "sha256": "292c4614092f47cf791c7dc3a9340e25c7f138c026dc2d76d3a715fd001aaed7"
+      }
+    },
+    "tbb-c11": {
+      "baseline": {
+        "path": "/tmp/pkv-retention-validated-tbb-c11-pkv",
+        "sha256": "8ad8e6afb6a3bd9d03c5c0de7905c411824e0a058137fb039eb1840382cf7dc1"
+      },
+      "current": {
+        "path": "/tmp/pkv-guard-validated-tbb-c11-pkv",
+        "sha256": "9acbb8715ebd8201d1f2996fb3bb314de36a6ace3387522b2e9e9d305194cb1a"
+      },
+      "flags": {
+        "path": "/tmp/pkv-guard-tbb-c11-flags.make",
+        "sha256": "cbfc84c956be80a93b19f7000642bd7ad7d52b9e9ea2a8b614d311d96f013646"
+      }
+    }
+  },
+  "workers": 4,
+  "batches": 1024,
+  "pipeline": 256,
+  "server_threads": 2,
+  "read_rounds": 5,
+  "write_rounds": 3,
+  "write_batches": 128,
+  "payload_bytes": 64,
+  "active_expire": false,
+  "results": [
+    {
+      "seconds": 0.507233459,
+      "operations": 1048576,
+      "operations_per_second": 2067245.3313061115,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.525742667,
+      "operations": 1048576,
+      "operations_per_second": 1994466.2395072454,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5081657500000003,
+      "operations": 1048576,
+      "operations_per_second": 2063452.7218727341,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5021680000000002,
+      "operations": 1048576,
+      "operations_per_second": 2088098.0070414676,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5112972079999998,
+      "operations": 1048576,
+      "operations_per_second": 2050815.0320273223,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.5063274170000005,
+      "operations": 1048576,
+      "operations_per_second": 2070944.540615305,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.50882425,
+      "operations": 1048576,
+      "operations_per_second": 2060782.2838632397,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5050643749999999,
+      "operations": 1048576,
+      "operations_per_second": 2076123.4644593578,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5070337089999999,
+      "operations": 1048576,
+      "operations_per_second": 2068059.7391997073,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5105547919999998,
+      "operations": 1048576,
+      "operations_per_second": 2053797.1955809211,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5078160830000007,
+      "operations": 1048576,
+      "operations_per_second": 2064873.5538374009,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5097313329999995,
+      "operations": 1048576,
+      "operations_per_second": 2057115.0567273467,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5185755000000007,
+      "operations": 1048576,
+      "operations_per_second": 2022031.507466123,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5030778750000007,
+      "operations": 1048576,
+      "operations_per_second": 2084321.4383061442,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.49987716700000107,
+      "operations": 1048576,
+      "operations_per_second": 2097667.3255411917,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.4996957910000006,
+      "operations": 1048576,
+      "operations_per_second": 2098428.7218060615,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.5075793749999988,
+      "operations": 1048576,
+      "operations_per_second": 2065836.50094136,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5042777090000001,
+      "operations": 1048576,
+      "operations_per_second": 2079362.1873141327,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5060185410000013,
+      "operations": 1048576,
+      "operations_per_second": 2072208.6545046128,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5519867079999994,
+      "operations": 1048576,
+      "operations_per_second": 1899639.9456778246,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5670918749999991,
+      "operations": 1048576,
+      "operations_per_second": 1849040.774918529,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5553708749999995,
+      "operations": 1048576,
+      "operations_per_second": 1888064.4398214093,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5561034160000009,
+      "operations": 1048576,
+      "operations_per_second": 1885577.3401686824,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.55830175,
+      "operations": 1048576,
+      "operations_per_second": 1878152.8089424758,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5628782090000009,
+      "operations": 1048576,
+      "operations_per_second": 1862882.5618651698,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.5566404160000005,
+      "operations": 1048576,
+      "operations_per_second": 1883758.2932533578,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.5600135000000002,
+      "operations": 1048576,
+      "operations_per_second": 1872412.004353466,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5570029159999983,
+      "operations": 1048576,
+      "operations_per_second": 1882532.334893563,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5626095420000006,
+      "operations": 1048576,
+      "operations_per_second": 1863772.1576361016,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5538774170000025,
+      "operations": 1048576,
+      "operations_per_second": 1893155.3585980476,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 5
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12799191599999915,
+      "operations_per_second": 1024064.6760847057,
+      "resident_before_bytes": 4866048,
+      "resident_after_bytes": 5472256,
+      "retained_roots": 4,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "overwrite",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12398129099999977,
+      "operations_per_second": 1057191.7661351038,
+      "resident_before_bytes": 4816896,
+      "resident_after_bytes": 5488640,
+      "retained_roots": 4,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "overwrite",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12404483399999933,
+      "operations_per_second": 1056650.210842321,
+      "resident_before_bytes": 4767744,
+      "resident_after_bytes": 5439488,
+      "retained_roots": 4,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "overwrite",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12540645900000058,
+      "operations_per_second": 1045177.4258293937,
+      "resident_before_bytes": 4882432,
+      "resident_after_bytes": 5505024,
+      "retained_roots": 4,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "overwrite",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12672316700000152,
+      "operations_per_second": 1034317.5845660361,
+      "resident_before_bytes": 4931584,
+      "resident_after_bytes": 5537792,
+      "retained_roots": 4,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "overwrite",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12355166600000089,
+      "operations_per_second": 1060867.9287254536,
+      "resident_before_bytes": 4767744,
+      "resident_after_bytes": 5439488,
+      "retained_roots": 4,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "overwrite",
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.22285725000000056,
+      "operations_per_second": 1176286.613964766,
+      "resident_before_bytes": 4898816,
+      "resident_after_bytes": 5881856,
+      "retained_roots": 0,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "churn",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.22334787500000175,
+      "operations_per_second": 1173702.682418617,
+      "resident_before_bytes": 4751360,
+      "resident_after_bytes": 5816320,
+      "retained_roots": 0,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "churn",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.2264077499999999,
+      "operations_per_second": 1157840.2241089367,
+      "resident_before_bytes": 4800512,
+      "resident_after_bytes": 5865472,
+      "retained_roots": 0,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "churn",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.222742874999998,
+      "operations_per_second": 1176890.6188357421,
+      "resident_before_bytes": 4866048,
+      "resident_after_bytes": 5832704,
+      "retained_roots": 0,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "churn",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.2254452090000001,
+      "operations_per_second": 1162783.6367105937,
+      "resident_before_bytes": 4898816,
+      "resident_after_bytes": 5898240,
+      "retained_roots": 0,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "churn",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.22321804200000273,
+      "operations_per_second": 1174385.3572552921,
+      "resident_before_bytes": 4800512,
+      "resident_after_bytes": 5849088,
+      "retained_roots": 0,
+      "build": "c11",
+      "backend": "mdb",
+      "case": "churn",
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.4984214999999992,
+      "operations": 1048576,
+      "operations_per_second": 2103793.676637147,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5216347920000004,
+      "operations": 1048576,
+      "operations_per_second": 2010172.6650165603,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5060383329999993,
+      "operations": 1048576,
+      "operations_per_second": 2072127.6069811126,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5131752919999997,
+      "operations": 1048576,
+      "operations_per_second": 2043309.5987793596,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5081282089999988,
+      "operations": 1048576,
+      "operations_per_second": 2063605.171741218,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.505840709000001,
+      "operations": 1048576,
+      "operations_per_second": 2072937.1546092744,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.5060070840000002,
+      "operations": 1048576,
+      "operations_per_second": 2072255.5734022087,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.505191583000002,
+      "operations": 1048576,
+      "operations_per_second": 2075600.6934501834,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5035415000000008,
+      "operations": 1048576,
+      "operations_per_second": 2082402.3441960562,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "baseline",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5502695420000023,
+      "operations": 1048576,
+      "operations_per_second": 1905567.9443729697,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "variant": "new",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5121311249999998,
+      "operations": 1048576,
+      "operations_per_second": 2047475.6342919022,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5085475000000024,
+      "operations": 1048576,
+      "operations_per_second": 2061903.755303084,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5066999579999987,
+      "operations": 1048576,
+      "operations_per_second": 2069421.920102079,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5020854999999997,
+      "operations": 1048576,
+      "operations_per_second": 2088441.112121343,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5093227499999955,
+      "operations": 1048576,
+      "operations_per_second": 2058765.2917526446,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.5011138750000015,
+      "operations": 1048576,
+      "operations_per_second": 2092490.454390226,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.5108151250000006,
+      "operations": 1048576,
+      "operations_per_second": 2052750.4936350482,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.507528709000006,
+      "operations": 1048576,
+      "operations_per_second": 2066042.7309935438,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5087190419999956,
+      "operations": 1048576,
+      "operations_per_second": 2061208.473497654,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "baseline",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5059697920000019,
+      "operations": 1048576,
+      "operations_per_second": 2072408.3069370198,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "variant": "new",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5685579169999997,
+      "operations": 1048576,
+      "operations_per_second": 1844272.9731613263,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5622771660000012,
+      "operations": 1048576,
+      "operations_per_second": 1864873.8796552832,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "seconds": 0.5634267919999942,
+      "operations": 1048576,
+      "operations_per_second": 1861068.7579798491,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5688219159999974,
+      "operations": 1048576,
+      "operations_per_second": 1843417.0177085877,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "seconds": 0.5679012500000056,
+      "operations": 1048576,
+      "operations_per_second": 1846405.5150433104,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.5600918339999978,
+      "operations": 1048576,
+      "operations_per_second": 1872150.1302945332,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "seconds": 0.5711898749999946,
+      "operations": 1048576,
+      "operations_per_second": 1835774.8375704486,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5853241249999996,
+      "operations": 1048576,
+      "operations_per_second": 1791445.039105471,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 4
+    },
+    {
+      "seconds": 0.5638458329999949,
+      "operations": 1048576,
+      "operations_per_second": 1859685.6421212738,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "baseline",
+      "repetition": 5
+    },
+    {
+      "seconds": 0.5668452920000036,
+      "operations": 1048576,
+      "operations_per_second": 1849845.1249375348,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "variant": "new",
+      "repetition": 5
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12946008400000153,
+      "operations_per_second": 1012451.065611841,
+      "resident_before_bytes": 4964352,
+      "resident_after_bytes": 5668864,
+      "retained_roots": 4,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "overwrite",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.1324063329999987,
+      "operations_per_second": 989922.438226586,
+      "resident_before_bytes": 4915200,
+      "resident_after_bytes": 5652480,
+      "retained_roots": 4,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "overwrite",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12794824999999577,
+      "operations_per_second": 1024414.1674466382,
+      "resident_before_bytes": 4947968,
+      "resident_after_bytes": 5701632,
+      "retained_roots": 4,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "overwrite",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12763654199999763,
+      "operations_per_second": 1026915.9438681944,
+      "resident_before_bytes": 4947968,
+      "resident_after_bytes": 5636096,
+      "retained_roots": 4,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "overwrite",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.1269746660000024,
+      "operations_per_second": 1032268.9094531465,
+      "resident_before_bytes": 4947968,
+      "resident_after_bytes": 5636096,
+      "retained_roots": 4,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "overwrite",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "operations": 131072,
+      "seconds": 0.12992587499999786,
+      "operations_per_second": 1008821.3760346209,
+      "resident_before_bytes": 4964352,
+      "resident_after_bytes": 5668864,
+      "retained_roots": 4,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "overwrite",
+      "variant": "new",
+      "repetition": 3
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.2401058329999941,
+      "operations_per_second": 1091785.2212278675,
+      "resident_before_bytes": 4964352,
+      "resident_after_bytes": 8814592,
+      "retained_roots": 0,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "churn",
+      "variant": "baseline",
+      "repetition": 1
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.24640958300000193,
+      "operations_per_second": 1063854.7284096412,
+      "resident_before_bytes": 4997120,
+      "resident_after_bytes": 8896512,
+      "retained_roots": 0,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "churn",
+      "variant": "new",
+      "repetition": 1
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.24449366700000041,
+      "operations_per_second": 1072191.3709118674,
+      "resident_before_bytes": 4997120,
+      "resident_after_bytes": 8896512,
+      "retained_roots": 0,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "churn",
+      "variant": "new",
+      "repetition": 2
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.24643154199999628,
+      "operations_per_second": 1063759.93053683,
+      "resident_before_bytes": 4980736,
+      "resident_after_bytes": 8830976,
+      "retained_roots": 0,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "churn",
+      "variant": "baseline",
+      "repetition": 2
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.24395791700000302,
+      "operations_per_second": 1074545.9840928088,
+      "resident_before_bytes": 4947968,
+      "resident_after_bytes": 8814592,
+      "retained_roots": 0,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "churn",
+      "variant": "baseline",
+      "repetition": 3
+    },
+    {
+      "operations": 262144,
+      "seconds": 0.24419587500000262,
+      "operations_per_second": 1073498.8869078858,
+      "resident_before_bytes": 4947968,
+      "resident_after_bytes": 8830976,
+      "retained_roots": 0,
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "churn",
+      "variant": "new",
+      "repetition": 3
+    }
+  ],
+  "summaries": [
+    {
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET2",
+      "median_ops_per_second": {
+        "baseline": 2068059.7391997073,
+        "new": 2060782.2838632397
+      },
+      "delta_percent": -0.35189773286161685
+    },
+    {
+      "build": "c11",
+      "backend": "mdb",
+      "case": "GET3",
+      "median_ops_per_second": {
+        "baseline": 2079362.1873141327,
+        "new": 2057115.0567273467
+      },
+      "delta_percent": -1.0699016613128887
+    },
+    {
+      "build": "c11",
+      "backend": "mdb",
+      "case": "PTTL",
+      "median_ops_per_second": {
+        "baseline": 1863772.1576361016,
+        "new": 1885577.3401686824
+      },
+      "delta_percent": 1.1699489362603899
+    },
+    {
+      "build": "c11",
+      "backend": "mdb",
+      "case": "overwrite",
+      "median_ops_per_second": {
+        "baseline": 1034317.5845660361,
+        "new": 1057191.7661351038
+      },
+      "delta_percent": 2.211523995182274
+    },
+    {
+      "build": "c11",
+      "backend": "mdb",
+      "case": "churn",
+      "median_ops_per_second": {
+        "baseline": 1176286.613964766,
+        "new": 1173702.682418617
+      },
+      "delta_percent": -0.2196685327770398
+    },
+    {
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET2",
+      "median_ops_per_second": {
+        "baseline": 2075600.6934501834,
+        "new": 2072127.6069811126
+      },
+      "delta_percent": -0.16732922088678048
+    },
+    {
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "GET3",
+      "median_ops_per_second": {
+        "baseline": 2061208.473497654,
+        "new": 2069421.920102079
+      },
+      "delta_percent": 0.3984772384759028
+    },
+    {
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "PTTL",
+      "median_ops_per_second": {
+        "baseline": 1844272.9731613263,
+        "new": 1861068.7579798491
+      },
+      "delta_percent": 0.9106995039748655
+    },
+    {
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "overwrite",
+      "median_ops_per_second": {
+        "baseline": 1026915.9438681944,
+        "new": 1008821.3760346209
+      },
+      "delta_percent": -1.7620300806134859
+    },
+    {
+      "build": "tbb-c11",
+      "backend": "mdb_tbb",
+      "case": "churn",
+      "median_ops_per_second": {
+        "baseline": 1074545.9840928088,
+        "new": 1072191.3709118674
+      },
+      "delta_percent": -0.21912633017090455
+    }
+  ],
+  "limits": [
+    "Compares retained PKV revisions only, not official Redis",
+    "Five alternating read / three write samples, no statistical significance/general performance claim",
+    "Loopback and Python clients may limit results; GET uses one hot key, writes one key per worker",
+    "No other tests/benchmarks launched by this task overlap; unrelated machine load is uncontrolled",
+    "RSS from update helper is whole-process memory, not per-key allocation accounting"
+  ]
+}

@@ -1,0 +1,195 @@
+{
+  "total_passed": 632,
+  "common_protocol_assertions_per_build": 499,
+  "results": [
+    {
+      "build": "memory",
+      "passed": 70,
+      "elapsed_seconds": 54.48,
+      "log": "/tmp/pkv-msetex-memory-full.log",
+      "details": "/tmp/pkv-msetex-memory-full-details.log",
+      "log_sha256": "ffac968e65387f37b52c6323716597b4947ed98ad706476348da475d21b97b69",
+      "details_sha256": "8aa130d826fa14b73e61612462ffb2a1f50805fdbba55dcedd6ec1f3b5fc9f6c"
+    },
+    {
+      "build": "c11",
+      "passed": 70,
+      "elapsed_seconds": 36.76,
+      "log": "/tmp/pkv-msetex-c11-full.log",
+      "details": "/tmp/pkv-msetex-c11-full-details.log",
+      "log_sha256": "3442cc02bc0f5757c54f73e4b0edeac011181ca3ae385e6ae216b39bff7eb3a2",
+      "details_sha256": "5016ca490fdf059e59d8d0b98e956bcb9a4bfb2f7c134319dbf7130d3ef562a5"
+    },
+    {
+      "build": "tbb",
+      "passed": 78,
+      "elapsed_seconds": 57.56,
+      "log": "/tmp/pkv-msetex-tbb-full.log",
+      "details": "/tmp/pkv-msetex-tbb-full-details.log",
+      "log_sha256": "b82fdbbd5b95a3b800ebaf5a344a8024621684c03172d3777ac57a37e28c5718",
+      "details_sha256": "fedab8121f3df8c76ac26cc161dae7e32010864d8a32e84656a5ac054688a50c"
+    },
+    {
+      "build": "tbb-c11",
+      "passed": 78,
+      "elapsed_seconds": 38.33,
+      "log": "/tmp/pkv-msetex-tbb-c11-full.log",
+      "details": "/tmp/pkv-msetex-tbb-c11-full-details.log",
+      "log_sha256": "c9cc049a1f201f33e1bcf1a96819de97b3dfa2951578dfe46c42a8d125434ef7",
+      "details_sha256": "f61d2bc4a4c6f6d36158953112be5ba9684f2ede76ff1eea27433bef008b0e26"
+    },
+    {
+      "build": "rocks",
+      "passed": 84,
+      "elapsed_seconds": 74.05,
+      "log": "/tmp/pkv-msetex-rocks-full.log",
+      "details": "/tmp/pkv-msetex-rocks-full-details.log",
+      "log_sha256": "beb0e70ee92da100dd9d1386d03f6ecdb2ed8a67ffb360873c957c9db0a0d099",
+      "details_sha256": "dbe6e60c80d7ebb79767134638e2d4398021417f70bc2ce2161098de36740c55"
+    },
+    {
+      "build": "rocks-release",
+      "passed": 84,
+      "elapsed_seconds": 51.04,
+      "log": "/tmp/pkv-msetex-rocks-release-full.log",
+      "details": "/tmp/pkv-msetex-rocks-release-full-details.log",
+      "log_sha256": "f6eb6eb1683b51c69526927e66a487ba4572e5359527e5cc3a501da6d8221dab",
+      "details_sha256": "3a8d25da793c7a8fd70c5e0a14fad1c430760caf5d5ce20c2c21f1cf0adea565"
+    },
+    {
+      "build": "wt",
+      "passed": 84,
+      "elapsed_seconds": 258.04,
+      "log": "/tmp/pkv-msetex-wt-full.log",
+      "details": "/tmp/pkv-msetex-wt-full-details.log",
+      "log_sha256": "f9a4400d383ac54b796192980035c3a12e8534c4675f4950f9f8a5f3937c224f",
+      "details_sha256": "6f287ca46cc35ee2dd01c8a836220ce27869f03433d16f7b5131f69f6e798002"
+    },
+    {
+      "build": "wt-c11",
+      "passed": 84,
+      "elapsed_seconds": 234.5,
+      "log": "/tmp/pkv-msetex-wt-c11-full.log",
+      "details": "/tmp/pkv-msetex-wt-c11-full-details.log",
+      "log_sha256": "313b738b4282378f17a12b44836c8151c5247ffd2add30ac96751ea352799cc5",
+      "details_sha256": "9fb89d5f971489b3f3e578d8254be508df239858971ec4cbabebd28251a9adeb"
+    }
+  ],
+  "all_sessions_terminal": true,
+  "wt_isolated": true,
+  "final_schedule": [
+    [
+      "memory",
+      "c11"
+    ],
+    [
+      "tbb",
+      "tbb-c11"
+    ],
+    [
+      "rocks",
+      "rocks-release"
+    ],
+    [
+      "wt"
+    ],
+    [
+      "wt-c11"
+    ]
+  ],
+  "initial_six_parallel_results": [
+    {
+      "build": "memory",
+      "failed": 2,
+      "total": 70,
+      "connect_address_errors": 1,
+      "broken_barrier": true,
+      "log": "/tmp/pkv-msetex-memory-first-full.log",
+      "log_sha256": "af4ff482bce8da87e79ab3b92d375ae249a85094ce9d5d4622bb68e59470eeb4"
+    },
+    {
+      "build": "c11",
+      "failed": 3,
+      "total": 70,
+      "connect_address_errors": 3,
+      "broken_barrier": false,
+      "log": "/tmp/pkv-msetex-c11-first-full.log",
+      "log_sha256": "ebe932bd73844b51f8d0574899d9fd03822de09ddc6da03794f8bf7bb98d6f64"
+    },
+    {
+      "build": "tbb",
+      "failed": 9,
+      "total": 78,
+      "connect_address_errors": 9,
+      "broken_barrier": false,
+      "log": "/tmp/pkv-msetex-tbb-first-full.log",
+      "log_sha256": "a2ea7abe70a6d3f6281566a16a85da7258e714d26146d60ae80b521f83621a19"
+    },
+    {
+      "build": "tbb-c11",
+      "failed": 3,
+      "total": 78,
+      "connect_address_errors": 3,
+      "broken_barrier": false,
+      "log": "/tmp/pkv-msetex-tbb-c11-first-full.log",
+      "log_sha256": "248f16dac57e9edab16cf75f4fabab5f04a41a7f5127ecf0316640ff89c1bf53"
+    },
+    {
+      "build": "rocks",
+      "failed": 12,
+      "total": 84,
+      "connect_address_errors": 12,
+      "broken_barrier": false,
+      "log": "/tmp/pkv-msetex-rocks-first-full.log",
+      "log_sha256": "ad80994d1f9920c642cf1929c2a65147085ec315109a26e4052258b9912d75d2"
+    },
+    {
+      "build": "rocks-release",
+      "failed": 11,
+      "total": 84,
+      "connect_address_errors": 11,
+      "broken_barrier": false,
+      "log": "/tmp/pkv-msetex-rocks-release-first-full.log",
+      "log_sha256": "35782a0f189c3de056be02b4848d35bbebffb91ba369e20c45c2b5a5194b07e9"
+    }
+  ],
+  "isolated_retry": {
+    "log": "/tmp/pkv-msetex-memory-isolated-failed.log",
+    "sha256": "d015bbe00cb5bd7aae3f83ced280caf206f445a68f54925e1df972e1cac1eaa6"
+  },
+  "environment_observation": "Connect EADDRNOTAVAIL; later socket snapshot did not establish the precise resource mechanism. No system setting changed.",
+  "source_sha256": {
+    "action/redis_command.cpp": "cad4e8fe6f5ab9e9bdf296c44d1c3ebefd582325b04813ed25605723a5d4a881",
+    "action/redis_service.cpp": "587ee13cc12c2a6dbb2dca7b53e5949ef079975d6fabc473325a5990a96a031d",
+    "action/redis_string.cpp": "bca1798771c3d435f707fb809aa486a9b792d627e1b0749fa3ddee56f05208dc",
+    "action/redis_string.h": "20646db004c99002f6a7f928ba50c3cad0524bb3ea6f40edf599d7dda36b8444",
+    "action/redis_string_msetex.cpp": "d51099493a59983085b8e24836eac9db60e575647b90ac8606be942e76403887",
+    "common/command_keys.cpp": "cf0f097cebb1108f188fbb192801ff2a7253a17542308cb8e3ba4e1094266c50",
+    "common/command_catalog_data.inc": "b58802913159135037a86562bdcf322b5b873affadadd5b03dc8082e05fbd164",
+    "dao/string.h": "1f9ea8a8b1109c36df9e607289995d26827a502b40e5bea566676956e271249a",
+    "dao/paged_string.h": "27467098b7886e069b673960b42a9829c2d01b410b52a0e219e8ef304b244a4e",
+    "dao/paged_string_batch.cpp": "eab196122f4fe7fc1298519c4839a58f0981c0c5dbf3964640d6f2f2018961f0",
+    "dao/json/json_string.h": "3f91e291104b2df67e183daf754c69ff0605093632bc82f35573d4ef7b9830d7",
+    "dao/json/json_string_batch.cpp": "412513bcd8947f5f75a565ba6dee98777dbc3007a888c34d122345a9b69cd916",
+    "tests/msetex_test.cpp": "466acbc5909545306c794efd8f7f95df2ad63e07f87f4d1ab2e7fdc7cfe3b098",
+    "tests/msetex_test.py": "178bcf3ccb02ddf1e5778d39e360971aaf6a7ca82025d791628b48e4efdf0545",
+    "tests/msetex_backend_test.py": "d39140b33428bcc4ca0b2cbb213a0f607af51b0ba19af426c5579cea65d02e79",
+    "tests/CMakeLists.txt": "802a677d69721b27505047e597b7131a3128b2dffd3235a183afb78a8681bd6f"
+  },
+  "reference": {
+    "binary": "/Users/zsx/work/github/redis/redis-8.6.2/src/redis-server",
+    "sha256": "6dcfb7f44d3c83bba8851378fcc775428a8cf2617e18f010b9a402d26f14794a",
+    "version": "Redis server v=8.6.2 sha=00000000:1 malloc=libc bits=64 build=dc7a0160f6aa59fe\n"
+  },
+  "first_boundary_failure": "/tmp/pkv-msetex-memory-socket.log",
+  "targeted_repair": "/tmp/pkv-msetex-memory-boundary-target.log",
+  "reference_differences": [
+    "strict NUL option tokens",
+    "reject signed relative expiration overflow"
+  ],
+  "limits": [
+    "multiple physical disk instances remain unsupported for writes",
+    "no initial sync/durable replay/crash safety claim",
+    "no complete Redis parity or server throughput claim"
+  ]
+}
