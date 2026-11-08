@@ -22,17 +22,18 @@ bool control(acl::shared_stream& connection, page_operation operation,
 } // namespace
 bool exec_stream::send(acl::shared_stream& connection,
     const exec_batch& batch, unsigned protocol) {
-    if ((protocol != 3 && protocol != 4) || batch.protocol() > protocol)
+    if (protocol < 3 || protocol > 5 || batch.protocol() > protocol)
         return false;
+    if (protocol == 5 && batch.protocol() < 5) protocol = 4;
     char begin[16];
-    page_wire::put32(begin, static_cast<uint32_t>(batch.protocol() == 4 ?
+    page_wire::put32(begin, static_cast<uint32_t>(!batch.entries().empty() ?
         batch.entries().size() : batch.batches().size()));
     page_wire::put32(begin + 4, static_cast<uint32_t>(batch.records()));
     page_wire::put64(begin + 8, batch.bytes());
     if (!control(connection, page_operation::exec_begin, protocol, begin,
         sizeof(begin)))
         return false;
-    if (batch.protocol() == 4) {
+    if (!batch.entries().empty()) {
         for (const auto& entry : batch.entries()) {
             const bool sent = entry.pages() ?
                 page_stream::send(connection, *entry.pages(), protocol) :

@@ -8,17 +8,17 @@ value can be read. DBSIZE can fall without any command touching those keys.
 The service uses one background thread running an ACL fiber scheduler. It visits
 only opened logical databases, without opening unused disk databases. Candidate
 keys come from a striped in-memory TTL index rather than repeated full keyspace
-scans. Each expiring owner has one additional owned key string, one hash entry
-and one ordered deadline node. Deadline replacement removes the previous node;
-there is no stale-node heap that grows with repeated EXPIRE calls. The ordered
-nodes borrow stable pointers from the hash entries, including across rehashes.
+scans. Each stripe stores deadlines in an indexed min-heap. Each expiring
+owner has one hash entry that owns the key and one heap pointer to that entry.
+Hash entry pointers stay valid across rehashes. Refreshing a deadline adjusts
+its heap position without allocating or retaining a stale entry.
 
 Each stripe also has an atomic scheduling lower bound in a separate array.
 A negative hint proves the stripe empty; a future hint lets an idle pass skip
 its mutex. Persistent writes can skip removal from a proven-empty stripe.
 Successful inserts publish earlier deadlines after allocation succeeds. Deletes
 and later deadlines may leave an older lower bound; a due pass locks the stripe
-and refreshes it from the ordered map. This avoids publishing an exact minimum
+and refreshes it from the heap minimum. This avoids publishing an exact minimum
 on every TTL mutation. A stale lower bound only causes extra locking, never a
 missed due key. A future stale hint can delay discovering an empty stripe until
 that time; it retains no owner or deadline nodes.

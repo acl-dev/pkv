@@ -97,7 +97,7 @@ def greeting(listener):
     line = b''
     while not line.endswith(b'\r\n'):
         line += exact(peer, 1)
-    assert line == b'PKV-REPL 4\r\n', line
+    assert line in (b'PKV-REPL 4\r\n', b'PKV-REPL 5\r\n'), line
     peer.sendall(frame(4))
     return peer
 
@@ -188,7 +188,7 @@ def fallback(binary, backend):
         address = '127.0.0.1:%d' % listener.getsockname()[1]
         with server(binary, backend=backend,
                     replica_rpc_source=address) as port:
-            for version in (4, 3):
+            for version in (5, 4, 3):
                 peer, _ = listener.accept()
                 with peer:
                     peer.settimeout(5)
@@ -196,7 +196,7 @@ def fallback(binary, backend):
                     while not line.endswith(b'\r\n'):
                         line += exact(peer, 1)
                     assert line == ('PKV-REPL %d\r\n' % version).encode()
-                    if version == 4:
+                    if version >= 4:
                         continue  # A v3-only publisher rejects that request.
                     peer.sendall(HEADER.pack(0x504b5633, 4, 0, 0, 0))
                     key = b'old-peer'
@@ -209,7 +209,7 @@ def fallback(binary, backend):
                         wait_value(client, 'string', key, b'compatible')
                     finally:
                         client.close()
-    print('Explicit v4-to-v3 reconnect fallback passed', backend)
+    print('Explicit v5/v4-to-v3 reconnect fallback passed', backend)
 
 
 def main():

@@ -44,7 +44,7 @@ void string_store::initialize(int64_t expires_at_ms) {
 }
 bool string_store::read_page(uint64_t index, std::string& out) {
     if (index >= root_.pages) return fail(status::invalid);
-    const auto result = transaction_.lookup(owner_, index + 1, out);
+    const auto result = transaction_.lookup_bound(entry_, index + 1, out, true);
     if (result != db::lookup_status::found)
         return fail(result == db::lookup_status::error ? status::storage :
             status::invalid);
@@ -52,7 +52,8 @@ bool string_store::read_page(uint64_t index, std::string& out) {
         fail(status::invalid);
 }
 bool string_store::write_page(uint64_t index, const std::string& value) {
-    return transaction_.put(owner_, index + 1, value) || fail(status::storage);
+    return transaction_.put_bound(entry_, index + 1, value) ||
+        fail(status::storage);
 }
 
 bool string_store::assign(const std::string& value) {
@@ -146,6 +147,39 @@ bool string_store::write_limit(uint64_t offset, const std::string& value,
 }
 
 bool string_store::read(std::string& out) { return range(0, -1, out); }
+bool string_store::inspect_chunk(uint64_t offset, size_t size,
+    std::string& scratch, db::page_inspector visit, void* context) {
+    if (error_ != status::ok) return false;
+    if (!exists_ || !visit || !size || offset >= root_.length ||
+        offset % string_page_codec::page_bytes)
+        return fail(status::invalid);
+    if (!root_.pages) {
+        if (size != root_.inline_value.size()) return fail(status::invalid);
+        visit(context, root_.inline_value);
+        return true;
+    }
+    const auto index = offset / string_page_codec::page_bytes;
+    if (size != string_page_codec::page_size(root_, index))
+        return fail(status::invalid);
+    struct inspection {
+        size_t expected;
+        db::page_inspector visit;
+        void* context;
+        bool valid;
+    } work{size, visit, context, false};
+    const auto validate = [](void* raw, const std::string& bytes) {
+        auto& request = *static_cast<inspection*>(raw);
+        if (bytes.size() != request.expected) return;
+        request.valid = true;
+        request.visit(request.context, bytes);
+    };
+    const auto result = transaction_.inspect_bound(entry_, index + 1,
+        scratch, validate, &work);
+    if (result == db::lookup_status::found && work.valid) return true;
+    return fail(result == db::lookup_status::error ? status::storage :
+        status::invalid);
+}
+
 bool string_store::range(long long start, long long end, std::string& out) {
     out.clear();
     if (error_ != status::ok) return false;
@@ -154,6 +188,13 @@ bool string_store::range(long long start, long long end, std::string& out) {
         end, offset, count)) return true;
     if (!root_.pages) {
         out.assign(root_.inline_value, offset, count); return true;
+    }
+    const auto first_page = offset / string_page_codec::page_bytes;
+    if (offset % string_page_codec::page_bytes == 0 &&
+        count == string_page_codec::page_size(root_, first_page)) {
+        if (read_page(first_page, out)) return true;
+        out.clear();
+        return false;
     }
     std::string result;
     result.reserve(count);

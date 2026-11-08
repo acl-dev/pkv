@@ -27,15 +27,16 @@ bool cluster_client::open() {
     wire_version_ = 0;
     pages_.reset(); executions_.reset(); ordered_.reset();
     requested_version_ = next_version_;
-    next_version_ = 4;
-    const char* request = requested_version_ == 4 ? "PKV-REPL 4\r\n" :
+    next_version_ = 5;
+    const char* request = requested_version_ == 5 ? "PKV-REPL 5\r\n" :
+        requested_version_ == 4 ? "PKV-REPL 4\r\n" :
         requested_version_ == 3 ? "PKV-REPL 3\r\n" :
         requested_version_ == 2 ?
         "PKV-REPL 2\r\n" : "PKV-REPL 1\r\n";
     const auto length = std::strlen(request);
     if (conn_->open(addr_.c_str(), 30, -1)) {
         if (!send_password(conn_, password_)) {
-            requested_version_ = 0; next_version_ = 4;
+            requested_version_ = 0; next_version_ = 5;
             conn_->close();
             return false;
         }
@@ -90,14 +91,16 @@ bool cluster_client::apply_packet(rpc_packet packet) {
         return apply(packet.message);
     }
     if (packet.message || !negotiated_ || wire_version_ < 2 ||
-        packet.frame.protocol != wire_version_) {
+        (wire_version_ == 5 ? (packet.frame.protocol != 4 &&
+            packet.frame.protocol != 5) :
+            packet.frame.protocol != wire_version_)) {
         return false;
     }
     if (executions_.active() || ordered_.active() ||
         packet.frame.operation == page_operation::exec_begin) {
         if (wire_version_ < 3 || pages_.active()) return false;
         std::shared_ptr<const exec_batch> group;
-        const auto status = wire_version_ == 4 ?
+        const auto status = wire_version_ >= 4 ?
             ordered_.accept(std::move(packet.frame), group) :
             executions_.accept(std::move(packet.frame), group);
         if (status == exec_receiver::result::error) return false;
@@ -111,17 +114,16 @@ bool cluster_client::apply_packet(rpc_packet packet) {
         const auto target = select(database);
         return target && group->apply(*target) == db::batch_status::ok;
     }
-    const auto selected = select(packet.frame.database);
-    if (!selected) {
-        return false;
-    }
+    // The receiver checks that subsequent frames use the BEGIN database.
+    if (!pages_.active() && !select(packet.frame.database)) return false;
     std::shared_ptr<const page_batch> batch;
     const auto status = pages_.accept(std::move(packet.frame), batch);
     if (status == page_receiver::result::error) {
         return false;
     }
-    return status != page_receiver::result::complete ||
-        batch->apply(*selected) == db::batch_status::ok;
+    if (status != page_receiver::result::complete) return true;
+    const auto selected = select(batch->database());
+    return selected && batch->apply(*selected) == db::batch_status::ok;
 }
 
 bool cluster_client::apply(const shared_message& message) {
@@ -131,7 +133,7 @@ bool cluster_client::apply(const shared_message& message) {
     }
     const auto version = message->get_protocol();
     if (message->get_oper() == message_oper_ready) {
-        if (negotiated_ || (version < 1 || version > 4) ||
+        if (negotiated_ || (version < 1 || version > 5) ||
             version > requested_version_ ||
             message->get_database() != 0 || !message->get_key().empty() ||
             !message->get_value().empty()) {
@@ -141,7 +143,7 @@ bool cluster_client::apply(const shared_message& message) {
         wire_version_ = version;
         return true;
     }
-    if (version > 4 || (version >= 2 && !negotiated_) ||
+    if (version > 5 || (version >= 2 && !negotiated_) ||
         (negotiated_ && version != wire_version_)) {
         return false;
     }

@@ -20,6 +20,9 @@ class client_activity {
 public:
     explicit client_activity(size_t base = 0, size_t worker = 0);
     void received(size_t bytes, size_t capacity);
+    void receive_capacity(size_t capacity) {
+        transport_.store(capacity, std::memory_order_relaxed);
+    }
     void buffered(size_t bytes);
     void sending(const std::string& buffer);
     void writing(size_t bytes);

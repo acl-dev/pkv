@@ -27,8 +27,12 @@ uint64_t hash(const std::string& value) {
 bool add(std::string& value, const std::string& element, bool& changed) {
     const auto bits = hash(element);
     auto frequency_bits = (bits >> 14) | (uint64_t(1) << 50);
+#if defined(__GNUC__)
+    const auto frequency = static_cast<uint8_t>(__builtin_ctzll(frequency_bits) + 1);
+#else
     uint8_t frequency = 1;
     while (!(frequency_bits & 1)) { ++frequency; frequency_bits >>= 1; }
+#endif
     return set(value, bits & (registers_size - 1), frequency, changed);
 }
 } // namespace hll

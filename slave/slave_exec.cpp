@@ -15,6 +15,7 @@ bool slave_watcher::begin_exec() {
     exec_active_ = true; exec_capture_ = !eof_ && clients_count_.load() != 0;
     exec_failed_ = false; exec_bytes_ = exec_records_ = 0;
     exec_staged_bytes_ = exec_staged_records_ = 0;
+    exec_expanded_bytes_ = exec_actions_ = 0;
     exec_preparing_ = false; ++exec_generation_;
     collecting_.store(exec_capture_);
     return true;
@@ -33,14 +34,20 @@ bool slave_watcher::capture_pages_locked(unsigned database,
     const bool first = exec_pages_.empty() && exec_entries_.empty();
     const auto bytes = size.bytes + (first ? 56 : 0);
     const auto records = size.records + (first ? 2 : 0);
+    const auto expanded = size.expanded_bytes +
+        (first ? page_batch::group_storage_bytes : 0);
+    const auto actions = size.actions + (first ? 2 : 0);
     if (bytes > page_batch::max_bytes - exec_bytes_ ||
         records > page_batch::max_records - exec_records_ ||
         size.bytes > page_batch::max_bytes - exec_staged_bytes_ ||
         size.records > page_batch::max_records - exec_staged_records_ ||
-        !budget_.reserve_encoded(bytes, records)) {
+        expanded > page_batch::max_expanded_bytes - exec_expanded_bytes_ ||
+        actions > page_batch::max_expanded_records - exec_actions_ ||
+        !budget_.reserve_encoded(bytes, records, expanded, actions)) {
         exec_failed_ = true; return false;
     }
     exec_bytes_ += bytes; exec_records_ += records;
+    exec_expanded_bytes_ += expanded; exec_actions_ += actions;
     exec_staged_bytes_ += size.bytes; exec_staged_records_ += size.records;
     try {
         auto batch = page_batch::capture(database, roots, pages);
@@ -85,7 +92,9 @@ void slave_watcher::end_exec() {
                     exec_batch::capture(std::move(exec_pages_)) :
                     exec_batch::capture_ordered(std::move(exec_entries_));
                 if (group && group->bytes() == exec_bytes_ &&
-                    group->records() == exec_records_) {
+                    group->records() == exec_records_ &&
+                    group->expanded_bytes() == exec_expanded_bytes_ &&
+                    group->actions() == exec_actions_) {
                     std::unique_ptr<kv_message> message(new kv_message(group));
                     std::unique_ptr<publication> item(new publication(
                         message.get(), epoch_));
@@ -98,11 +107,13 @@ void slave_watcher::end_exec() {
             } catch (const std::bad_alloc&) { exec_failed_ = true; }
         }
         if (!queued && exec_records_)
-            budget_.release_encoded(exec_bytes_, exec_records_);
+            budget_.release_encoded(exec_bytes_, exec_records_,
+                exec_expanded_bytes_, exec_actions_);
         std::vector<std::shared_ptr<const page_batch>>().swap(exec_pages_);
         std::vector<exec_entry>().swap(exec_entries_);
         exec_bytes_ = exec_records_ = 0;
         exec_staged_bytes_ = exec_staged_records_ = 0;
+        exec_expanded_bytes_ = exec_actions_ = 0;
         exec_preparing_ = false;
         if (exec_failed_ || (eof_ && exec_capture_)) {
             logger_error("EXEC publication failed; invalidating subscribers");

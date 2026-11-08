@@ -2,6 +2,11 @@
 #include "json_key.h"
 #include "db/list_store.h"
 #include "db/zset_store.h"
+#include "coder/compact_zset.h"
+#include "coder/compact_set.h"
+#include "coder/compact_hash.h"
+#include "coder/compact_list_root.h"
+#include "db/stream_store.h"
 #include "dao/map_status.h"
 #include "dao/native_import.h"
 #include "dao/string_status.h"
@@ -10,6 +15,19 @@ namespace pkv {
 namespace dao {
 
 namespace {
+
+dao_base::read_status clone_stream(page_transaction& source_tx,
+    const std::string& source, page_transaction& target_tx,
+    const std::string& target) {
+    using status = stream_store::status;
+    using result = dao_base::read_status;
+    stream_store from(source_tx, source), to(target_tx, target);
+    if (from.open() != status::ok) return result::invalid_record;
+    const auto cloned = from.clone_to(to);
+    if (cloned == status::ok) return result::ok;
+    return cloned == status::storage ? result::storage_error :
+        result::invalid_record;
+}
 
 dao_base::read_status transfer_error(const string_store& source,
     const string_store& destination) {
@@ -46,6 +64,18 @@ dao_base::read_status transfer_error(const map_store& source,
     if (destination.error() != map_store::status::ok)
         return map_read_status(destination.error());
     return dao_base::read_status::invalid_record;
+}
+
+// A packed root owns no pages and its header was checked by decode.
+dao_base::read_status clone_packed_root(const std::string& value,
+    page_transaction& target_tx, const std::string& target) {
+    using result = dao_base::read_status;
+    auto& destination = *target_tx.roots().find(target);
+    if (destination.found && !target_tx.reset_pages(target))
+        return result::storage_error;
+    destination.value = value;
+    destination.action = db::update_action::write;
+    return result::ok;
 }
 
 template<class Store>
@@ -119,10 +149,23 @@ bool json_key::copy_paged(shared_db& source_db, const std::string& source,
                 destination, false, copied);
             return read_status_ == read_status::ok;
         }
+        if ((kind == value_kind::zset && compact_zset::matches(from.value)) ||
+            (kind == value_kind::set && compact_set::matches(from.value)) ||
+            (kind == value_kind::hash && compact_hash::matches(from.value)) ||
+            (kind == value_kind::list && compact_list_root::matches(from.value))) {
+            read_status_ = clone_packed_root(from.value, to_tx, destination);
+            copied = read_status_ == read_status::ok;
+            return copied;
+        }
         if (kind == value_kind::zset) {
             read_status_ = clone_value<zset_store>(from_tx, source, to_tx,
                 destination, false, copied);
             return read_status_ == read_status::ok;
+        }
+        if (kind == value_kind::stream) {
+            read_status_ = clone_stream(from_tx, source, to_tx, destination);
+            copied = read_status_ == read_status::ok;
+            return copied;
         }
         read_status_ = kind == value_kind::list ? clone_value<list_store>(
             from_tx, source, to_tx, destination, false, copied) : clone_map(
@@ -179,10 +222,26 @@ bool json_key::rename_paged(shared_db& db, const std::string& source,
                 destination, true, renamed);
             return read_status_ == read_status::ok;
         }
+        if ((kind == value_kind::zset && compact_zset::matches(from.value)) ||
+            (kind == value_kind::set && compact_set::matches(from.value)) ||
+            (kind == value_kind::hash && compact_hash::matches(from.value)) ||
+            (kind == value_kind::list && compact_list_root::matches(from.value))) {
+            read_status_ = clone_packed_root(from.value, tx, destination);
+            renamed = read_status_ == read_status::ok;
+            if (renamed) from.action = db::update_action::erase;
+            return renamed;
+        }
         if (kind == value_kind::zset) {
             read_status_ = clone_value<zset_store>(tx, source, tx, destination,
                 true, renamed);
             return read_status_ == read_status::ok;
+        }
+        if (kind == value_kind::stream) {
+            read_status_ = clone_stream(tx, source, tx, destination);
+            if (read_status_ != read_status::ok) return false;
+            from.action = db::update_action::erase;
+            renamed = true;
+            return true;
         }
         read_status_ = kind == value_kind::list ? clone_value<list_store>(
             tx, source, tx, destination, true, renamed) : clone_map(tx, source,

@@ -9,6 +9,9 @@ class page_stream {
 public:
     static bool send(acl::shared_stream& connection, const page_batch& batch,
         unsigned protocol = 2);
+    // Send complete, ordered page transactions with shared bounded I/O.
+    static bool send_run(acl::shared_stream& connection,
+        const page_batch* const* batches, size_t count, unsigned protocol);
     static bool read(acl::shared_stream& connection, page_frame& out);
 
     // Dispatchers that already consumed a 20-byte header can continue here.

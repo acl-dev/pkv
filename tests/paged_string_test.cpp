@@ -203,7 +203,7 @@ static void test_key_operations() {
 static void test_errors() {
     auto database = memory();
     dao::paged_string data;
-    for (const auto& bytes : {std::string("PSR\2future", 10),
+    for (const auto& bytes : {std::string("PSR\177future", 10),
         std::string("PSR\1broken", 10)}) {
         require(database->set("bad", bytes), "bad record seed");
         std::string out = "stale", after;
@@ -331,7 +331,55 @@ static void test_locality() {
         && !native->reads && !native->writes,
         "String TTL/STRLEN touched pages");
 }
+static void test_integer_roots() {
+    auto database = memory();
+    dao::paged_string data;
+    dao::json_string legacy;
+    dao::json_key keys;
+    long long value, expiry;
+    require(data.increment(database, "missing", -7, false, value) &&
+        value == -7, "missing integer root");
+    for (bool migrated : {false, true}) {
+        const std::string key = migrated ? "legacy-int" : "native-int";
+        require(migrated ? legacy.set(database, key, "9223372036854775806") :
+            data.set(database, key, "9223372036854775806"), "integer seed");
+        require(keys.set_expiry(database, key, deadline, 0) &&
+            data.increment(database, key, 1, false, value) &&
+            value == LLONG_MAX && keys.expiry_time(database, key, expiry) &&
+            expiry == deadline, "integer migration/TTL");
+        std::string before, after;
+        require(database->get(key, before), "integer snapshot");
+        require(!data.increment(database, key, 1, false, value) &&
+            value == 0 && data.status() ==
+                dao::dao_base::read_status::integer_overflow &&
+            database->get(key, after) && before == after,
+            "overflow changed integer root");
+    }
+    for (const auto& text : {std::string(""), std::string("01"),
+        std::string("-0"), std::string("+1"), std::string("1\0x", 3),
+        std::string("9223372036854775808")}) {
+        require(data.set(database, "invalid-int", text), "invalid seed");
+        std::string before, after;
+        require(database->get("invalid-int", before) &&
+            !data.increment(database, "invalid-int", 1, false, value) &&
+            value == 0 && data.status() ==
+                dao::dao_base::read_status::invalid_integer &&
+            database->get("invalid-int", after) && before == after,
+            "invalid integer changed root");
+    }
+    string_root expired;
+    expired.expires_at_ms = 1;
+    expired.length = 40000;
+    expired.pages = string_page_codec::pages_for(expired.length);
+    std::string encoded;
+    require(string_page_codec::encode_root(expired, encoded) ==
+        string_page_status::ok && database->set("expired-int", encoded) &&
+        data.increment(database, "expired-int", 3, false, value) &&
+        value == 3 && keys.expiry_time(database, "expired-int", expiry) &&
+        expiry == -1, "expired paged integer recreation");
+}
 static void suite() {
+    test_integer_roots();
     test_model(); test_migration_and_mget(); test_key_operations();
     test_errors(); test_allocation_rollback(false);
     test_allocation_rollback(true);

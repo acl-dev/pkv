@@ -2,7 +2,10 @@
 #include "mdb_tbb.h"
 #include "db/key_count.h"
 #if defined(HAS_TBB)
+#include "common/key_crc32.h"
 #include "db/page_transaction.h"
+#include "replacement_workspace.h"
+#include <cstring>
 #include <climits>
 #include <stdexcept>
 
@@ -12,10 +15,12 @@ const size_t mdb_tbb::scan_buckets;
 
 mdb_tbb::store::store() {
     for (auto& entry : indexes) entry.store(nullptr, std::memory_order_relaxed);
+    for (auto& lock : scan_locks) lock.store(nullptr, std::memory_order_relaxed);
 }
 
 mdb_tbb::store::~store() {
     for (auto& entry : indexes) delete entry.load(std::memory_order_relaxed);
+    for (auto& lock : scan_locks) delete lock.load(std::memory_order_relaxed);
 }
 
 mdb_tbb::mdb_tbb(size_t count) {
@@ -30,15 +35,30 @@ mdb_tbb::~mdb_tbb() = default;
 bool mdb_tbb::dbopen(const char*) { return true; }
 
 mdb_tbb::location mdb_tbb::locate(const std::string& key) const {
-    const auto hash = static_cast<size_t>(acl_hash_crc32(key.data(),
+    const auto hash = static_cast<size_t>(key_crc32(key.data(),
         key.size()));
     return {hash % stores_.size(), (hash / stores_.size()) % scan_buckets};
 }
 
+acl::fiber_mutex& mdb_tbb::scan_lock(const location& position) {
+    return *stores_[position.shard]->scan_locks[position.bucket % scan_lock_count]
+        .load(std::memory_order_acquire);
+}
+
 mdb_tbb::scan_index* mdb_tbb::index(const location& position, bool create) {
-    auto& slot = stores_[position.shard]->indexes[position.bucket];
+    auto& shard = *stores_[position.shard];
+    auto& slot = shard.indexes[position.bucket];
     auto* value = slot.load(std::memory_order_acquire);
     if (value || !create) return value;
+    // Publish the stripe before any bucket can expose a reference to it.
+    auto& stripe = shard.scan_locks[position.bucket % scan_lock_count];
+    auto* mutex = stripe.load(std::memory_order_acquire);
+    if (!mutex) {
+        std::unique_ptr<acl::fiber_mutex> candidate(new acl::fiber_mutex);
+        if (stripe.compare_exchange_strong(mutex, candidate.get(),
+                std::memory_order_acq_rel, std::memory_order_acquire))
+            candidate.release();
+    }
     std::unique_ptr<scan_index> candidate(new scan_index);
     if (slot.compare_exchange_strong(value, candidate.get(),
         std::memory_order_acq_rel, std::memory_order_acquire))
@@ -92,12 +112,12 @@ bool mdb_tbb::dbget(const std::string& key, std::string& value) {
 }
 
 mdb_tbb::inline_status mdb_tbb::dbread_inline(const std::string& key,
-    int64_t now, std::string& out) {
+    std::string& out, size_t offset, size_t limit) {
     // The public key lock protects root bytes after find releases its TBB
     // accessor, just as it does for dblookup and page transactions.
     const auto owner = find(key);
     if (!owner) return inline_status::missing;
-    return decode_inline(owner->root, now, out);
+    return decode_inline(owner->root, out, offset, limit);
 }
 
 bool mdb_tbb::dbset(const std::string& key, const std::string& value) {
@@ -106,15 +126,17 @@ bool mdb_tbb::dbset(const std::string& key, const std::string& value) {
         if (owner) {
             std::string replacement(value);
             owner->root.swap(replacement);
-            owner->pages.clear();
+            page_map previous;
+            owner->pages.swap(previous);
             return true;
         }
         owner = std::make_shared<record>();
         owner->root = value;
         const auto position = locate(key);
         auto* keys = index(position, true);
-        if (!keys->mutex.lock()) return false;
-        std::unique_lock<acl::fiber_mutex> guard(keys->mutex, std::adopt_lock);
+        auto& mutex = scan_lock(position);
+        if (!mutex.lock()) return false;
+        std::unique_lock<acl::fiber_mutex> guard(mutex, std::adopt_lock);
         return add_owner(*stores_[position.shard], *keys, key, owner) !=
             nullptr;
     } catch (const std::bad_alloc&) { return false; }
@@ -125,8 +147,10 @@ bool mdb_tbb::dbdel(const std::string& key) {
     if (!find(key, &canonical)) return false;
     const auto position = locate(key);
     auto* keys = index(position, false);
-    if (!keys || !keys->mutex.lock()) return false;
-    std::unique_lock<acl::fiber_mutex> guard(keys->mutex, std::adopt_lock);
+    if (!keys) return false;
+    auto& mutex = scan_lock(position);
+    if (!mutex.lock()) return false;
+    std::unique_lock<acl::fiber_mutex> guard(mutex, std::adopt_lock);
     keys->keys.erase(canonical);
     return stores_[position.shard]->owners.erase(key);
 }
@@ -136,11 +160,25 @@ db::lookup_status mdb_tbb::dblookup_page(const std::string& key, uint64_t id,
     try {
         const auto owner = find(key);
         if (!owner) return lookup_status::missing;
-        const auto page = owner->pages.find(id);
-        if (page == owner->pages.end()) return lookup_status::missing;
-        value = page->second;
+        const auto* page = owner->pages.get(id);
+        if (!page) return lookup_status::missing;
+        value = *page;
         return lookup_status::found;
     } catch (const std::bad_alloc&) { return lookup_status::error; }
+}
+
+bool mdb_tbb::dbbind_page_reader(const std::string& key, page_reader& reader) {
+    // Preserve any overridden page lookup or inspection hooks.
+    if (typeid(*this) != typeid(mdb_tbb)) return false;
+    const auto owner = find(key);
+    // The transaction holds the logical key lock. The record and its page
+    // map stay alive until publication, even if other keys rehash the shard.
+    const auto read = [](const void* raw, uint64_t id) -> const std::string* {
+        const auto* record = static_cast<const mdb_tbb::record*>(raw);
+        return record ? record->pages.get(id) : nullptr;
+    };
+    reader = page_reader(read, owner.get());
+    return true;
 }
 
 db::batch_status mdb_tbb::dbapply(const std::vector<batch_entry>& roots) {
@@ -149,7 +187,47 @@ db::batch_status mdb_tbb::dbapply(const std::vector<batch_entry>& roots) {
 
 db::batch_status mdb_tbb::dbapply_pages(const std::vector<batch_entry>& roots,
     const std::vector<page_change>& pages) {
+    if (roots.size() == 1 && pages.size() == 1) {
+        const auto& root = roots.front();
+        const auto& page = pages.front();
+        if (root.action == update_action::write && !root.clear_pages &&
+            page.action == update_action::write && page.owner == root.key) {
+            try {
+                const auto owner = find(root.key);
+                const auto status = replace_existing_page(root, page, owner.get());
+                if (status != batch_status::unsupported) return status;
+            } catch (const std::bad_alloc&) { return batch_status::error; }
+        }
+    }
     return commit(roots, pages, true);
+}
+
+db::batch_status mdb_tbb::replace_bound_page(const batch_entry& root,
+    const page_change& page, const page_reader& reader) {
+    return replace_existing_page(root, page,
+        const_cast<record*>(static_cast<const record*>(reader.context_)));
+}
+
+db::batch_status mdb_tbb::replace_existing_page(const batch_entry& root,
+    const page_change& page, record* owner) {
+    auto* stored = owner ? owner->pages.get(page.id) : nullptr;
+    if (!stored || owner->root.size() != root.value.size())
+        return batch_status::unsupported;
+    try {
+        // The transaction holds the logical key lock. Prepare any throwing
+        // resize before publishing either record.
+        if (stored->size() == page.value.size()) {
+            if (!page.value.empty())
+                std::memcpy(&(*stored)[0], page.value.data(), page.value.size());
+        } else {
+            detail::replacement_workspace replacement(true);
+            replacement.stage(1, *stored, page.value, true);
+            stored->swap(replacement[1].second);
+        }
+        if (!root.value.empty())
+            std::memcpy(&owner->root[0], root.value.data(), root.value.size());
+        return batch_status::ok;
+    } catch (const std::bad_alloc&) { return batch_status::error; }
 }
 
 db::count_status mdb_tbb::dbkey_count(uint64_t& out) {
@@ -173,13 +251,14 @@ db::scan_status mdb_tbb::dbscan_keys(unsigned long long cursor, size_t count,
                 scan_buckets), static_cast<size_t>(cursor % scan_buckets)};
             auto* part = index(position, false);
             if (part) {
-                if (!part->mutex.lock()) {
+                auto& mutex = scan_lock(position);
+                if (!mutex.lock()) {
                     keys.clear(); return scan_status::error;
                 }
-                std::unique_lock<acl::fiber_mutex> guard(part->mutex,
+                std::unique_lock<acl::fiber_mutex> guard(mutex,
                     std::adopt_lock);
-                for (const auto* node : part->keys)
-                    keys.push_back(node->first);
+                for (size_t i = 0; i < part->keys.size(); ++i)
+                    keys.push_back(part->keys[i]->first);
             }
             ++cursor;
             if (keys.size() >= count) break;

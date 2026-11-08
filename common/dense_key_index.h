@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdlib>
 #include <cstddef>
+#include <memory>
 #include <vector>
 
 namespace pkv {
@@ -10,37 +11,64 @@ namespace pkv {
 template<class Node> class dense_key_index {
 public:
     using pointer = const Node*;
-    using iterator = typename std::vector<pointer>::const_iterator;
-    size_t size() const { return nodes_.size(); }
-    pointer operator[](size_t position) const { return nodes_[position]; }
-    iterator begin() const { return nodes_.begin(); }
-    iterator end() const { return nodes_.end(); }
-    void prepare() { nodes_.push_back(nullptr); }
+    size_t size() const { return size_; }
+    pointer operator[](size_t position) const { return slot(position); }
+    void prepare() {
+        if (size_ < block_size) {
+            first_.push_back(nullptr);
+        } else {
+            if (size_ % block_size == 0) {
+                std::unique_ptr<pointer[]> block(new pointer[block_size]);
+                blocks_.push_back(std::move(block));
+            }
+            slot(size_) = nullptr;
+        }
+        ++size_;
+    }
     void publish(pointer node) {
-        if (nodes_.empty() || nodes_.back()) std::abort();
-        node->second.position = nodes_.size() - 1;
-        nodes_.back() = node;
+        if (!size_ || slot(size_ - 1)) std::abort();
+        node->second.position = size_ - 1;
+        slot(size_ - 1) = node;
     }
     void cancel() {
-        if (nodes_.empty() || nodes_.back()) std::abort();
-        nodes_.pop_back(); release_empty();
+        if (!size_ || slot(size_ - 1)) std::abort();
+        pop();
     }
     void erase(pointer node) {
         const auto position = node->second.position;
-        if (position >= nodes_.size() || nodes_[position] != node)
-            std::abort();
-        const auto moved = nodes_.back();
-        nodes_[position] = moved;
+        if (position >= size_ || slot(position) != node) std::abort();
+        const auto moved = slot(size_ - 1);
+        slot(position) = moved;
         moved->second.position = position;
-        nodes_.pop_back(); release_empty();
+        pop();
     }
 private:
-    std::vector<pointer> nodes_;
-    void release_empty() {
-        // Reuse a few slots for repeated empty/nonempty churn. Large empty
-        // arrays are released without an allocation during commit/rollback.
-        if (nodes_.empty() && nodes_.capacity() > 8)
-            std::vector<pointer>().swap(nodes_);
+    static constexpr size_t block_size = 256;
+    // Keep small indexes cheap. Beyond the first block, unused trailing
+    // blocks can be released without allocating during commit or rollback.
+    std::vector<pointer> first_;
+    std::vector<std::unique_ptr<pointer[]>> blocks_;
+    size_t size_ = 0;
+
+    const pointer& slot(size_t position) const {
+        if (position < block_size) return first_[position];
+        return blocks_[position / block_size - 1][position % block_size];
+    }
+    pointer& slot(size_t position) {
+        if (position < block_size) return first_[position];
+        return blocks_[position / block_size - 1][position % block_size];
+    }
+    void pop() {
+        --size_;
+        if (size_ >= block_size) {
+            if (size_ % block_size == 0) blocks_.pop_back();
+        } else {
+            first_.pop_back();
+            if (!size_) {
+                if (first_.capacity() > 8) std::vector<pointer>().swap(first_);
+                if (blocks_.capacity() > 8) decltype(blocks_)().swap(blocks_);
+            }
+        }
     }
 };
 } // namespace pkv

@@ -50,6 +50,22 @@ redis_ocache::~redis_ocache() {
 #endif
 }
 
+void redis_ocache::trim_idle(size_t retained) noexcept {
+    if (observed_generation_ != generation_) {
+        observed_generation_ = generation_;
+        return;
+    }
+#ifdef USE_VECTOR
+    while (cache_.size() > retained) {
+        auto* object = cache_.back();
+        cache_.pop_back();
+        object->destroy();
+    }
+#else
+    while (pos_ > retained) cache_[--pos_]->destroy();
+#endif
+}
+
 redis_object *redis_ocache::get() {
 #ifdef USE_VECTOR
     if (UNLIKELY(EMPTY(cache_))) {

@@ -238,7 +238,7 @@ protected:
     }
 };
 static void failures() {
-    unsigned failed = 0;
+    bool failed_in_storage = false;
     bool succeeded = false;
     for (long allocation = 0; allocation < 500 && !succeeded; ++allocation) {
         auto concrete = std::make_shared<measured_db>();
@@ -261,14 +261,14 @@ static void failures() {
             require(root(database, "fault") == encoded("new") &&
                 !token->valid(unix_time_ms()), "successful fault sweep");
         } else {
-            ++failed;
+            failed_in_storage = failed_in_storage || concrete->commits != 0;
             require(result == status::error &&
                 root(database, "fault") == encoded("old") &&
                 page(database, "fault", 99, out) && out == "old-99" &&
                 token->valid(unix_time_ms()), "OOM exposed a partial commit");
         }
     }
-    require(succeeded && failed > 20, "allocation sweep did not cover staging");
+    require(succeeded && failed_in_storage, "allocation sweep did not cover staging");
 }
 static void storage_failure() {
     auto concrete = std::make_shared<measured_db>();

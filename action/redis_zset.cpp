@@ -5,6 +5,7 @@
 #include "dao/paged_zset.h"
 #include "common/redis_double.h"
 #include "common/redis_integer.h"
+#include <array>
 
 namespace pkv {
 namespace {
@@ -16,6 +17,13 @@ void emit_score(redis_object& reply, double value) {
     reply.set_string(format_redis_double(value));
     reply.response_as(redis_object::response_kind::real);
 }
+void append_bulk(std::string& frame, const std::string& bytes) {
+    frame += '$';
+    frame += std::to_string(bytes.size());
+    frame += "\r\n";
+    frame += bytes;
+    frame += "\r\n";
+}
 void emit(redis_object& reply, const std::vector<zset_member>& values, bool
     scores) {
     reply.set_type(REDIS_OBJ_ARRAY);
@@ -25,9 +33,85 @@ void emit(redis_object& reply, const std::vector<zset_member>& values, bool
         if (scores) emit_score(reply.create_child(), value.score);
     }
 }
+// Common scored ranges can size their RESP buffer exactly, avoiding
+// geometric growth while many replies are queued on a pipelined connection.
+template<size_t Capacity>
+void emit_scored_sized(redis_object& reply,
+    const std::vector<zset_member>& values, bool pairs) {
+    std::array<std::string, Capacity> scores;
+    std::string frame(1, '*');
+    frame += std::to_string(pairs ? values.size() : values.size() * 2);
+    frame += "\r\n";
+    size_t size = frame.size();
+    auto account = [&](size_t bytes, size_t overhead) {
+        if (overhead > frame.max_size() - size ||
+            bytes > frame.max_size() - size - overhead)
+            throw std::length_error("sorted set reply too large");
+        size += overhead + bytes;
+    };
+    auto bulk_overhead = [](size_t bytes) {
+        size_t result = 6;
+        for (; bytes >= 10; bytes /= 10) ++result;
+        return result;
+    };
+    for (size_t i = 0; i < values.size(); ++i) {
+        const auto length = values[i].member.size();
+        account(length, bulk_overhead(length));
+        scores[i] = format_redis_double(values[i].score);
+        const auto score = scores[i].size();
+        account(score, pairs ? 7 : bulk_overhead(score));
+    }
+    frame.reserve(size);
+    for (size_t i = 0; i < values.size(); ++i) {
+        if (pairs) frame += "*2\r\n";
+        append_bulk(frame, values[i].member);
+        if (pairs) {
+            frame += ',';
+            frame += scores[i];
+            frame += "\r\n";
+        } else append_bulk(frame, scores[i]);
+    }
+    reply.set_raw(std::move(frame));
+}
+
+void emit_scored(redis_object& reply, const std::vector<zset_member>& values,
+    unsigned protocol) {
+    if (values.size() < 32) {
+        emit(reply, values, true);
+        return;
+    }
+    const bool pairs = protocol == 3;
+    if (values.size() == 32) {
+        emit_scored_sized<32>(reply, values, pairs);
+        return;
+    }
+    if (values.size() <= 128) {
+        emit_scored_sized<128>(reply, values, pairs);
+        return;
+    }
+    std::string frame;
+    frame.reserve(values.size() * 24);
+    frame += '*';
+    frame += std::to_string(pairs ? values.size() : values.size() * 2);
+    frame += "\r\n";
+    for (const auto& value : values) {
+        if (pairs) frame += "*2\r\n";
+        append_bulk(frame, value.member);
+        const auto score = format_redis_double(value.score);
+        if (pairs) {
+            frame += ',';
+            frame += score;
+            frame += "\r\n";
+        } else append_bulk(frame, score);
+    }
+    reply.set_raw(std::move(frame));
+}
+
 }
 bool redis_zset::exec(const char* cmd, redis_coder& result) {
     const auto is = [&](const char* name) { return !strcasecmp(cmd, name); };
+    if (is("ZADD")) return add(false, result);
+    if (is("ZINCRBY")) return add(true, result);
     if (is("BZPOPMIN") || is("BZPOPMAX") || is("BZMPOP")) {
         redis_blocking_pop operation(handler_, obj_);
         return operation.exec(cmd, result);
@@ -43,10 +127,10 @@ bool redis_zset::exec(const char* cmd, redis_coder& result) {
         return algebra(cmd, result);
     if (is("ZMPOP")) return mpop(result);
     if (is("ZRANDMEMBER")) return sample(result);
-    if (is("ZADD")) return add(false, result);
-    if (is("ZINCRBY")) return add(true, result);
     if (check_cluster_mode(true) && route_keys(cmd, result)) return true;
-    dao::paged_zset data;
+    auto* scope = handler_.page_pipeline_scope_;
+    if (scope) scope->cache_repeated_map_read(obj_.argument(2));
+    dao::paged_zset data(scope);
     auto& db = handler_.get_db();
     const auto& key = *obj_.argument(1);
     auto& reply = result.create_object();
@@ -62,23 +146,52 @@ bool redis_zset::exec(const char* cmd, redis_coder& result) {
         long long removed;
         if (!data.remove(db, key, names, removed)) return fail();
         reply.set_number(removed);
-    } else if (is("ZSCORE") || is("ZMSCORE")) {
-        std::vector<std::string> names;
-        for (size_t i = 2; i < obj_.size(); ++i)
-            names.push_back(*obj_.argument(i));
-        std::vector<zset_score> scores;
-        if (!data.scores(db, key, names, scores)) return fail();
-        if (is("ZSCORE")) {
-            if (scores.front().found) emit_score(reply, scores.front().score);
-            else reply.set_null();
-        } else {
+    } else if (is("ZSCORE")) {
+        zset_score score;
+        if (!data.score(db, key, *obj_.argument(2), score)) return fail();
+        if (score.found) emit_score(reply, score.score);
+        else reply.set_null();
+    } else if (is("ZMSCORE")) {
+        const auto count = obj_.size() - 2;
+        const auto emit_scores = [&](const zset_score* scores, size_t size) {
             reply.set_type(REDIS_OBJ_ARRAY);
-            for (const auto& score : scores) {
+            for (size_t i = 0; i < size; ++i) {
                 auto& child = reply.create_child();
-                if (score.found) emit_score(child, score.score);
+                if (scores[i].found) emit_score(child, scores[i].score);
                 else child.set_null();
             }
+        };
+        constexpr auto limit = db::page_lock_scope::max_score_batch;
+        if (count <= limit) {
+            const std::string* names[limit];
+            zset_score scores[limit];
+            for (size_t i = 0; i < count; ++i) names[i] = obj_.argument(i + 2);
+            if (!data.scores(db, key, names, count, scores)) return fail();
+            emit_scores(scores, count);
+            return true;
         }
+        std::vector<const std::string*> names;
+        names.reserve(count);
+        for (size_t i = 2; i < obj_.size(); ++i)
+            names.push_back(obj_.argument(i));
+        std::vector<zset_score> scores(count);
+        if (!data.scores(db, key, names.data(), count, scores.data()))
+            return fail();
+        const bool resp3 = handler_.client().protocol() == 3;
+        std::string frame = "*" + std::to_string(count) + "\r\n";
+        for (const auto& score : scores) {
+            if (!score.found) {
+                frame += resp3 ? "_\r\n" : "$-1\r\n";
+            } else {
+                const auto text = format_redis_double(score.score);
+                if (resp3) {
+                    frame += ',';
+                    frame += text;
+                    frame += "\r\n";
+                } else append_bulk(frame, text);
+            }
+        }
+        reply.set_raw(std::move(frame));
     } else if (is("ZRANK") || is("ZREVRANK")) {
         const bool with_score = obj_.size() == 4;
         if (with_score && !option_is(*obj_.argument(3), "WITHSCORE")) {
@@ -94,22 +207,47 @@ bool redis_zset::exec(const char* cmd, redis_coder& result) {
             reply.create_child().set_number(rank.rank);
             emit_score(reply.create_child(), rank.score);
         }
-    } else if (is("ZPOPMIN") || is("ZPOPMAX")) {
-        if (obj_.size() > 3) {
-            reply.set_error("ERR syntax error"); return true;
-        }
-        long long count = 1;
-        if (obj_.size() == 3 && (!parse_redis_integer(*obj_.argument(2), count)
-            || count < 0)) {
-            reply.set_error("ERR value is out of range, must be positive");
+    } else return false;
+    return true;
+}
+
+bool redis_zset::pop(bool maximum, redis_coder& result) {
+    if (check_cluster_mode(true) &&
+        route_keys(maximum ? "ZPOPMAX" : "ZPOPMIN", result)) return true;
+    auto& reply = result.create_object();
+    if (obj_.size() > 3) {
+        reply.set_error("ERR syntax error"); return true;
+    }
+    long long count = 1;
+    if (obj_.size() == 3 && (!parse_redis_integer(*obj_.argument(2), count)
+        || count < 0)) {
+        reply.set_error("ERR value is out of range, must be positive");
+        return true;
+    }
+    dao::paged_zset data(handler_.page_pipeline_scope_);
+    if (count == 1) {
+        zset_member value;
+        bool found;
+        if (!data.pop_one(handler_.get_db(), *obj_.argument(1), maximum,
+            value, found)) {
+            reply.set_error(data.error());
             return true;
         }
-        std::vector<zset_member> values;
-        if (!data.pop(db, key, count, is("ZPOPMAX"), values)) return fail();
-        emit(reply, values, true);
-        if (obj_.size() == 2)
-            reply.response_as(redis_object::response_kind::plain);
-    } else return false;
+        reply.set_type(REDIS_OBJ_ARRAY);
+        if (obj_.size() == 3)
+            reply.response_as(redis_object::response_kind::pairs);
+        if (found) {
+            reply.create_child().set_string(value.member);
+            emit_score(reply.create_child(), value.score);
+        }
+        return true;
+    }
+    std::vector<zset_member> values;
+    if (!data.pop(handler_.get_db(), *obj_.argument(1), count, maximum, values)) {
+        reply.set_error(data.error());
+        return true;
+    }
+    emit_scored(reply, values, handler_.client().protocol());
     return true;
 }
 
@@ -138,11 +276,16 @@ bool redis_zset::algebra(const char* cmd, redis_coder& result) {
         return error("ERR syntax error");
     const auto end = number + 1 + static_cast<size_t>(numkeys);
     std::vector<std::string> sources;
+    sources.reserve(static_cast<size_t>(numkeys));
     for (size_t i = number + 1; i < end; ++i)
         sources.push_back(*obj_.argument(i));
-    auto locked = sources;
-    if (store) locked.push_back(*obj_.argument(1));
-    if (check_cluster_mode(true) && route_keys(locked, result)) return true;
+    if (check_cluster_mode(true)) {
+        if (store) {
+            auto locked = sources;
+            locked.push_back(*obj_.argument(1));
+            if (route_keys(locked, result)) return true;
+        } else if (route_keys(sources, result)) return true;
+    }
     bool scores = false;
     std::string parse_error;
     const auto parse = [&](dao::zset_algebra_options& options) {
@@ -327,7 +470,7 @@ bool redis_zset::select(const char* cmd, redis_coder& result) {
     } else if (!parse_zlex_bound(query.reverse ? last : first, query.min_lex) ||
         !parse_zlex_bound(query.reverse ? first : last, query.max_lex))
         return error("ERR min or max not valid string range item");
-    dao::paged_zset data;
+    dao::paged_zset data(handler_.page_pipeline_scope_);
     auto& database = handler_.get_db();
     long long number = 0;
     bool ok;
@@ -338,7 +481,8 @@ bool redis_zset::select(const char* cmd, redis_coder& result) {
         std::vector<zset_member> values;
         if (!data.select(database, keys[0], query, values))
             reply.set_error(data.error());
-        else emit(reply, values, scores);
+        else if (scores) emit_scored(reply, values, handler_.client().protocol());
+        else emit(reply, values, false);
         return true;
     }
     if (!ok) reply.set_error(data.error()); else reply.set_number(number);
@@ -371,19 +515,29 @@ bool redis_zset::add(bool increment, redis_coder& result) {
             "not compatible");
     if (options.incr && obj_.size() - first > 2) return error(
         "ERR INCR option supports a single increment-element pair");
+    const auto pairs = (obj_.size() - first) / 2;
+    double score = 0;
     std::vector<zset_member> values;
+    if (pairs > 1) values.reserve(pairs);
     for (size_t i = first; i < obj_.size(); i += 2) {
-        double score;
         if (!parse_redis_double(*obj_.argument(i), score)) return error(
             "ERR value is not a valid float");
-        values.push_back({*obj_.argument(i + 1), score});
+        if (pairs > 1) values.push_back({*obj_.argument(i + 1), score});
     }
     if (check_cluster_mode(true) && route_keys(increment ? "ZINCRBY" : "ZADD",
         result)) return true;
-    dao::paged_zset data;
+    auto* scope = handler_.page_pipeline_scope_;
+    if (scope && pairs == 1 && !options.incr)
+        scope->track_zadd_member(obj_.argument(first + 1));
+    dao::paged_zset data(scope);
     dao::zadd_result out;
     auto& reply = result.create_object();
-    if (!data.add(handler_.get_db(), *obj_.argument(1), values, options, out))
+    auto& db = handler_.get_db();
+    const auto& key = *obj_.argument(1);
+    const bool ok = pairs == 1 ?
+        data.add_one(db, key, *obj_.argument(first + 1), score, options, out) :
+        data.add(db, key, values, options, out);
+    if (!ok)
         reply.set_error(data.error());
     else if (options.incr) {
         if (out.processed) emit_score(reply, out.score); else reply.set_null();

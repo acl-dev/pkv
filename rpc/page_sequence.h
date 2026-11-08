@@ -17,6 +17,7 @@ public:
 private:
     unsigned database_ = 0;
     size_t bytes_ = 0, records_ = 0;
+    size_t expanded_bytes_ = 0, actions_ = 0;
     std::vector<std::shared_ptr<const page_batch>> batches_;
 };
 

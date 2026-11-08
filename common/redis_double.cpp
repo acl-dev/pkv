@@ -2,6 +2,7 @@
 #include <cerrno>
 #include <cmath>
 #include <cctype>
+#include <cstdint>
 #include <cstdlib>
 #include <locale.h>
 #ifdef __APPLE__
@@ -27,6 +28,21 @@ static bool parse_double(const std::string& text, double& out, bool endpoint) {
     // The reference endpoint parser treats an empty bound as zero, unlike ZADD.
     if (text.empty()) { if (endpoint) { out = 0; return true; } return false; }
     size_t first = text.front() == '+' || text.front() == '-' ? 1 : 0;
+    // All integers of at most 15 decimal digits are exact in binary64.
+    if (text.size() > first && text.size() - first <= 15) {
+        uint64_t integer = 0;
+        size_t pos = first;
+        for (; pos < text.size(); ++pos) {
+            const auto digit = static_cast<unsigned>(text[pos] - '0');
+            if (digit > 9) break;
+            integer = integer * 10 + digit;
+        }
+        if (pos == text.size()) {
+            const auto value = static_cast<double>(integer);
+            out = text.front() == '-' ? -value : value;
+            return true;
+        }
+    }
     if (endpoint && text.size() > first + 1 && text[first] == '0' && (text[first + 1] == 'x' || text[first + 1] == 'X')) return false;
     if (std::isspace(static_cast<unsigned char>(text.front()))) return false;
     static const numeric_locale locale;

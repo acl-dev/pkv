@@ -3,6 +3,7 @@
 #include <memory>
 
 namespace pkv {
+namespace detail { struct execution_admission; }
 
 // Shared admission preserves ordinary command concurrency. EXEC owns exclusive
 // admission. Reentrancy follows the current fiber, not merely its OS thread.
@@ -36,6 +37,8 @@ public:
     execution_guard& operator=(const execution_guard&) = delete;
 private:
     bool exclusive_;
+    // Borrow the acquiring actor's live state until this lexical scope ends.
+    detail::execution_admission* admission_;
 };
 
 // Release all nested shared admissions while the current actor waits. Never

@@ -1,6 +1,5 @@
 #include "stdafx.h"
 #include "connection_input.h"
-#include "client_memory.h"
 #include <list>
 #include <mutex>
 
@@ -12,7 +11,13 @@ struct connection_input::state {
     const size_t limit;
     acl::fiber_mutex mutex;
     acl::fiber_cond ready;
-    std::list<std::string> chunks;
+    struct chunk {
+        std::unique_ptr<char[]> data;
+        size_t size;
+    };
+    // Keep full 16 KiB socket reads in a 16 KiB allocation. These are wire
+    // bytes, so a string's trailing terminator would only add allocation cost.
+    std::list<chunk> chunks;
     size_t offset = 0;
     std::atomic<size_t> bytes{0}, heap{0}, buffer{0};
     std::atomic<bool> ended{false};
@@ -36,8 +41,8 @@ struct connection_input::state {
         if (!mutex.lock()) std::abort();
         return std::unique_lock<acl::fiber_mutex>(mutex, std::adopt_lock);
     }
-    static size_t memory(const std::string& chunk) {
-        return string_heap_bytes(chunk) + sizeof(chunk) + 2 * sizeof(void*);
+    static size_t memory(const chunk& data) {
+        return data.size + sizeof(chunk) + 2 * sizeof(void*);
     }
     void finish() {
         bool notify;
@@ -48,27 +53,38 @@ struct connection_input::state {
         }
         if (notify) closed();
     }
-    bool append(const char* data, size_t size) {
+    static constexpr size_t read_size = 16384;
+    bool append(std::unique_ptr<char[]>& incoming, size_t size) {
         auto guard = lock();
-        if (ended || size > limit - bytes.load()) return false;
-        chunks.emplace_back(data, size);
-        const auto allocated = memory(chunks.back());
-        if (allocated > limit - heap.load()) {
-            chunks.pop_back(); return false;
+        const auto available = limit - heap.load();
+        const auto overhead = sizeof(chunk) + 2 * sizeof(void*);
+        if (ended || overhead > available || size > available - overhead)
+            return false;
+        std::unique_ptr<char[]> data;
+        if (size == read_size) {
+            data = std::move(incoming);
+            buffer.store(0);
+        } else {
+            data.reset(new char[size]);
+            std::memcpy(data.get(), incoming.get(), size);
         }
+        chunks.push_back({std::move(data), size});
+        const auto allocated = memory(chunks.back());
         bytes.fetch_add(size); heap.fetch_add(allocated);
         ready.notify(); return true;
     }
     void run() {
         try {
-            std::vector<char> incoming(16384);
-            buffer.store(incoming.capacity());
+            std::unique_ptr<char[]> incoming;
             while (!ended.load() && !acl::fiber::self_killed()) {
-                const auto count = socket.read(incoming.data(),
-                    incoming.size(), false);
+                if (!incoming) {
+                    incoming.reset(new char[read_size]);
+                    buffer.store(read_size);
+                }
+                const auto count = socket.read(incoming.get(), read_size, false);
                 if (count <= 0) break;
                 received(static_cast<size_t>(count));
-                if (!append(incoming.data(), static_cast<size_t>(count))) break;
+                if (!append(incoming, static_cast<size_t>(count))) break;
                 acl::fiber::yield();
             }
         } catch (const std::bad_alloc&) {}
@@ -106,10 +122,10 @@ int connection_input::read(char* data, size_t capacity) {
     }
     if (input.chunks.empty()) return 0;
     auto& first = input.chunks.front();
-    const auto count = std::min(capacity, first.size() - input.offset);
-    std::memcpy(data, first.data() + input.offset, count);
+    const auto count = std::min(capacity, first.size - input.offset);
+    std::memcpy(data, first.data.get() + input.offset, count);
     input.offset += count; input.bytes.fetch_sub(count);
-    if (input.offset == first.size()) {
+    if (input.offset == first.size) {
         input.heap.fetch_sub(state::memory(first));
         input.chunks.pop_front(); input.offset = 0;
     }

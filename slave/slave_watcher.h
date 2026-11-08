@@ -38,6 +38,7 @@ protected:
     bool prepare_move(const family_move& move,
         std::unique_ptr<family_publication>& out) override;
     bool supports_pages() const override { return true; }
+    bool requires_page_payload() const override;
     bool on_pages_database(unsigned database,
         const std::vector<db::batch_entry>& roots,
         const std::vector<page_change>& pages) override;
@@ -57,11 +58,14 @@ protected:
     bool on_del(const std::string& key, bool ok) override;
 
 private:
+    static bool is_compact_root(const std::string& bytes);
+    static bool translate_compact_root(std::string& bytes);
     friend class replica_scope;
     std::atomic<bool> collecting_{false};
     bool exec_active_ = false, exec_capture_ = false, exec_failed_ = false;
     size_t exec_bytes_ = 0, exec_records_ = 0;
     size_t exec_staged_bytes_ = 0, exec_staged_records_ = 0;
+    size_t exec_expanded_bytes_ = 0, exec_actions_ = 0;
     unsigned long long exec_generation_ = 0;
     bool exec_preparing_ = false;
     std::vector<std::shared_ptr<const page_batch>> exec_pages_;

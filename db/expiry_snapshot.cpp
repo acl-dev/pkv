@@ -7,9 +7,9 @@ expiry_totals expiry_index::snapshot(int64_t now) const {
     size_t samples = 0;
     for (const auto& bucket : buckets_) {
         std::lock_guard<std::mutex> lock(bucket.mutex);
-        result.count += bucket.owners.size();
+        result.count += bucket.keys.size();
         size_t count = 0;
-        for (const auto& item : bucket.owners) {
+        for (const auto& item : bucket.keys) {
             if (count++ == 16) break;
             const auto deadline = item.second.deadline;
             values[samples++] = deadline > now ?

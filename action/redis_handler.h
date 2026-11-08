@@ -13,6 +13,7 @@
 #include "common/client_registry.h"
 #include "common/acl_policy.h"
 #include "common/server_statistics.h"
+#include "common/response_writer.h"
 
 namespace pkv {
 
@@ -49,6 +50,7 @@ public:
     void blocked_time(uint64_t usec) { blocked_usec_ += usec; }
     bool recheck(const redis_object& object, redis_coder& result);
     void receive(const char* data, size_t& size, size_t capacity);
+    void receive_capacity(size_t capacity) { activity_.receive_capacity(capacity); }
     void clear_input();
 
     NODISCARD redis_ocache& get_cache() const {
@@ -80,6 +82,14 @@ public:
     void identity(std::shared_ptr<acl_identity> value);
     bool subscribed() const;
 private:
+    friend class redis_list;
+    friend class redis_hash;
+    friend class redis_zset;
+    friend class redis_set;
+    friend class redis_string;
+    friend class redis_stream;
+    db::page_lock_scope* page_pipeline_scope_ = nullptr;
+    const redis_command_spec* last_command_ = nullptr;
     friend class transaction_workspace;
     friend class redis_pubsub;
     redis_service& service_;
@@ -97,6 +107,7 @@ private:
     acl::socket_stream& conn_;
     redis_coder builder_;
     redis_coder coder_;
+    response_buffer_cache response_buffer_;
     bool quit_ = false;
     bool input_accounted_ = false;
     std::unique_ptr<connection_input> input_;
@@ -151,6 +162,7 @@ private:
     void completed(size_t metric, uint64_t start, const redis_coder& result,
         size_t before, bool observed = false);
     void errors(const redis_coder& result, size_t before);
+    void record_error(const redis_object& reply);
 
 };
 

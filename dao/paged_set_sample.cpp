@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "paged_set.h"
+#include "coder/compact_set.h"
 #include "common/rank_sampling.h"
 #include <algorithm>
 #include <stdexcept>
@@ -19,9 +20,10 @@ bool paged_set::choose(map_store& store, long long count,
     }
     out.reserve(static_cast<size_t>(wanted));
     if (!repeat && wanted == size) {
-        return store.visit([&](const std::string& member, const std::string&) {
-            out.push_back(member); return true;
-        }, false);
+        auto collect = [&](uint64_t, const std::string& member) {
+            out.push_back(member);
+        };
+        return visit_members(store, std::ref(collect));
     }
     // Sparse Fisher-Yates shuffles numeric ranks, so a small sample needs
     // O(wanted) scratch space and never copies all members or their pointers.
@@ -47,11 +49,25 @@ bool paged_set::sample(shared_db& db, const std::string& key,
     }
     bool ok;
     try {
-        ok = run(db, key, [&](map_store& store) {
+        auto tree = [&](map_store& store) {
             out.found = store.exists();
+            const auto size = store.metadata().elements;
+            const auto wanted = static_cast<uint64_t>(count);
+            if (remove && out.found && wanted && (wanted == 1 || wanted < size)) {
+                if (wanted > out.values.max_size()) {
+                    read_status_ = read_status::sample_too_large;
+                    return false;
+                }
+                out.values.resize(static_cast<size_t>(wanted));
+                return store.take_set_sample(out.values);
+            }
             if (!choose(store, count, out.values)) return false;
-            if (remove) {
+            if (remove && out.found && wanted >= size) {
                 for (const auto& member : out.values) {
+                    // Full traversal already checked inline members. Erase
+                    // fragmented keys individually to detect shared chains.
+                    if (member.size() <= map_page_codec::key_inline_bytes)
+                        continue;
                     bool removed;
                     if (!store.erase(member, removed)) return false;
                     if (!removed) {
@@ -59,9 +75,53 @@ bool paged_set::sample(shared_db& db, const std::string& key,
                         return false;
                     }
                 }
+                if (store.exists()) return store.clear();
             }
             return true;
-        });
+        };
+        ok = run_callback(db, key, tree, true,
+            [&](db::batch_entry& root, const compact_set::view* packed) {
+                out.found = packed != nullptr;
+                if (!packed || !count) return true;
+
+                const auto size = packed->count();
+                const bool repeat = count < 0;
+                const auto wanted = repeat ? static_cast<uint64_t>(-count) :
+                    std::min<uint64_t>(count, size);
+                if (wanted > out.values.max_size())
+                    throw std::length_error("compact Set sample too large");
+                out.values.reserve(static_cast<size_t>(wanted));
+                compact_set::erase_mask removed;
+                if (!repeat && wanted == size) {
+                    for (unsigned i = 0; i < size; ++i)
+                        out.values.push_back(packed->at(i).str());
+                } else if (repeat || wanted == 1) {
+                    rank_sampler ranks(size, true);
+                    for (uint64_t i = 0; i < wanted; ++i) {
+                        const auto rank = ranks.next();
+                        out.values.push_back(packed->at(rank).str());
+                        if (remove) removed.set(static_cast<size_t>(rank));
+                    }
+                } else {
+                    std::array<unsigned, compact_set::max_members> ranks;
+                    std::iota(ranks.begin(), ranks.begin() + size, 0U);
+                    auto& random = set_sampling_engine();
+                    for (unsigned i = 0; i < wanted; ++i) {
+                        const auto position =
+                            std::uniform_int_distribution<unsigned>(i, size - 1)(random);
+                        std::swap(ranks[i], ranks[position]);
+                        out.values.push_back(packed->at(ranks[i]).str());
+                        if (remove) removed.set(ranks[i]);
+                    }
+                }
+                if (remove && wanted == size) {
+                    root.action = db::update_action::erase;
+                } else if (remove) {
+                    root.value = packed->without(removed, size - wanted);
+                    root.action = db::update_action::write;
+                }
+                return true;
+            });
     } catch (const std::length_error&) {
         read_status_ = read_status::sample_too_large; ok = false;
     }

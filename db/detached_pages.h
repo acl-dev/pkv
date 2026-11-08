@@ -2,8 +2,19 @@
 #include "db.h"
 #include "page_transaction.h"
 #include <utility>
+#include <unordered_map>
 
 namespace pkv {
+template<class Map>
+std::string* detached_page_value(Map& values, uint64_t id) {
+    return values.get(id);
+}
+template<class... Args>
+std::string* detached_page_value(std::unordered_map<Args...>& values, uint64_t id) {
+    const auto found = values.find(id);
+    return found == values.end() ? nullptr : &found->second;
+}
+
 // A cold handle owns a whole native map, never copies its untouched pages.
 // Native root frames must roll back before this handle restores the map.
 template<class Map> class detached_pages : public db::prepared_pages {
@@ -47,11 +58,11 @@ public:
             replacements_.reserve(pages.size());
             added_.reserve(pages.size()); erased_.reserve(pages.size());
             for (const auto& page : pages) {
-                auto found = values_.find(page.id);
+                auto* found = detached_page_value(values_, page.id);
                 if (page.action == db::update_action::erase) {
-                    if (found != values_.end()) erased_.push_back(page.id);
-                } else if (found != values_.end()) {
-                    replacements_.emplace_back(&found->second, page.value);
+                    if (found) erased_.push_back(page.id);
+                } else if (found) {
+                    replacements_.emplace_back(found, page.value);
                 } else {
                     values_.emplace(page.id, page.value);
                     added_.push_back(page.id);

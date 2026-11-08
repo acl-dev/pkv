@@ -45,6 +45,8 @@ public:
         return pages_;
     }
     unsigned get_protocol() const { return protocol_; }
+    size_t expanded_bytes() const;
+    size_t expanded_records() const;
     size_t wire_bytes() const;
     size_t wire_records() const;
 

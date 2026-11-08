@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "coder/compact_hash.h"
 #include "dao/paged_hash.h"
 #include "dao/json/json_hash.h"
 #include "dao/json/json_key.h"
@@ -73,10 +74,64 @@ static void root(shared_db database, size_t elements) {
     std::string bytes;
     require(database->get("hash", bytes) == (elements != 0), "root existence");
     if (!elements) return;
+    if (compact_hash::matches(bytes)) {
+        require(compact_hash::view(bytes).count() == elements, "compact Hash size");
+        return;
+    }
     map_root record;
-    require(bytes.size() == 48 && map_page_codec::decode_root(bytes, record) ==
+    require(map_page_codec::decode_root(bytes, record) ==
         map_page_status::ok && record.kind == map_kind::hash &&
         record.elements == elements, "whole Hash value persisted");
+}
+
+static void test_single_write(bool tbb) {
+    dao::paged_hash hash;
+    dao::json_key keys;
+    const std::string field("field\0binary", 12), value(40000, 'v');
+    shared_db database = tbb ? db::create_mdb_tbb(4) : memory();
+    require(database && database->open(""), "single write open");
+    bool added = false;
+    require(hash.hset(database, "single", field, value, added) && added &&
+        keys.set_expiry(database, "single", deadline, 0), "single add/TTL");
+    added = true;
+    require(hash.hset(database, "single", field, "next", added) && !added,
+        "single replace count");
+    long long expiry;
+    require(keys.expiry_time(database, "single", expiry) &&
+        expiry == deadline, "single replace lost TTL");
+    require(database->set("bad", "invalid"), "single wrong record seed");
+    added = true;
+    require(!hash.hset(database, "bad", field, value, added) && !added,
+        "single failed write published count");
+    for (bool insert : {false, true}) {
+        bool success = false;
+        unsigned failures = 0;
+        for (long budget = 0; budget < 1200; ++budget) {
+            database = tbb ? db::create_mdb_tbb(4) : memory();
+            require(database && database->open("") &&
+                hash.hset(database, "hash", "old", "before"),
+                "single rollback seed");
+            std::string before, after;
+            require(database->get("hash", before), "single snapshot");
+            added = true;
+            bool ok = false;
+            allocation_budget = budget;
+            try {
+                ok = hash.hset(database, "hash", insert ? field : "old",
+                    value, added);
+            } catch (const std::bad_alloc&) {}
+            allocation_budget = -1;
+            if (ok) {
+                require(added == insert, "single committed count");
+                success = true; break;
+            }
+            ++failures;
+            require(!added && database->get("hash", after) &&
+                after == before && contents(hash, database) ==
+                    fields{{"old", "before"}}, "single rollback changed Hash");
+        }
+        require(success && failures > 0, "single rollback sweep");
+    }
 }
 
 static void test_model() {
@@ -406,7 +461,276 @@ static void test_rank_sampler() {
         "rank sampler distribution");
 }
 
+static void test_compact_owned_update() {
+    std::vector<fields> models{{{"", ""}, {"a", "one"}, {"b", "two"}},
+        {{std::string("a\0", 2), std::string("v\0x", 3)}, {"z", "end"}}};
+    fields large;
+    for (unsigned i = 0; i < 63; ++i)
+        large.emplace("field:" + std::to_string(1000000000000ULL + i), "val");
+    models.push_back(large);
+    for (const auto& original : models) {
+        for (const auto& field : original) {
+            auto bytes = compact_hash::encode(original, deadline);
+            require(!bytes.empty(), "owned Hash fixture");
+            const auto* address = bytes.data();
+            const auto capacity = bytes.capacity();
+            const std::string value(field.second.size(), '\0');
+            bool added = true;
+            allocation_budget = 0;
+            bool ok = false;
+            try { ok = compact_hash::view(bytes).put(field.first, value, bytes, added); }
+            catch (const std::bad_alloc&) {}
+            allocation_budget = -1;
+            require(ok && !added && bytes.data() == address &&
+                bytes.capacity() == capacity, "owned equal update allocated");
+            const compact_hash::view result(bytes);
+            require(result.count() == original.size() && result.deadline() == deadline,
+                "owned equal update metadata");
+            for (const auto& expected : original) {
+                std::string actual;
+                require(result.get(expected.first, actual) && actual ==
+                    (expected.first == field.first ? value : expected.second),
+                    "owned equal update changed another field");
+            }
+        }
+    }
+    auto bytes = compact_hash::encode({{"a", "one"}, {"b", "two"}}, deadline);
+    const compact_hash::view borrowed(bytes);
+    bool added;
+    require(borrowed.put(borrowed.at(0).first, borrowed.at(1).second, bytes, added)
+        && !added, "owned borrowed replacement");
+    std::string actual;
+    require(compact_hash::view(bytes).get(std::string("a"), actual) && actual == "two",
+        "owned borrowed replacement bytes");
+    for (const std::string value : {std::string(254, 'x'), std::string(), std::string("next")}) {
+        require(compact_hash::view(bytes).put(std::string("a"), value, bytes, added) &&
+            !added && compact_hash::view(bytes).get(std::string("a"), actual) &&
+            actual == value && compact_hash::view(bytes).deadline() == deadline,
+            "owned resizing fallback");
+    }
+    require(compact_hash::view(bytes).put(std::string("new"), std::string("value"),
+        bytes, added) && added, "owned insertion fallback");
+    const auto before = bytes;
+    const std::string longer(254, 'y');
+    bool failed = false;
+    allocation_budget = 0;
+    try { compact_hash::view(bytes).put(std::string("a"), longer, bytes, added); }
+    catch (const std::bad_alloc&) { failed = true; }
+    allocation_budget = -1;
+    require(failed && bytes == before, "owned OOM changed encoded root");
+    require(!compact_hash::view(bytes).put(std::string("a"), std::string(255, 'z'),
+        bytes, added) && bytes == before, "owned rejected update changed root");
+}
+
+static void test_compact_owned_transaction(bool tbb) {
+    shared_db database = tbb ? db::create_mdb_tbb(4) : memory();
+    require(database && database->open(""), "owned transaction database");
+    const auto before = compact_hash::encode({{"a", "one"}, {"b", "two"}}, deadline);
+    require(database->set("hash", before), "owned transaction seed");
+    std::vector<watch_token> tokens;
+    require(database->watch({"hash"}, tokens) == db::batch_status::ok,
+        "owned transaction WATCH");
+    require(database->transact_page("hash", [&](page_transaction& tx) {
+        auto& root = *tx.roots().find("hash");
+        bool added;
+        require(compact_hash::view(root.value).put(std::string("a"),
+            std::string("new"), root.value, added) && !added,
+            "owned aborted transaction update");
+        root.action = db::update_action::write;
+        return false;
+    }) == db::batch_status::aborted, "owned transaction must abort");
+    std::string after;
+    require(database->get("hash", after) && after == before &&
+        tokens[0]->valid(unix_time_ms()), "owned aborted update escaped working copy");
+    {
+        const std::string key = "hash";
+        db::page_lock_scope scope(*database, key);
+        dao::paged_hash hash(&scope);
+        bool added = true;
+        require(hash.hset(database, key, "a", "one", added) && !added,
+            "owned scoped equal value write");
+        require(!tokens[0]->valid(unix_time_ms()),
+            "owned same-value write did not invalidate WATCH");
+        require(hash.hset(database, key, "a", "new", added) && !added,
+            "owned scoped replacement");
+    }
+    require(database->get("hash", after) && !tokens[0]->valid(unix_time_ms()),
+        "owned committed write did not invalidate WATCH");
+    const compact_hash::view result(after);
+    std::string value;
+    require(result.deadline() == deadline && result.count() == 2 &&
+        result.get(std::string("a"), value) && value == "new" &&
+        result.get(std::string("b"), value) && value == "two",
+        "owned scoped commit changed metadata or sibling");
+}
+
 int main() {
+    test_compact_owned_update();
+    test_compact_owned_transaction(false);
+#ifdef HAS_TBB
+    test_compact_owned_transaction(true);
+#endif
+    {
+        shared_db database = memory();
+        dao::paged_hash hash;
+        dao::json_key keys;
+        auto fixed = compact_hash::encode({{"abc", "one"}, {"def", "two"}});
+        std::string lookup;
+        require(compact_hash::view(fixed).get(std::string("def"), lookup) &&
+            lookup == "two", "fixed-width Hash lookup");
+        const auto second_field = fixed.find("def");
+        require(second_field != std::string::npos, "fixed-width Hash fixture");
+        fixed.replace(second_field, 3, "abc");
+        require(database->set("bad-fixed", fixed) &&
+            !hash.hget(database, "bad-fixed", "abc", lookup) &&
+            hash.status() == dao::dao_base::read_status::invalid_record,
+            "fixed-width Hash accepted duplicate field");
+        const auto mixed = compact_hash::encode({{"a", "12345"}, {"def", "two"}});
+        require(compact_hash::view(mixed).get(std::string("a"), lookup) &&
+            lookup == "12345", "equal-width Hash with variable field lengths");
+        const std::string large(254, 'x');
+        const auto narrow = compact_hash::encode({{"a", large}});
+        std::string wide;
+        bool widened;
+        require(compact_hash::view(narrow).put(std::string("b"), large, wide,
+            widened) && widened &&
+            (compact_hash::byte(wide[4]) & compact_hash::wide_offsets_flag),
+            "256-byte Hash should widen at 512 bytes");
+        std::map<std::string, std::string> wide_fields;
+        for (char field = 'a'; field <= 'h'; ++field)
+            wide_fields.emplace(std::string(1, field), large);
+        wide = compact_hash::encode(wide_fields);
+        compact_hash::view(wide).replace_deadline(wide, deadline);
+        const compact_hash::view packed(wide);
+        require(packed.deadline() == deadline &&
+            packed.get(std::string("b"), lookup) && lookup == large,
+            "wide Hash deadline and lookup");
+        const auto remaining = packed.without(1, 7);
+        require(compact_hash::view(remaining).get(std::string("b"), lookup) &&
+            lookup == large &&
+            !packed.put(std::string("i"), std::string(), wide, widened),
+            "wide Hash removal and overflow");
+        std::map<std::string, std::string> many;
+        for (unsigned i = 0; i < compact_hash::max_fields; ++i)
+            many.emplace("f" + std::to_string(10 + i), "val");
+        const auto last = many.rbegin()->first;
+        auto full = compact_hash::encode(many, deadline);
+        require(database->set("full", full) &&
+            hash.hdel(database, "full", std::vector<std::string>{last, last}) == 1 &&
+            database->get("full", full) &&
+            compact_hash::view(full).count() == many.size() - 1 &&
+            !compact_hash::view(full).get(last, lookup), "compact Hash removal above bit 31");
+        bool restored;
+        require(hash.hset(database, "full", last, "val", restored) && restored,
+            "refill the compact Hash");
+        many.emplace("overflow", "val");
+        require(hash.hmset(database, "full", many) == 1 &&
+            database->get("full", full) && !compact_hash::matches(full),
+            "large batch promotes the compact Hash");
+        const std::string binary("\0\xff", 2), empty, other = "other";
+        std::string bytes, value;
+        bool added;
+        require(hash.hset(database, "small", empty, binary, added) && added &&
+            database->get("small", bytes) && compact_hash::matches(bytes),
+            "compact single-field Hash");
+        require(keys.set_expiry(database, "small", deadline, 0) &&
+            hash.hmset_pair(database, "small", {&binary, &empty},
+                {&empty, &other}) == 1 &&
+            database->get("small", bytes) && compact_hash::matches(bytes) &&
+            compact_hash::view(bytes).deadline() == deadline &&
+            hash.hget(database, "small", binary, value) && value.empty() &&
+            hash.hget(database, "small", empty, value) && value == other,
+            "compact two-field update and TTL");
+        long long length;
+        bool exists;
+        fields values;
+        std::string after;
+        require(hash.hlen(database, "small", length) && length == 2 &&
+            hash.hstrlen(database, "small", binary, length, exists) &&
+            exists && length == 0 &&
+            hash.hstrlen(database, "small", "missing", length, exists) &&
+            !exists && length == 0 &&
+            hash.hmget(database, "small", {binary, empty, "missing", binary}, values) &&
+            values == fields{{binary, empty}, {empty, other}} &&
+            database->get("small", after) && after == bytes,
+            "compact Hash lookups touched storage");
+        dao::paged_hash::field_list entries;
+        require(hash.hgetall(database, "small", true, entries) &&
+            entries == dao::paged_hash::field_list{{empty, other}, {binary, empty}} &&
+            hash.hgetall(database, "small", false, entries) &&
+            entries == dao::paged_hash::field_list{{empty, empty}, {binary, empty}} &&
+            hash.hgetall(database, "small") && hash.get_fields() == values,
+            "compact Hash enumeration");
+        dao::json_scan scanner;
+        scan_options options;
+        options.has_match = true;
+        options.pattern = "?*";
+        options.no_values = true;
+        scan_page page;
+        require(scanner.open_collection(database, "small", value_kind::hash) &&
+            scanner.collection(options, page) && page.cursor == 0 &&
+            page.values == std::vector<std::string>{binary} &&
+            database->get("small", after) && after == bytes,
+            "compact Hash NOVALUES scan touched storage");
+        dao::hash::sample_values sampled;
+        require(hash.sample(database, "small", -5, true, sampled) &&
+            sampled.size() == 5, "compact Hash sampling with replacement");
+        for (const auto& field : sampled)
+            require(values.at(field.first) == field.second, "compact sampled value");
+        require(hash.sample(database, "small", 3, false, sampled) &&
+            sampled.size() == 2 && sampled[0].first != sampled[1].first &&
+            sampled[0].second.empty() && sampled[1].second.empty() &&
+            database->get("small", after) && after == bytes,
+            "compact Hash sampling touched storage");
+        require(hash.hdel(database, "small", std::vector<std::string>{
+            binary, binary, "missing"}) == 1 &&
+            database->get("small", bytes) && compact_hash::matches(bytes) &&
+            compact_hash::view(bytes).deadline() == deadline &&
+            hash.hget(database, "small", empty, value) && value == other &&
+            hash.hdel(database, "small", binary) == 0 &&
+            database->get("small", after) && after == bytes,
+            "compact Hash deletion and TTL");
+        require(hash.hdel(database, "small", empty) == 1 &&
+            !database->get("small", after), "compact Hash final deletion");
+        require(hash.hsetnx(database, "small", "count", "9223372036854775807", added) &&
+            added && keys.set_expiry(database, "small", deadline, 0) &&
+            database->get("small", bytes) && compact_hash::matches(bytes),
+            "compact conditional write");
+        long long number;
+        require(hash.hsetnx(database, "small", "count", "1", added) && !added &&
+            !hash.hincrby(database, "small", "count", 1, number) &&
+            database->get("small", after) && after == bytes,
+            "compact conditional no-op and increment overflow");
+        require(hash.hincrby(database, "small", "count", -1, number) &&
+            number == LLONG_MAX - 1 &&
+            hash.hincrby(database, "small", binary, -3, number) && number == -3 &&
+            database->get("small", after) && compact_hash::matches(after) &&
+            compact_hash::view(after).deadline() == deadline,
+            "compact increments preserve TTL");
+        require(hash.hset(database, "small", "count", "9", added) && !added &&
+            hash.hincrby(database, "small", "count", 1, number) && number == 10 &&
+            hash.hget(database, "small", binary, value) && value == "-3" &&
+            hash.hset(database, "small", empty, other, added) && added &&
+            hash.hget(database, "small", empty, value) && value == other &&
+            database->get("small", after) && compact_hash::matches(after) &&
+            compact_hash::view(after).deadline() == deadline,
+            "compact Hash offsets after shorter, longer and inserted fields");
+        require(hash.hincrbyfloat(database, "small", "count", "0.25", value) &&
+            value == "10.25" &&
+            hash.hincrbyfloat(database, "small", "new-float", "-0.25", value) &&
+            value == "-0.25" &&
+            database->get("small", bytes) && compact_hash::matches(bytes) &&
+            compact_hash::view(bytes).deadline() == deadline,
+            "compact float increments preserve TTL");
+        require(!hash.hincrbyfloat(database, "small", empty, "1", value) &&
+            hash.status() == dao::dao_base::read_status::invalid_hash_float &&
+            database->get("small", after) && after == bytes,
+            "invalid compact float leaves the root intact");
+    }
+    test_single_write(false);
+#ifdef HAS_TBB
+    test_single_write(true);
+#endif
     test_model();
     test_metadata_and_locality();
     test_migration_and_bad_records();

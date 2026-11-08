@@ -216,6 +216,39 @@ static void test_page_reset_rollback() {
     require(success && failures > 10, "page reset allocation sweep");
 }
 
+static void test_single_page_resize_rollback() {
+    auto database = memory();
+    seed_pages(database);
+    const std::string replacement(4096, 'p');
+    bool failed = false;
+    bool committed = false;
+    for (long limit = 0; limit < 32 && !committed; ++limit) {
+        const auto result = database->transact_page("a", [&](page_transaction& tx) {
+            auto& root = *tx.roots().find("a");
+            root.value = "update";
+            root.action = db::update_action::write;
+            if (!tx.put("a", 1, replacement)) return false;
+            budget = limit;
+            return true;
+        });
+        budget = -1;
+        committed = result == db::batch_status::ok;
+        if (!committed) {
+            require(result == db::batch_status::error, "single page resize result");
+            failed = true;
+            check_pages(database);
+        }
+    }
+    require(failed && committed, "single page resize allocation sweep");
+    require(database->transact_page("a", [&](page_transaction& tx) {
+        std::string bytes;
+        return tx.roots().find("a")->value == "update" &&
+            tx.lookup("a", 1, bytes) == db::lookup_status::found &&
+            bytes == replacement && tx.lookup("a", 2, bytes) ==
+                db::lookup_status::found && bytes == "second";
+    }) == db::batch_status::ok, "single page resize publication");
+}
+
 static void test_scan_churn() {
     auto database = memory(4);
     std::set<std::string> stable;
@@ -323,6 +356,7 @@ int main() {
     test_binary_and_raw_failures();
     test_batch_rollback();
     test_page_reset_rollback();
+    test_single_page_resize_rollback();
     test_scan_churn();
     test_commands_and_yielding_transactions();
     std::cout << "oneTBB native pages, rollback and concurrent SCAN passed\n";

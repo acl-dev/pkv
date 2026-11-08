@@ -28,9 +28,14 @@ def run(binary):
             try:
                 ready(source, target)
                 assert target.call('MOVE', 'missing', 7).startswith(b'READONLY')
-                for kind in ('string', 'hash', 'list', 'set', 'zset'):
-                    key = kind.encode() + b'\0frontend-move'
-                    create, update = commands(kind, key)
+                for fixture in ('string', 'hash', 'list', 'set', 'zset', 'small-zset'):
+                    key = fixture.encode() + b'\0frontend-move'
+                    kind = 'zset' if fixture == 'small-zset' else fixture
+                    if fixture == 'small-zset':
+                        create = ('ZADD', key, 1, b'a\0', 2, 'side')
+                        update = ('ZADD', key, 3, 'later')
+                    else:
+                        create, update = commands(kind, key)
                     assert source.call('SELECT', 0) == b'OK'
                     assert target.call('SELECT', 0) == b'OK'
                     assert source.call(*create) is not None
@@ -95,4 +100,4 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--pkv', required=True)
     run(parser.parse_args().pkv)
-    print('Frontend MOVE five-type source replication and old-peer refusal')
+    print('Frontend MOVE source replication, compact ZSets and old-peer refusal')

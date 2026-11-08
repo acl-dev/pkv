@@ -7,13 +7,19 @@
 #include <stdexcept>
 
 namespace pkv {
-namespace {
-struct admission {
+namespace detail {
+struct execution_admission {
     size_t shared = 0;
     size_t exclusive = 0;
     size_t replica_reads = 0;
     long long time = 0, microseconds = 0;
 };
+} // namespace detail
+namespace {
+using admission = detail::execution_admission;
+// ACL actors stay on their scheduler thread, as reader_slot also requires.
+// A yielded writer keeps this set; other actors still consult their own state.
+thread_local bool exclusive_present = false;
 long long wall_time_ms() {
     return std::chrono::duration_cast<std::chrono::milliseconds>(
         std::chrono::system_clock::now().time_since_epoch()).count();
@@ -58,16 +64,18 @@ public:
         if (slot.readers.load()) std::terminate();
         slots_.erase(&slot);
     }
-    void enter_shared() {
+    admission& enter_shared() {
         auto& local = current();
-        if (local.shared || local.exclusive) { ++local.shared; return; }
+        if (local.shared || local.exclusive) {
+            ++local.shared; return local;
+        }
         auto& slot = local_slot();
         for (;;) {
             // Seq-cst orders admission against close-and-drain. Different
             // acquire/release atomics could allow the reader/writer to miss.
             if (!closed_.load()) {
                 slot.readers.fetch_add(1);
-                if (!closed_.load()) { local.shared = 1; return; }
+                if (!closed_.load()) { local.shared = 1; return local; }
                 leave_reader(slot);
             }
             auto lock = locked();
@@ -77,8 +85,7 @@ public:
             if (waiting_readers_) readers_ready_.notify();
         }
     }
-    void leave_shared() {
-        auto& local = current();
+    void leave_shared(admission& local) {
         assert(local.shared);
         if (--local.shared || local.exclusive) return;
         leave_reader(local_slot());
@@ -89,18 +96,17 @@ public:
             throw std::logic_error("only shared admission can wait");
         const auto depth = local.shared;
         local.shared = 1;
-        leave_shared();
+        leave_shared(local);
         return depth;
     }
     void resume(size_t depth) {
         const auto& local = current();
         if (!depth || local.shared || local.exclusive) std::terminate();
-        enter_shared();
-        current().shared = depth;
+        enter_shared().shared = depth;
     }
-    void enter_exclusive() {
+    admission& enter_exclusive() {
         auto& local = current();
-        if (local.exclusive) { ++local.exclusive; return; }
+        if (local.exclusive) { ++local.exclusive; return local; }
         if (local.shared)
             throw std::logic_error("execution gate cannot upgrade a reader");
         auto lock = locked();
@@ -111,12 +117,14 @@ public:
         writer_ = true; local.exclusive = 1;
         local.microseconds = wall_time_us();
         local.time = local.microseconds / 1000;
+        exclusive_present = true;
+        return local;
     }
-    void leave_exclusive() {
-        auto& local = current();
+    void leave_exclusive(admission& local) {
         assert(local.exclusive);
         if (--local.exclusive) return;
         assert(!local.shared);
+        exclusive_present = false;
         auto lock = locked();
         writer_ = false;
         if (waiting_writers_) writers_ready_.notify();
@@ -162,11 +170,13 @@ reader_slot& local_slot() {
 } // namespace
 
 long long execution_time_ms() {
+    if (!exclusive_present) return wall_time_ms();
     const auto& local = current();
     return local.exclusive ? local.time : wall_time_ms();
 }
 
 long long execution_time_us() {
+    if (!exclusive_present) return wall_time_us();
     const auto& local = current();
     return local.exclusive ? local.microseconds : wall_time_us();
 }
@@ -178,13 +188,13 @@ void replica_read_guard::leave() {
     assert(depth); --depth;
 }
 
-execution_guard::execution_guard(bool exclusive) : exclusive_(exclusive) {
-    if (exclusive_) shared_gate().enter_exclusive();
-    else shared_gate().enter_shared();
-}
+execution_guard::execution_guard(bool exclusive)
+: exclusive_(exclusive)
+, admission_(exclusive ? &shared_gate().enter_exclusive() :
+    &shared_gate().enter_shared()) {}
 execution_guard::~execution_guard() {
-    if (exclusive_) shared_gate().leave_exclusive();
-    else shared_gate().leave_shared();
+    if (exclusive_) shared_gate().leave_exclusive(*admission_);
+    else shared_gate().leave_shared(*admission_);
 }
 
 execution_pause::execution_pause() : depth_(shared_gate().pause()) {}

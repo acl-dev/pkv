@@ -690,6 +690,12 @@ int main() {
                               std::string("1e-9999"), std::string("1\0suffix", 8)})
         require(!parse_redis_double(text, score), "invalid score text accepted");
     require(parse_redis_double("0x1p+2", score) && score == 4 && format_redis_double(-0.0) == "-0", "hex score or negative zero failed");
+    require(parse_redis_double("-000", score) && score == 0 &&
+        std::signbit(score), "short score lost negative zero");
+    require(parse_redis_score_endpoint("+999999999999999", score) &&
+        score == 999999999999999.0, "short integer endpoint changed value");
+    require(parse_redis_double("9007199254740993", score) &&
+        score == 9007199254740992.0, "large integer fallback changed rounding");
     std::mt19937_64 score_random(993812);
     for (int i = 0; i < 10000; ++i) {
         const auto bits = score_random();

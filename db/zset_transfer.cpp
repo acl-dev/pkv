@@ -10,7 +10,7 @@ bool zset_store::clone_to(zset_store& destination, bool& copied) {
         return false;
     }
     if (&transaction_ == &destination.transaction_ &&
-        owner_ == destination.owner_) {
+        entry_ == destination.entry_) {
         destination.transaction_.abort(); return fail(status::invalid);
     }
     if (!root_.elements) return true;
@@ -39,6 +39,7 @@ bool zset_store::clone_to(zset_store& destination, bool& copied) {
     destination.members_->root_ = members_->root_;
     destination.scores_->root_ = scores_->root_;
     map_store::clone_state state;
+    state.limit = root_.elements;
     if (!members_->clone_node(members_->root_.tree, *destination.members_,
         state, 0) || state.elements != root_.elements) {
         return failed();

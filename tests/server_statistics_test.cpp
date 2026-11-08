@@ -1,5 +1,7 @@
 #include "common/server_statistics.h"
+#include "common/statistics_clock.h"
 #include "common/info_format.h"
+#include <chrono>
 #include <atomic>
 #include <cstdlib>
 #include <iostream>
@@ -118,7 +120,54 @@ static void identity_and_sections() {
     require(process.cpu_known && process.rss_known && process.rss > 0,
         "process sample");
 }
+static void clock_conversion() {
+#if defined(__SIZEOF_INT128__)
+    uint64_t seed = 1234;
+    for (uint32_t n : {1u, 3u, 125u, 1000u, UINT32_MAX}) {
+        for (uint32_t d : {1u, 3u, 24u, 125u, UINT32_MAX}) {
+            const detail::statistics_clock_ratio ratio(n, d);
+            for (size_t i = 0; i < 10000; ++i) {
+                seed = seed * 6364136223846793005ULL + 1;
+                const auto expected = static_cast<uint64_t>(
+                    (__uint128_t(seed) * n) / (__uint128_t(d) * 1000));
+                require(ratio.microseconds(seed) == expected,
+                    "tick conversion rounding or overflow");
+            }
+        }
+    }
+    require(!detail::statistics_clock_ratio(0, 1).denominator &&
+        !detail::statistics_clock_ratio(1, 0).denominator,
+        "invalid timebase enabled");
+#endif
+}
+
+static uint64_t steady_microseconds() {
+    return static_cast<uint64_t>(std::chrono::duration_cast<
+        std::chrono::microseconds>(std::chrono::steady_clock::now().
+        time_since_epoch()).count());
+}
+static void clocks() {
+    const auto start = statistics_time_us();
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    require(statistics_time_us() - start >= 1000,
+        "statistics clock did not advance during wait");
+    std::vector<std::thread> threads;
+    for (unsigned i = 0; i < 8; ++i) threads.emplace_back([] {
+        uint64_t previous = statistics_time_us();
+        for (unsigned j = 0; j < 10000; ++j) {
+            const auto before = steady_microseconds();
+            const auto now = statistics_time_us();
+            const auto after = steady_microseconds();
+            require(now >= previous && now >= before && now <= after,
+                "statistics clock not monotonic or outside reference");
+            previous = now;
+        }
+    });
+    for (auto& thread : threads) thread.join();
+}
+
 int main() {
+    clock_conversion(); clocks();
     counters(); failures(); concurrent(); identity_and_sections();
     std::cout << "INFO worker counters, reset OOM, snapshots and "
         "process passed\n";

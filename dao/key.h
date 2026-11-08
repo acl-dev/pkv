@@ -34,6 +34,7 @@ public:
      * @return True if the key was deleted successfully, false otherwise.
      */
     virtual bool del(shared_db& db, const std::string& key) = 0;
+    virtual bool del_one(shared_db& db, const std::string& key, long long& removed) = 0;
     virtual bool del(shared_db& db, const std::vector<std::string>& keys, long long& removed) = 0;
     virtual bool exists(shared_db& db, const std::vector<std::string>& keys, long long& count) = 0;
 

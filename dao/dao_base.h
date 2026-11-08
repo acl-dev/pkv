@@ -26,6 +26,8 @@ public:
     void reset() { view_.reset(); read_status_ = read_status::missing; }
 protected:
     bool decode(shared_db& db, const std::string& bytes, long long now_ms = -1);
+    bool decode_metadata(shared_db& db, const std::string& bytes,
+        record_header& header, bool& native, long long now_ms = -1);
     bool materialize(value_record& record);
     bool encode(shared_db& db, const value_record& record, std::string& bytes);
     read_status read_status_ = read_status::missing;

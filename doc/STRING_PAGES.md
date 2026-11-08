@@ -9,6 +9,14 @@ rollback requires a tested backup or offline export rather than replacing the
 binary against the new data. Engines without native page transactions reject
 this path explicitly.
 
+## PSR v2 inline layout
+
+New inline roots use a seven-byte header containing the signature and
+version, a one-byte expiry flag, and a two-byte big-endian payload length.
+If the expiry flag is set, the header includes an eight-byte Unix millisecond
+deadline before the payload. Readers accept both layouts. Replication peers
+must support v2 before receiving compact inline roots.
+
 ## PSR v1 layout
 
 All integers use big-endian encoding. A root has a 32-byte header followed by
@@ -24,9 +32,9 @@ the inline bytes only when inline storage is selected.
 | 32 | 0..1024 | Inline payload when length is at most 1024 |
 
 Ordinary String writes are limited to 512 MiB. BITFIELD can extend its final
-field up to eight bytes farther; PSR accepts 512 MiB + 8. Inline roots are at
-most 1056 bytes;
-paged roots are exactly 32 bytes. Data pages hold raw binary bytes, at most
+field up to eight bytes farther. PSR accepts 512 MiB + 8. The v1 reader
+accepts inline roots up to 1056 bytes. Paged roots continue to use v1 and
+are exactly 32 bytes. Data pages hold raw binary bytes, at most
 16384 each, at deterministic private IDs 1 through the page count. All but
 the last page are full. The private address includes the logical owner key,
 so empty/binary owners and ordinary user keys cannot collide with page IDs.

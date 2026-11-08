@@ -1,3 +1,7 @@
+#include "coder/compact_zset.h"
+#include "coder/compact_set.h"
+#include "coder/compact_hash.h"
+#include "coder/compact_list_root.h"
 #include "stdafx.h"
 #include <climits>
 #include "json_key.h"
@@ -5,6 +9,7 @@
 #include "coder/list_page.h"
 #include "coder/map_page.h"
 #include "coder/string_page.h"
+#include "db/stream_store.h"
 
 namespace pkv {
 namespace dao {
@@ -118,20 +123,30 @@ bool json_key::rename(shared_db& db, const std::string& source,
 }
 
 bool json_key::del(shared_db& db, const std::string& key) {
-    bool removed = false;
+    long long removed;
+    return del_one(db, key, removed) && removed != 0;
+}
+
+bool json_key::del_one(shared_db& db, const std::string& key, long long& removed) {
+    removed = 0;
     bool valid = true;
     reset();
     const bool ok = db->update(key, [&](bool found, std::string& bytes) {
         if (!found) return db::update_action::keep;
-        if (!decode(db, bytes)) {
+        record_header header;
+        bool native;
+        if (!decode_metadata(db, bytes, header, native)) {
             valid = read_status_ == read_status::missing;
             return valid ? db::update_action::erase : db::update_action::keep;
         }
-        removed = true;
+        removed = 1;
         return db::update_action::erase;
     });
-    if (!ok) read_status_ = read_status::storage_error;
-    return ok && valid && removed;
+    if (!ok) {
+        removed = 0;
+        read_status_ = read_status::storage_error;
+    }
+    return ok && valid;
 }
 
 bool json_key::del(shared_db& db, const std::vector<std::string>& keys, long long& removed) {
@@ -185,6 +200,7 @@ bool json_key::type(shared_db& db, const std::string& key, std::string& out) {
     case value_kind::list: out = "list"; break;
     case value_kind::set: out = "set"; break;
     case value_kind::zset: out = "zset"; break;
+    case value_kind::stream: out = "stream"; break;
     }
     return true;
 }
@@ -199,8 +215,8 @@ bool json_key::expire(shared_db& db, const std::string& key, long long seconds) 
 }
 
 bool json_key::encode_expiry(shared_db& db, std::string& bytes,
-    long long deadline, bool& preserve_pages) {
-    if (!view_->paged_payload()) {
+    long long deadline, bool paged, bool& preserve_pages) {
+    if (!paged) {
         value_record record;
         if (!materialize(record)) return false;
         record.header.expires_at_ms = deadline;
@@ -220,7 +236,27 @@ bool json_key::encode_expiry(shared_db& db, std::string& bytes,
         preserve_pages = true;
         return true;
     }
+    if (bytes.compare(0, 3, "PXR") == 0) {
+        stream_root root;
+        if (!decode_stream_root(bytes, root)) {
+            read_status_ = read_status::invalid_record; return false;
+        }
+        root.expires_at_ms = deadline;
+        encode_stream_root(root, bytes);
+        preserve_pages = true;
+        return true;
+    }
     if (bytes.compare(0, 3, "PZR") == 0) {
+        if (compact_zset::matches(bytes)) {
+            try {
+                const compact_zset::view packed(bytes);
+                packed.replace_deadline(bytes, deadline);
+                preserve_pages = true;
+                return true;
+            } catch (const std::runtime_error&) {
+                read_status_ = read_status::invalid_record; return false;
+            }
+        }
         zset_root root;
         if (zset_page_codec::decode_root(bytes, root) != map_page_status::ok) {
             read_status_ = read_status::invalid_record; return false;
@@ -233,6 +269,26 @@ bool json_key::encode_expiry(shared_db& db, std::string& bytes,
         return true;
     }
     if (bytes.compare(0, 3, "PMR") == 0) {
+        if (compact_set::matches(bytes)) {
+            try {
+                const compact_set::view packed(bytes);
+                packed.replace_deadline(bytes, deadline);
+                preserve_pages = true;
+                return true;
+            } catch (const std::runtime_error&) {
+                read_status_ = read_status::invalid_record; return false;
+            }
+        }
+        if (compact_hash::matches(bytes)) {
+            try {
+                const compact_hash::view packed(bytes);
+                packed.replace_deadline(bytes, deadline);
+                preserve_pages = true;
+                return true;
+            } catch (const std::runtime_error&) {
+                read_status_ = read_status::invalid_record; return false;
+            }
+        }
         map_root root;
         if (map_page_codec::decode_root(bytes, root) != map_page_status::ok) {
             read_status_ = read_status::invalid_record; return false;
@@ -243,6 +299,16 @@ bool json_key::encode_expiry(shared_db& db, std::string& bytes,
         }
         preserve_pages = true;
         return true;
+    }
+    if (compact_list_root::matches(bytes)) {
+        try {
+            const compact_list_root::view packed(bytes);
+            packed.replace_deadline(bytes, deadline);
+            preserve_pages = true;
+            return true;
+        } catch (const std::runtime_error&) {
+            read_status_ = read_status::invalid_record; return false;
+        }
     }
     list_root root;
     if (list_page_codec::decode_root(bytes, root) != list_page_status::ok) {

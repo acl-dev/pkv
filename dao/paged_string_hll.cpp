@@ -44,18 +44,39 @@ bool paged_string::pfcount(shared_db& db,
     const std::vector<std::string>& keys, long long& count) {
     count = 0;
     if (keys.size() != 1) return pfaggregate(db, keys, false, count);
+    return pfcount_one(db, keys.front(), count);
+}
+
+bool paged_string::pfcount_one(shared_db& db, const std::string& key,
+    long long& count) {
+    count = 0;
     uint64_t cardinality = 0;
-    const auto ok = run(db, keys.front(), [&](string_store& store) {
+    if (!scope_) {
+        reset();
+        std::string value;
+        const auto direct = db->read_inline_string(key, value);
+        if (direct == db::inline_status::error) {
+            read_status_ = read_status::storage_error;
+            return false;
+        }
+        if (direct == db::inline_status::missing ||
+            (direct == db::inline_status::found &&
+             hll::header(value, value.size()) && hll::cached(value, cardinality))) {
+            read_status_ = read_status::ok;
+            count = static_cast<long long>(cardinality);
+            return true;
+        }
+    }
+    const auto ok = run(db, key, [&](string_store& store) {
         if (!store.exists()) return true;
         std::string value;
         if (!hll_value(store, value, false)) return false;
         if (hll::cached(value, cardinality)) return true;
         if (!hll_value(store, value, true)) return false;
-        hll::registers registers{};
-        if (!hll::merge(value, registers)) {
+        if (!hll::count_encoded(value, cardinality)) {
             read_status_ = read_status::corrupt_hll; return false;
         }
-        cardinality = hll::count(registers); hll::cache(value, cardinality);
+        hll::cache(value, cardinality);
         store.touch();
         return store.write(8, value.substr(8, 8)) || stored(store);
     });

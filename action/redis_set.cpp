@@ -3,14 +3,46 @@
 #include "redis_handler.h"
 #include "dao/paged_set.h"
 #include "common/redis_integer.h"
+#include "coder/compact_set.h"
 
 namespace pkv {
+
+static void append_set_member(std::string& frame, uint64_t count,
+    compact_set::member_view member) {
+    if (frame.empty()) {
+        frame += '*';
+        frame += std::to_string(count);
+        frame += "\r\n";
+    }
+    frame += '$';
+    frame += std::to_string(member.size());
+    frame += "\r\n";
+    frame.append(member.data(), member.size());
+    frame += "\r\n";
+}
 
 bool redis_set::exec(const char* cmd, redis_coder& result) {
     if (!strcasecmp(cmd, "SPOP")) return sample(true, result);
     if (!strcasecmp(cmd, "SRANDMEMBER")) return sample(false, result);
     if (!strcasecmp(cmd, "SINTERCARD")) return intersection_size(result);
     const auto is = [&](const char* name) { return !strcasecmp(cmd, name); };
+    const bool add = is("SADD");
+    if (add || is("SREM")) {
+        if (check_cluster_mode(true) && route_keys(cmd, result)) return true;
+        dao::paged_set data(handler_.page_pipeline_scope_);
+        long long changed;
+        auto& reply = result.create_object();
+        auto& db = handler_.get_db();
+        const auto& key = *obj_.argument(1);
+        const bool ok = obj_.size() == 3 ?
+            data.change_one(db, key, *obj_.argument(2), add, changed) :
+            data.change_members(db, key,
+                [&](size_t i) -> const std::string& { return *obj_.argument(i + 2); },
+                obj_.size() - 2, add, changed);
+        if (ok) reply.set_number(changed);
+        else reply.set_error(data.error());
+        return true;
+    }
     const bool store = is("SUNIONSTORE") || is("SINTERSTORE") || is("SDIFFSTORE");
     const bool algebra = store || is("SUNION") || is("SINTER") || is("SDIFF");
     std::vector<std::string> keys;
@@ -20,35 +52,67 @@ bool redis_set::exec(const char* cmd, redis_coder& result) {
         if (is("SMOVE")) keys.push_back(*obj_.argument(2));
     }
     if (check_cluster_mode(true) && route_keys(keys, result)) return true;
-    dao::paged_set data;
+    dao::paged_set data(handler_.page_pipeline_scope_);
     auto& db = handler_.get_db();
     auto& reply = result.create_object();
     const auto fail = [&]() { reply.set_error(data.error()); return true; };
     const auto& key = keys.front();
-    if (is("SADD") || is("SREM")) {
-        std::vector<std::string> values;
-        for (size_t i = 2; i < obj_.size(); ++i) values.push_back(*obj_.argument(i));
-        long long changed;
-        if (!data.change(db, key, values, is("SADD"), changed)) return fail();
-        reply.set_number(changed);
-    } else if (is("SCARD")) {
+    if (is("SCARD")) {
         long long count;
         if (!data.size(db, key, count)) return fail();
         reply.set_number(count);
     } else if (is("SISMEMBER") || is("SMISMEMBER")) {
+        const auto count = obj_.size() - 2;
+        constexpr auto limit = db::page_lock_scope::max_membership_batch;
+        if (count <= limit) {
+            const std::string* members[limit];
+            for (size_t i = 0; i < count; ++i) members[i] = obj_.argument(i + 2);
+            unsigned found;
+            if (!data.membership(db, key, members, count, found)) return fail();
+            if (is("SISMEMBER")) reply.set_number(found);
+            else {
+                reply.set_type(REDIS_OBJ_ARRAY);
+                for (size_t i = 0; i < count; ++i)
+                    reply.create_child().set_number((found >> i) & 1U);
+            }
+            return true;
+        }
         std::vector<std::string> values;
         for (size_t i = 2; i < obj_.size(); ++i) values.push_back(*obj_.argument(i));
         std::vector<long long> membership;
         if (!data.membership(db, key, values, membership)) return fail();
-        if (is("SISMEMBER")) reply.set_number(membership.at(0));
-        else {
-            reply.set_type(REDIS_OBJ_ARRAY);
-            for (auto member : membership) reply.create_child().set_number(member);
-        }
+        reply.set_type(REDIS_OBJ_ARRAY);
+        for (auto member : membership) reply.create_child().set_number(member);
     } else if (is("SMOVE")) {
         bool moved;
         if (!data.move(db, key, keys[1], *obj_.argument(3), moved)) return fail();
         reply.set_number(moved ? 1 : 0);
+    } else if (is("SMEMBERS")) {
+        std::vector<std::string> members;
+        std::string frame;
+        const auto append = [&](uint64_t count, const std::string& member) {
+            if (count < 32) {
+                members.push_back(member);
+                return;
+            }
+            append_set_member(frame, count, member);
+        };
+        const auto append_packed = [&](const compact_set::view& packed) {
+            // Each member adds at most seven bytes beyond its encoded payload.
+            frame.reserve(5 + packed.payload_size() + 7 * packed.count());
+            for (unsigned i = 0; i < packed.count(); ++i)
+                append_set_member(frame, packed.count(), packed.at(i));
+        };
+        if (!data.visit_members(db, key, std::cref(append),
+            std::cref(append_packed))) return fail();
+        if (!frame.empty())
+            reply.set_raw(std::move(frame)).response_as(redis_object::response_kind::raw_set);
+        else {
+            std::sort(members.begin(), members.end());
+            reply.set_type(REDIS_OBJ_ARRAY);
+            reply.response_as(redis_object::response_kind::set);
+            for (const auto& member : members) reply.create_child().set_string(member);
+        }
     } else {
         std::set<std::string> members;
         if (algebra) {
@@ -57,14 +121,25 @@ bool redis_set::exec(const char* cmd, redis_coder& result) {
             const auto operation = is("SUNION") || is("SUNIONSTORE") ? dao::set_operation::unite
                 : is("SINTER") || is("SINTERSTORE") ? dao::set_operation::intersect : dao::set_operation::difference;
             if (!data.algebra(db, sources, operation, destination, members)) return fail();
-        } else if (is("SMEMBERS")) {
-            if (!data.members(db, key, members)) return fail();
         } else return false;
         if (store) reply.set_number(static_cast<long long>(members.size()));
-        else {
+        else if (!members.empty()) {
+            std::string frame;
+            if (members.size() < 32) {
+                size_t bytes = (members.size() < 10 ? 4 : 5) + 6 * members.size();
+                for (const auto& member : members) {
+                    bytes += member.size();
+                    for (auto length = member.size(); length >= 10; length /= 10)
+                        ++bytes;
+                }
+                frame.reserve(bytes);
+            }
+            for (const auto& member : members)
+                append_set_member(frame, members.size(), member);
+            reply.set_raw(std::move(frame)).response_as(redis_object::response_kind::raw_set);
+        } else {
             reply.set_type(REDIS_OBJ_ARRAY);
             reply.response_as(redis_object::response_kind::set);
-            for (const auto& member : members) reply.create_child().set_string(member);
         }
     }
     return true;
@@ -86,10 +161,12 @@ bool redis_set::sample(bool remove, redis_coder& result) {
         }
     }
     if (check_cluster_mode(true) && route_keys(remove ? "SPOP" : "SRANDMEMBER", result)) return true;
-    dao::paged_set data;
+    dao::paged_set data(handler_.page_pipeline_scope_);
     dao::set_sample_result out;
     auto& reply = result.create_object();
     if (!data.sample(handler_.get_db(), *obj_.argument(1), count, remove, out)) reply.set_error(data.error());
+    else if (has_count && out.values.size() >= 32)
+        reply.set_bulk_collection(out.values, remove);
     else if (has_count) {
         reply.set_type(REDIS_OBJ_ARRAY);
         if (remove) reply.response_as(redis_object::response_kind::set);

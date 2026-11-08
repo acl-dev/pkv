@@ -1,19 +1,26 @@
 #pragma once
 #include "list.h"
 #include "db/list_store.h"
+#include <functional>
 
 namespace pkv {
+namespace compact_list_root { class view; }
 namespace dao {
 
 // List DAO for native bounded pages. It never falls back to whole-value writes
 // when the selected backend lacks page transactions.
 class paged_list : public list {
 public:
+    explicit paged_list(db::page_lock_scope* scope = nullptr) : scope_(scope) {}
     bool push(shared_db& db, const std::string& key,
         const std::vector<std::string>& values, bool left, bool only_existing,
         long long& length) override;
+    bool push(shared_db& db, const std::string& key, list_values_view values,
+        bool left, bool only_existing, long long& length);
     bool pop(shared_db& db, const std::string& key, bool left, long long count,
         list_result& out) override;
+    bool pop_one(shared_db& db, const std::string& key, bool left,
+        std::string& out, bool& found);
     bool length(shared_db& db, const std::string& key, long long& out) override;
     bool range(shared_db& db, const std::string& key, long long start,
         long long end, std::vector<std::string>& out) override;
@@ -48,8 +55,27 @@ public:
         const before_probe& before = before_probe());
 
 private:
+    db::page_lock_scope* scope_;
     using operation = std::function<bool(list_store&)>;
-    bool run(shared_db& db, const std::string& key, const operation& callback);
+    // These private operations run synchronously and never retain callbacks.
+    template <class Callback>
+    bool run(shared_db& db, const std::string& key, Callback&& callback) {
+        const operation view(std::ref(callback));
+        return run_callback(db, key, view);
+    }
+    using packed_operation = std::function<bool(db::batch_entry&,
+        const compact_list_root::view*)>;
+    // Both targets live until this synchronous transaction returns, including
+    // fiber suspension. Borrow them instead of allocating owning closures.
+    template <class Callback, class Packed>
+    bool run_packed(shared_db& db, const std::string& key,
+        Callback&& callback, Packed&& packed) {
+        const operation callback_view(std::ref(callback));
+        const packed_operation packed_view(std::ref(packed));
+        return run_callback(db, key, callback_view, packed_view);
+    }
+    bool run_callback(shared_db& db, const std::string& key,
+        const operation& callback, const packed_operation& packed = {});
     bool open(shared_db& db, page_transaction& transaction,
         const std::string& key, list_store& store, long long now);
     bool import(list_store& store);

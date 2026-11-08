@@ -18,7 +18,7 @@ client_activity::client_activity(size_t base, size_t worker)
 : base_(base), worker_(worker), last_seen_(seconds_now()) {}
 void client_activity::received(size_t bytes, size_t capacity) {
     buffered(bytes);
-    transport_.store(capacity, std::memory_order_relaxed);
+    receive_capacity(capacity);
 }
 void client_activity::buffered(size_t bytes) {
     received_ += bytes;

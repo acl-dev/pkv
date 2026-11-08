@@ -11,11 +11,11 @@ bool string_bitop_source::stored() {
 
 bool string_bitop_source::open() {
     using status = dao_base::read_status;
-    const auto& root = *transaction_.roots().find(key_);
+    const auto& root = root_;
     if (root.action == db::update_action::erase ||
         (!root.found && root.action != db::update_action::write)) return true;
     if (root.value.compare(0, 3, "PSR") == 0) {
-        native_.reset(new string_store(transaction_, key_));
+        native_.reset(new string_store(transaction_, root.key));
         if (!native_->open()) return stored();
         const auto& metadata = native_->metadata();
         if (metadata.expires_at_ms >= 0 && metadata.expires_at_ms <= now_) {
@@ -57,6 +57,28 @@ bool string_bitop_source::read(uint64_t offset, size_t size, std::string& out) {
     } else if (!legacy_->string_range(first, last, out))
         return fail(dao_base::read_status::invalid_record);
     return out.size() == count || fail(dao_base::read_status::invalid_record);
+}
+
+bool string_bitop_source::fold(uint64_t offset, size_t size,
+    bitmap_operation operation, char* output, char* mask, std::string& scratch) {
+    if (native_ && offset <= length_ && size <= length_ - offset) {
+        struct fold_input {
+            bitmap_operation operation;
+            char* output;
+            char* mask;
+        } work{operation, output, mask};
+        const auto apply = [](void* raw, const std::string& bytes) {
+            const auto& request = *static_cast<fold_input*>(raw);
+            bitop_fold(request.operation, request.output, request.mask,
+                bytes.data(), bytes.size());
+        };
+        return native_->inspect_chunk(offset, size, scratch, apply, &work) ||
+            stored();
+    }
+    if (!read(offset, size, scratch)) return false;
+    scratch.resize(size, '\0');
+    bitop_fold(operation, output, mask, scratch.data(), size);
+    return true;
 }
 
 } // namespace dao

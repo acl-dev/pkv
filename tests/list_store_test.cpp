@@ -121,6 +121,169 @@ static void test_packing_and_access() {
     require(all.size() == 10001 && all.back() == "last", "packed range");
 }
 
+static void test_small_push_packing(size_t width, size_t max_page = 2048) {
+    for (bool left : {false, true}) {
+        auto database = memory();
+        std::deque<std::string> expected;
+        for (unsigned i = 0; i < 2000; ++i) {
+            const std::string value(width, static_cast<char>(i));
+            require(operation(database, "small", [&](list_store& list) {
+                return list.push({value}, left);
+            }), "small packed push");
+            if (left) expected.push_front(value);
+            else expected.push_back(value);
+        }
+        require(database->largest <= max_page && contents(database, "small") ==
+            std::vector<std::string>(expected.begin(), expected.end()),
+            "small push packing changed bound/order");
+    }
+}
+
+static void test_medium_push_packing() {
+    for (size_t width : {size_t(512), size_t(1024), size_t(2048),
+            size_t(3072)}) {
+        for (bool left : {false, true}) {
+            auto database = memory();
+            std::deque<std::string> model;
+            for (unsigned i = 0; i < 120; ++i) {
+                const std::string value(width, static_cast<char>(i));
+                require(operation(database, "medium", [&](list_store& list) {
+                    return list.push({value}, left);
+                }), "medium push");
+                if (left) model.push_front(value);
+                else model.push_back(value);
+            }
+            require(contents(database, "medium") ==
+                std::vector<std::string>(model.begin(), model.end()),
+                "medium packing order");
+            const auto inspect = [&](page_transaction& tx) {
+                list_root root;
+                const auto* entry = tx.roots().find("medium");
+                if (!entry || list_page_codec::decode_root(entry->value,
+                    root) != list_page_status::ok) return false;
+                uint64_t id = root.head, previous = 0;
+                size_t members = 0, pages = 0;
+                while (id) {
+                    std::string bytes; list_page page;
+                    if (++pages > 120 || tx.lookup("medium", id, bytes) !=
+                        db::lookup_status::found || bytes.size() < 4 ||
+                        bytes[3] != 2 ||
+                        list_page_codec::decode_page(bytes, page) !=
+                        list_page_status::ok || page.id != id ||
+                        page.previous != previous) return false;
+                    for (const auto& fragment : page.fragments) {
+                        if (fragment.offset || fragment.bytes.size() != width
+                            || fragment.total_bytes != width) return false;
+                        ++members;
+                    }
+                    previous = id; id = page.next;
+                }
+                return previous == root.tail && members == 120;
+            };
+            require(database->transact_page("medium", inspect) ==
+                db::batch_status::ok, "medium complete page chain");
+            std::vector<std::string> popped;
+            require(operation(database, "medium", [&](list_store& list) {
+                return list.pop(117, left, &popped);
+            }), "medium cross-page pop");
+            std::vector<std::string> expected;
+            for (unsigned i = 0; i < 117; ++i) {
+                expected.push_back(left ? model.front() : model.back());
+                if (left) model.pop_front(); else model.pop_back();
+            }
+            require(popped == expected && contents(database, "medium") ==
+                std::vector<std::string>(model.begin(), model.end()),
+                "medium pop order/tail");
+        }
+    }
+}
+
+static void test_medium_page_growth_rollback() {
+    for (bool left : {false, true}) {
+        bool succeeded = false;
+        size_t failures = 0;
+        const std::vector<std::string> original(4, std::string(1024, 'o'));
+        const std::string added(1024, 'n');
+        auto expected = original;
+        expected.insert(left ? expected.begin() : expected.end(), added);
+        for (long budget = 0; budget < 128; ++budget) {
+            auto database = memory();
+            require(operation(database, "medium-fault", [&](list_store& list) {
+                return list.push(original, left);
+            }), "medium growth rollback seed");
+            std::string root;
+            require(database->get("medium-fault", root), "medium fault root");
+            std::vector<std::string> keys{"medium-fault"};
+            const db::page_callback callback = [&](page_transaction& tx) {
+                list_store list(tx, "medium-fault");
+                return list.open() && list.push({added}, left) && list.finish();
+            };
+            allocation_budget = budget;
+            const auto result = database->transact_pages(std::move(keys),
+                callback);
+            allocation_budget = -1;
+            if (result == db::batch_status::ok) {
+                require(contents(database, "medium-fault") == expected,
+                    "medium growth successful retry");
+                succeeded = true; break;
+            }
+            std::string after;
+            require(database->get("medium-fault", after) && after == root &&
+                contents(database, "medium-fault") == original,
+                "medium growth failure exposed partial update");
+            ++failures;
+        }
+        require(succeeded && failures, "medium growth fault sweep incomplete");
+    }
+}
+
+static void test_old_medium_page_append() {
+    for (bool left : {false, true}) {
+        auto database = memory();
+        const std::vector<std::string> original(14, std::string(1024, 'o'));
+        require(operation(database, "wide-medium", [&](list_store& list) {
+            return list.push(original, left);
+        }), "old medium bulk page");
+        database->reads = database->writes = 0;
+        const std::string added(1024, 'n');
+        require(operation(database, "wide-medium", [&](list_store& list) {
+            return list.push({added}, left);
+        }) && database->reads == 1 && database->writes == 1,
+            "old medium page lost remaining capacity");
+        auto expected = original;
+        expected.insert(left ? expected.begin() : expected.end(), added);
+        require(contents(database, "wide-medium") == expected,
+            "old medium page append order");
+    }
+}
+
+static void test_wide_page_append() {
+    auto database = memory();
+    require(database->transact_pages({"wide"}, [](page_transaction& tx) {
+        list_fragment value;
+        value.total_bytes = 3; value.bytes = "old";
+        list_page page;
+        page.id = 1; page.fragments.assign(600, value);
+        list_root root;
+        root.elements = 600; root.head = root.tail = root.last_id = 1;
+        auto* entry = tx.roots().find("wide");
+        entry->action = db::update_action::write;
+        std::string bytes;
+        return list_page_codec::encode_root(root, entry->value) ==
+            list_page_status::ok && list_page_codec::encode_page(page,
+                bytes) == list_page_status::ok && tx.put("wide", 1,
+                    std::move(bytes));
+    }) == db::batch_status::ok, "wide page fixture");
+    database->reads = database->writes = 0;
+    require(operation(database, "wide", [](list_store& list) {
+        return list.push({"new"}, false);
+    }) && database->reads == 1 && database->writes == 1,
+        "wide page append lost free capacity");
+    std::vector<std::string> expected(600, "old");
+    expected.push_back("new");
+    require(contents(database, "wide") == expected, "wide page append order");
+}
+
 static void test_model() {
     auto database = memory();
     std::deque<std::string> model;
@@ -272,6 +435,35 @@ static void test_reset_and_legacy_root() {
         std::string(20000, 'x')}), "promotion changed members");
 }
 
+static void test_pop_cycle_rollback() {
+    auto database = memory();
+    const std::string key = "cyclic-pop";
+    require(operation(database, key, [](list_store& list) {
+        return list.push({std::string(60000, 'x'), "end"}, false);
+    }), "cyclic pop seed");
+    std::string original;
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        std::string bytes;
+        list_page page;
+        if (tx.lookup(key, 1, original) != db::lookup_status::found ||
+            tx.lookup(key, 3, bytes) != db::lookup_status::found ||
+            list_page_codec::decode_page(bytes, page) != list_page_status::ok ||
+            !page.next) return false;
+        page.next = 1;
+        return list_page_codec::encode_page(page, bytes) == list_page_status::ok &&
+            tx.put(key, 3, std::move(bytes));
+    }) == db::batch_status::ok, "cyclic pop fixture");
+    require(!operation(database, key, [](list_store& list) {
+        std::string value;
+        return list.pop_one(true, value);
+    }), "cyclic pop accepted");
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        std::string bytes;
+        return tx.lookup(key, 1, bytes) == db::lookup_status::found &&
+            bytes == original;
+    }) == db::batch_status::ok, "cyclic pop published staged erasure");
+}
+
 static void test_corruption_and_exhaustion() {
     auto database = memory();
     require(operation(database, "corrupt", [](list_store& list) {
@@ -362,6 +554,57 @@ static void test_allocation_rollback() {
     require(succeeded && failures > 0, "reset allocation sweep incomplete");
 }
 
+static void test_endpoint_allocation_rollback() {
+    for (bool left : {false, true}) {
+        for (bool pop : {false, true}) {
+            bool succeeded = false;
+            size_t failures = 0;
+            for (long budget = 0; budget < 256; ++budget) {
+                auto database = memory();
+                const std::vector<std::string> original(100,
+                    std::string(30, 'o'));
+                require(operation(database, "fault", [&](list_store& list) {
+                    return list.push(original, false);
+                }), "endpoint fault seed");
+                auto expected = original;
+                const std::vector<std::string> added{std::string(30, 'n')};
+                if (pop) expected.pop_back();
+                else expected.insert(left ? expected.begin() : expected.end(),
+                    added.front());
+                std::string original_root;
+                database->get("fault", original_root);
+                std::vector<std::string> keys{"fault"}, output;
+                const db::page_callback callback = [&](page_transaction& tx) {
+                    list_store list(tx, "fault");
+                    if (!list.open()) return false;
+                    return (pop ? list.pop(1, left, &output) :
+                        list.push(added, left)) && list.finish();
+                };
+                allocation_budget = budget;
+                const auto result = database->transact_pages(std::move(keys),
+                    callback);
+                allocation_budget = -1;
+                if (result == db::batch_status::ok) {
+                    require(contents(database, "fault") == expected &&
+                        (!pop || output ==
+                            std::vector<std::string>{original.front()}),
+                        "successful endpoint operation lost data");
+                    succeeded = true;
+                    break;
+                }
+                ++failures;
+                std::string root;
+                require(database->get("fault", root) &&
+                    root == original_root &&
+                    contents(database, "fault") == original,
+                    "failed endpoint operation exposed page/root mutation");
+            }
+            require(succeeded && failures > 0,
+                "endpoint allocation sweep incomplete");
+        }
+    }
+}
+
 static void test_unfinished_context() {
     auto database = memory();
     require(operation(database, "unfinished", [](list_store& list) {
@@ -427,15 +670,110 @@ static void test_yielding_transactions() {
         "concurrent endpoints lost original data");
 }
 
+static void test_whole_member_pages() {
+    for (bool left : {false, true}) {
+        auto database = memory();
+        std::deque<std::string> expected;
+        for (unsigned i = 0; i < 600; ++i) {
+            std::string value(64 + i % 2, static_cast<char>(i));
+            value[0] = '\0'; value[1] = static_cast<char>(i >> 8);
+            require(operation(database, "whole", [&](list_store& list) {
+                return list.push({value}, left);
+            }), "whole member push");
+            if (left) expected.push_front(value);
+            else expected.push_back(value);
+        }
+        require(contents(database, "whole") ==
+            std::vector<std::string>(expected.begin(), expected.end()),
+            "whole member boundary changed binary ordering");
+        require(database->transact_page("whole", [&](page_transaction& tx) {
+            list_root root;
+            auto* entry = tx.roots().find("whole");
+            if (!entry || list_page_codec::decode_root(entry->value, root) !=
+                list_page_status::ok) return false;
+            uint64_t previous = 0, id = root.head;
+            size_t members = 0, pages = 0;
+            while (id) {
+                std::string bytes;
+                list_page page;
+                if (++pages > 100 || tx.lookup("whole", id, bytes) !=
+                    db::lookup_status::found || !list_page_codec::is_compact_page(bytes) || list_page_codec::decode_page(bytes,
+                        page) != list_page_status::ok || page.id != id ||
+                    page.previous != previous) return false;
+                for (const auto& item : page.fragments) {
+                    if (item.offset || item.total_bytes != item.bytes.size())
+                        return false;
+                    ++members;
+                }
+                previous = id; id = page.next;
+            }
+            return previous == root.tail && members == 600;
+        }) == db::batch_status::ok, "whole members fragmented at page end");
+    }
+}
+
+static void test_whole_member_growth_rollback() {
+    for (bool left : {false, true}) {
+        bool succeeded = false;
+        size_t failures = 0;
+        for (long budget = 0; budget < 256; ++budget) {
+            auto database = memory();
+            std::vector<std::string> original(22, std::string(64, 'o'));
+            original.push_back("small");
+            require(operation(database, "whole", [&](list_store& list) {
+                return list.push(original, false);
+            }), "whole growth fault seed");
+            std::string original_root;
+            require(database->get("whole", original_root), "whole root");
+            const std::string added(64, 'n');
+            const db::page_callback callback = [&](page_transaction& tx) {
+                list_store list(tx, "whole");
+                return list.open() && list.push({added}, left) &&
+                    list.finish();
+            };
+            std::vector<std::string> keys{"whole"};
+            allocation_budget = budget;
+            const auto result = database->transact_pages(std::move(keys),
+                callback);
+            allocation_budget = -1;
+            if (result == db::batch_status::ok) {
+                auto expected = original;
+                expected.insert(left ? expected.begin() : expected.end(),
+                    added);
+                require(contents(database, "whole") == expected,
+                    "whole growth success lost data");
+                succeeded = true; break;
+            }
+            ++failures;
+            std::string root;
+            require(database->get("whole", root) && root == original_root &&
+                contents(database, "whole") == original,
+                "whole growth failure published a partial page/link/root");
+        }
+        require(succeeded && failures, "whole growth fault sweep incomplete");
+    }
+}
+
 int main() {
     acl::acl_cpp_init();
     test_packing_and_access();
+    test_small_push_packing(3, 511);
+    test_small_push_packing(16, 1023);
+    test_small_push_packing(128);
+    test_whole_member_pages();
+    test_whole_member_growth_rollback();
+    test_medium_push_packing();
+    test_medium_page_growth_rollback();
+    test_old_medium_page_append();
+    test_wide_page_append();
     test_model();
     test_large_and_reverse();
     test_search_and_trim();
     test_reset_and_legacy_root();
     test_corruption_and_exhaustion();
+    test_pop_cycle_rollback();
     test_allocation_rollback();
+    test_endpoint_allocation_rollback();
     test_unfinished_context();
     test_yielding_transactions();
     std::cout << "Packed List page operations and atomic resets passed\n";

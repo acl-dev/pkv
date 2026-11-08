@@ -71,6 +71,49 @@ bool list_store::cursor::member(std::string* out, const std::string* match,
     }
 }
 
+bool list_store::compact_range(uint64_t skip, uint64_t count, bool reverse,
+    std::vector<std::string>& values, bool& handled) {
+    handled = false;
+    uint64_t id = reverse ? root_.tail : root_.head, previous = 0;
+    std::string scratch;
+    list_page_update page;
+    struct request {
+        uint64_t skip, take;
+        bool reverse;
+        uint32_t members;
+        list_page_status status;
+        list_page_update& page;
+        std::vector<std::string>& values;
+    } job{skip, count, reverse, 0, list_page_status::invalid, page, values};
+    const auto read = [](void* raw, const std::string& bytes) {
+        auto& job = *static_cast<request*>(raw);
+        job.status = list_page_codec::range_compact(bytes, job.skip, job.take,
+            job.reverse, max_member_bytes, job.members, job.page, job.values);
+    };
+    while (id) {
+        if (!inspect(id, scratch, read, &job)) return false;
+        if (job.status != list_page_status::ok)
+            return fail(job.status == list_page_status::out_of_memory ?
+                status::storage : status::invalid);
+        if (!job.members) {
+            values.clear();
+            return true;
+        }
+        if (page.id != id || !check_links(id, page.previous, page.next) ||
+            (reverse ? page.next : page.previous) != previous)
+            return fail(status::invalid);
+        if (values.size() == count) {
+            handled = true;
+            return true;
+        }
+        job.skip -= std::min<uint64_t>(job.skip, job.members);
+        job.take = count - values.size();
+        previous = id;
+        id = reverse ? page.previous : page.next;
+    }
+    return fail(status::invalid);
+}
+
 bool list_store::range(long long start, long long end,
     std::vector<std::string>& out) {
     out.clear();
@@ -81,21 +124,67 @@ bool list_store::range(long long start, long long end,
     // Walk from the nearer end; skipped members do not allocate value buffers.
     const auto after = static_cast<size_t>(root_.elements) - offset - count;
     const bool reverse = after < offset;
-    cursor reader(*this, reverse);
     const auto skip = reverse ? after : offset;
-    for (size_t i = 0; i < skip; ++i) {
-        if (!reader.member(nullptr)) return false;
-    }
     std::vector<std::string> values;
-    values.reserve(std::min(count, size_t(256)));
-    for (size_t i = 0; i < count; ++i) {
-        std::string value;
-        if (!reader.member(&value)) return false;
-        values.push_back(std::move(value));
+    values.reserve(std::min(count, size_t(1024)));
+    bool handled;
+    if (!compact_range(skip, count, reverse, values, handled)) return false;
+    if (!handled) {
+        cursor reader(*this, reverse);
+        for (size_t i = 0; i < skip; ++i) {
+            if (!reader.member(nullptr)) return false;
+        }
+        for (size_t i = 0; i < count; ++i) {
+            std::string value;
+            if (!reader.member(&value)) return false;
+            values.push_back(std::move(value));
+        }
     }
     if (reverse) std::reverse(values.begin(), values.end());
     out.swap(values);
     return true;
+}
+
+bool list_store::compact_index(uint64_t offset, list_page_update& result,
+    bool& handled, const std::string* replacement) {
+    handled = false;
+    const auto after = root_.elements - offset - 1;
+    const bool reverse = after < offset;
+    uint64_t skip = reverse ? after : offset;
+    uint64_t id = reverse ? root_.tail : root_.head, previous = 0;
+    std::string scratch;
+    struct request {
+        list_page_update& result;
+        uint64_t skip;
+        bool reverse;
+        const std::string* replacement;
+        uint32_t count;
+        list_page_status status;
+    } job{result, skip, reverse, replacement, 0, list_page_status::invalid};
+    const auto read = [](void* raw, const std::string& bytes) {
+        auto& job = *static_cast<request*>(raw);
+        job.status = list_page_codec::index_compact(bytes, job.skip,
+            job.reverse, max_member_bytes, job.count, job.result, job.replacement);
+    };
+    while (id) {
+        job.skip = skip;
+        if (!inspect(id, scratch, read, &job)) return false;
+        if (job.status != list_page_status::ok)
+            return fail(job.status == list_page_status::out_of_memory ?
+                status::storage : status::invalid);
+        if (!job.count) return true;
+        if (result.id != id || !check_links(id, result.previous, result.next) ||
+            (reverse ? result.next : result.previous) != previous)
+            return fail(status::invalid);
+        if (skip < job.count) {
+            handled = !replacement || result.applied;
+            return true;
+        }
+        skip -= job.count;
+        previous = id;
+        id = reverse ? result.previous : result.next;
+    }
+    return fail(status::invalid);
 }
 
 bool list_store::index(long long position, std::string& out, bool& found) {
@@ -105,10 +194,20 @@ bool list_store::index(long long position, std::string& out, bool& found) {
     if (!list_index(static_cast<size_t>(root_.elements), position, offset)) {
         return true;
     }
-    std::vector<std::string> values;
-    const auto index = static_cast<long long>(offset);
-    if (!range(index, index, values)) return false;
-    out = std::move(values.front());
+    list_page_update result;
+    bool handled;
+    if (!compact_index(offset, result, handled)) return false;
+    if (!handled) {
+        // A fragmented page may contain only part of a member.
+        const auto after = root_.elements - offset - 1;
+        const bool reverse = after < offset;
+        cursor reader(*this, reverse);
+        for (uint64_t i = 0; i < (reverse ? after : offset); ++i) {
+            if (!reader.member(nullptr)) return false;
+        }
+        if (!reader.member(&result.value)) return false;
+    }
+    out.swap(result.value);
     found = true;
     return true;
 }

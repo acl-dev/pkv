@@ -17,8 +17,16 @@ public:
     redis_object* get();
     void put(redis_object* obj);
 
+    // Worker-local: active batches and the maintenance fiber share a scheduler.
+    void activity() noexcept { ++generation_; }
+    // Keep live borrowers untouched; two ticks without activity reclaim only
+    // objects that have already been reset and returned to this cache.
+    void trim_idle(size_t retained) noexcept;
+
+
 private:
     size_t max_;
+    unsigned long long generation_ = 0, observed_generation_ = 0;
 #ifdef USE_VECTOR
     std::vector<redis_object*> cache_;
 #else

@@ -4,6 +4,8 @@
 
 #include "stdafx.h"
 #include <climits>
+#include <cstring>
+#include <limits>
 #include "redis_ocache.h"
 #include "redis_object.h"
 
@@ -48,7 +50,7 @@ void redis_object::set_parent(redis_object* parent) {
     }
 }
 
-void redis_object::reset() {
+void redis_object::recycle_children() {
     if (obj_) {
         cache_.put(obj_);
         obj_ = nullptr;
@@ -59,19 +61,6 @@ void redis_object::reset() {
         }
         objs_->clear();
     }
-
-    response_kind_ = response_kind::plain;
-    response_protocol_ = 0;
-    status_ = redis_s_begin;
-    type_   = REDIS_OBJ_UNKOWN;
-    parent_ = this;
-    obj_    = nullptr;
-    cnt_    = 0;
-    depth_ = 0;
-    line_cr_ = false;
-    strend_pos_ = 0;
-
-    buf_.clear();
 }
 
 const char* redis_object::get_cmd() const {
@@ -148,6 +137,20 @@ const char* redis_object::update(const char *data, size_t& len) {
         return parse_object(data, len);
     }
 
+    // A complete, single-digit top-level array header can enter the
+    // existing child parser without dispatching the two header states.
+    if (status_ == redis_s_begin && depth_ == 0 && len >= 4 &&
+        data[0] == '*' && data[1] >= '1' && data[1] <= '9' &&
+        data[2] == '\r' && data[3] == '\n') {
+        cnt_ = data[1] - '0';
+        len -= 4;
+        type_ = REDIS_OBJ_ARRAY;
+        status_ = redis_s_array;
+        obj_ = cache_.get();
+        obj_->set_parent(this);
+        return parse_object(data + 4, len);
+    }
+
     while (len > 0) {
         //printf(">>>parse one: %s<<<\n", data);
         //printf(">>parse one<<<\n");
@@ -160,18 +163,65 @@ const char* redis_object::update(const char *data, size_t& len) {
     return data;
 }
 
+namespace {
+// Probe without changing parser state. Any incomplete or unusual frame uses
+// the existing streaming parser, including its exact error consumption.
+size_t complete_bulk_body(const char* data, size_t len, unsigned& value) {
+    if (len < 6 || data[0] != '$') return 0;
+    size_t at = 1;
+    value = 0;
+    while (at < len && at <= 9) {
+        const unsigned digit = static_cast<unsigned char>(data[at]) - '0';
+        if (digit > 9) break;
+        value = value * 10 + digit; ++at;
+    }
+    if (at == 1 || len - at < 2 || data[at] != '\r' ||
+        data[at + 1] != '\n' || value > 512U * 1024 * 1024) return 0;
+    const auto header = at + 2;
+    if (len - header < size_t(value) + 2 ||
+        data[header + value] != '\r' ||
+        data[header + value + 1] != '\n') return 0;
+    return header + value;
+}
+} // namespace
+
 const char* redis_object::parse_object(const char* data, size_t& len) {
     assert(cnt_ > 0);
     assert(obj_);
 
     while (len > 0) {
-        data = obj_->update(data, len);
+        unsigned value = 0;
+        const auto body = obj_->status_ == redis_s_begin &&
+            obj_->depth_ <= 128 ? complete_bulk_body(data, len, value) : 0;
+        if (body) {
+            // Match the streaming allocation-failure state: header and body
+            // are consumed before the string allocation, CRLF only after it.
+            obj_->cnt_ = static_cast<int>(value);
+            obj_->type_ = REDIS_OBJ_STRING;
+            obj_->status_ = redis_s_string;
+            len -= body;
+            const auto* payload = data + body - value;
+            if (value <= obj_->buf_.capacity()) {
+                obj_->buf_.assign(payload, value);
+            } else {
+                std::string bytes(payload, value);
+                obj_->buf_.swap(bytes);
+            }
+            data += body + 2; len -= 2;
+            obj_->strend_pos_ = 2;
+            obj_->status_ = redis_s_finish;
+        } else data = obj_->update(data, len);
         if (obj_->failed()) {
             status_ = redis_s_null;
             return data;
         }
         if (!obj_->finish()) return data;
         CHECK(objs_);
+        // Once half of a wide array has arrived, the last growth can use
+        // its declared count. A header alone never reserves this space.
+        if (objs_->size() >= 64 && objs_->size() == objs_->capacity() &&
+            static_cast<size_t>(cnt_) - objs_->size() <= objs_->size())
+            objs_->reserve(static_cast<size_t>(cnt_));
         objs_->push_back(obj_);
         obj_ = nullptr;
         if (objs_->size() == static_cast<size_t>(cnt_)) {
@@ -378,12 +428,29 @@ const char* redis_object::parse_cmdline(const char *data, size_t &len) {
 
     if (failed()) return data;
 
-    acl::string buf(buf_.c_str());
-    auto& tokens = buf.split2(" \t", true);
-    for (auto& it : tokens) {
+    auto append = [&](const char* word, size_t size) {
         auto& obj = create_child();
-        obj.buf_ = it.c_str();
+        obj.buf_.assign(word, size);
         obj.type_ = REDIS_OBJ_STRING;
+    };
+    static const char special[] = {'\'', '"', '\\', '\0'};
+    if (buf_.find_first_of(special, 0, sizeof(special)) == std::string::npos) {
+        size_t pos = 0;
+        while (pos < buf_.size()) {
+            while (pos < buf_.size() &&
+                (buf_[pos] == ' ' || buf_[pos] == '\t')) ++pos;
+            const size_t start = pos;
+            while (pos < buf_.size() &&
+                buf_[pos] != ' ' && buf_[pos] != '\t') ++pos;
+            if (pos != start) append(buf_.data() + start, pos - start);
+        }
+    } else {
+        // Keep ACL's quote/escape and C-string semantics, owning its result
+        // even when creating a child or copying an argument throws.
+        std::unique_ptr<ACL_ARGV, decltype(&acl_argv_free)> words(
+            acl_argv_quote_split(buf_.c_str(), " \t"), &acl_argv_free);
+        for (int i = 0; i < words->argc; ++i)
+            append(words->argv[i], std::strlen(words->argv[i]));
     }
 
     type_ = REDIS_OBJ_ARRAY;
@@ -418,6 +485,27 @@ const char* redis_object::get_data(const char* data, size_t& len, size_t want) {
 
 const char* redis_object::get_length(const char* data, size_t& len,
       int& res, bool& found) {
+    // Complete short positive headers need no temporary string. Do not
+    // change state until CRLF is present; fragmented/long/negative headers
+    // retain the strict line parser below. Nine digits fit safely in int.
+    if (buf_.empty() && !line_cr_) {
+        size_t digits = 0;
+        unsigned value = 0;
+        while (digits < len && digits < 9) {
+            const unsigned digit =
+                static_cast<unsigned char>(data[digits]) - '0';
+            if (digit > 9) break;
+            value = value * 10 + digit;
+            ++digits;
+        }
+        if (digits && len - digits >= 2 && data[digits] == '\r' &&
+            data[digits + 1] == '\n') {
+            res = static_cast<int>(value);
+            found = true;
+            len -= digits + 2;
+            return data + digits + 2;
+        }
+    }
     data = get_line(data, len, buf_, found);
     if (!found) {
         assert(len == 0);
@@ -515,8 +603,17 @@ bool redis_object::to_string(std::string& out, bool one_line) const {
             }
             out.append(buf_.c_str(), buf_.size()).append(CRLF);
         } else {
-            out.append("$").append(std::to_string(buf_.size())).append(CRLF)
-                .append(buf_.c_str(), buf_.size()).append(CRLF);
+            char header[std::numeric_limits<size_t>::digits10 + 2 + sizeof(CRLF) - 1];
+            auto* const end = header + sizeof(header);
+            auto* next = end - (sizeof(CRLF) - 1);
+            std::memcpy(next, CRLF, sizeof(CRLF) - 1);
+            auto length = buf_.size();
+            do {
+                *--next = static_cast<char>('0' + length % 10);
+                length /= 10;
+            } while (length);
+            *--next = '$';
+            out.append(next, end - next).append(buf_).append(CRLF);
         }
         break;
     case REDIS_OBJ_ARRAY:

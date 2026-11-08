@@ -69,6 +69,7 @@ client_runtime redis_handler::observe(const void* context, long long now_ms) {
 client_runtime redis_handler::inspect(long long now_ms) const {
     std::lock_guard<std::mutex> lock(inspector_mutex_);
     auto out = activity_.snapshot();
+    out.owned_memory += response_buffer_.owned();
     const auto memory = parser_.memory();
     out.query_size = memory.partial.bytes;
     out.query_free = memory.partial.spare;

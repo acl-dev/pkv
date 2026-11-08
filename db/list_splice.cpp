@@ -132,7 +132,7 @@ bool list_store::splice(position begin, position end,
     }
     if (!writer.finish(last.next)) return false;
     for (const auto page : discarded) {
-        if (page != writer.first() && !transaction_.erase(owner_, page)) {
+        if (page != writer.first() && !transaction_.erase_bound(entry_, page)) {
             return fail(status::storage);
         }
     }
@@ -152,6 +152,17 @@ bool list_store::replace(long long position, const std::string& value,
     if (value.size() > max_member_bytes) return fail(status::too_large);
     size_t index;
     if (!list_index(static_cast<size_t>(root_.elements), position, index)) {
+        return true;
+    }
+    list_page_update update;
+    bool handled;
+    if (!compact_index(index, update, handled, &value)) return false;
+    if (handled) {
+        if (!counter()) return false;
+        if (!transaction_.put_bound(entry_, update.id, std::move(update.bytes)))
+            return fail(status::storage);
+        dirty_ = true;
+        found = true;
         return true;
     }
     span target;

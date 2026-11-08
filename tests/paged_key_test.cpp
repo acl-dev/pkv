@@ -130,11 +130,12 @@ static void test_view() {
             view->list_size(count) && count == 3 &&
             !view->list_values(payload) && payload.size() == 1,
             "root view transferred opaque payload");
-        bytes[3] = 3;
+        bytes[3] = 4;
         require(codec.decode_stored(bytes, view) ==
             codec_status::unsupported_version && !view, "future root");
     }
-    for (const auto& bytes : {std::string("PLR"), std::string("PLR\2", 4)}) {
+    for (const auto& bytes : {std::string("PLR"), std::string("PLR\2", 4),
+        std::string("PLR\3", 4)}) {
         std::unique_ptr<record_view> view;
         require(codec.decode_stored(bytes, view) ==
             codec_status::invalid_record && !view, "truncated root");

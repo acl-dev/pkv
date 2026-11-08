@@ -50,10 +50,10 @@ bool paged_string::open(shared_db& db, page_transaction& tx,
     entry.maintenance_only = true;
     return true;
 }
-bool paged_string::run(shared_db& db, const std::string& key,
-    const operation& callback) {
+bool paged_string::run_callback(shared_db& db, const std::string& key,
+    const operation& callback, const db::page_root_callback* root) {
     reset();
-    const auto status = db->transact_pages({key}, [&](page_transaction& tx) {
+    auto apply = [&](page_transaction& tx) {
         now_ = unix_time_ms();
         string_store store(tx, key);
         if (!open(db, tx, key, store)) return false;
@@ -62,7 +62,11 @@ bool paged_string::run(shared_db& db, const std::string& key,
             return false;
         }
         return store.finish() || stored(store);
-    });
+    };
+    if (scope_) return result(scope_->transact(*db, key, std::ref(apply), root));
+    const auto status = root ?
+        db->transact_page(key, std::ref(apply), *root) :
+        db->transact_page(key, std::ref(apply));
     return result(status);
 }
 bool paged_string::get(shared_db& db, const std::string& key,

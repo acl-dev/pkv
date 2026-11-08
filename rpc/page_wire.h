@@ -8,14 +8,17 @@ namespace page_wire {
 constexpr uint32_t magic = 0x504b5632; // PKV2
 constexpr uint32_t exec_magic = 0x504b5633; // PKV3
 constexpr uint32_t ordered_magic = 0x504b5634; // PKV4
+constexpr uint32_t compact_magic = 0x504b5635; // PKV5
 constexpr size_t header_bytes = 20;
 
 inline uint32_t magic_for(unsigned version) {
-    return version == 4 ? ordered_magic : version == 3 ? exec_magic :
+    return version == 5 ? compact_magic : version == 4 ? ordered_magic :
+        version == 3 ? exec_magic :
         version == 2 ? magic : 0;
 }
 inline unsigned version(uint32_t value) {
-    return value == ordered_magic ? 4 : value == exec_magic ? 3 :
+    return value == compact_magic ? 5 : value == ordered_magic ? 4 :
+        value == exec_magic ? 3 :
         value == magic ? 2 : 0;
 }
 

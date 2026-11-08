@@ -34,8 +34,8 @@ private:
     acl::shared_stream conn_;
     bool negotiated_ = false;
     unsigned wire_version_ = 0;
-    unsigned requested_version_ = 4;
-    unsigned next_version_ = 4;
+    unsigned requested_version_ = 5;
+    unsigned next_version_ = 5;
     page_receiver pages_;
     exec_receiver executions_;
     ordered_receiver ordered_;

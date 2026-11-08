@@ -190,8 +190,8 @@ member/score pages. See `SET_STORAGE.md` and `ZSET_STORAGE.md`.
 
 ## Native String command storage
 
-Default String commands now store PSR v1 roots with up to 1024 inline bytes,
-or a 32-byte root plus deterministic owned 16-KiB chunks. TYPE, TTL, COPY,
+Default String commands store PSR v2 roots with up to 1024 inline bytes,
+or a 32-byte PSR v1 root plus deterministic owned 16-KiB chunks. TYPE, TTL, COPY,
 RENAME, SCAN TYPE and PKV2 understand these roots. Old JSON values migrate
 atomically on single-key access; MGET reads old/native values without migration.
 Small v0/v1 compatibility events are bounded exports from inline roots. Full
@@ -200,6 +200,6 @@ layout, limits and rollback requirements.
 
 
 PSR accepts BITFIELD final-field tails through 512 MiB + 8, while ordinary
-String writes retain their 512-MiB bound. Layout/version are unchanged; binaries
-that enforce the previous cap reject these extended roots. See BITFIELD.md for
+String writes retain their 512-MiB bound. Binaries that enforce the previous
+cap reject these extended roots. See BITFIELD.md for
 checked offsets, downgrade implications and boundary fixture limitations.

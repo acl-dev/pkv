@@ -15,6 +15,23 @@ bool paged_string::getbit(shared_db& db, const std::string& key,
     long long offset, long long& bit) {
     bit = 0;
     if (!valid_bit_offset(offset)) return false;
+    if (!scope_ && static_cast<uint64_t>(offset) <
+        string_page_codec::inline_bytes * 8) {
+        reset();
+        std::string byte;
+        const auto direct = db->read_inline_string(key, byte,
+            static_cast<size_t>(offset / 8), 1);
+        if (direct == db::inline_status::error) {
+            read_status_ = read_status::storage_error;
+            return false;
+        }
+        if (direct != db::inline_status::fallback) {
+            if (!byte.empty())
+                bit = (static_cast<unsigned char>(byte[0]) >> (7 - offset % 8)) & 1;
+            read_status_ = read_status::ok;
+            return true;
+        }
+    }
     const bool ok = run(db, key, [&](string_store& store) {
         return store.getbit(static_cast<uint64_t>(offset), bit);
     });

@@ -87,6 +87,27 @@ bool dao_base::decode(shared_db& db, const std::string& bytes, long long now_ms)
     return true;
 }
 
+bool dao_base::decode_metadata(shared_db& db, const std::string& bytes,
+    record_header& header, bool& native, long long now_ms) {
+    const auto status = db->value_codec().open_stored(bytes, header,
+        view_, native);
+    if (status != codec_status::ok || (!native && !view_)) {
+        view_.reset();
+        read_status_ = status == codec_status::unsupported_version ?
+            read_status::unsupported_format :
+            status == codec_status::invalid_record ?
+                read_status::invalid_record : read_status::storage_error;
+        return false;
+    }
+    const auto deadline = header.expires_at_ms;
+    if (deadline >= 0 && deadline <= (now_ms < 0 ? unix_time_ms() : now_ms)) {
+        view_.reset(); read_status_ = read_status::missing;
+        return false;
+    }
+    read_status_ = read_status::ok;
+    return true;
+}
+
 bool dao_base::materialize(value_record& record) {
     if (!view_) return false;
     record = value_record();
@@ -98,6 +119,7 @@ bool dao_base::materialize(value_record& record) {
     case value_kind::list: ok = view_->list_values(record.list_value); break;
     case value_kind::set: ok = view_->set_values(record.set_value); break;
     case value_kind::zset: ok = view_->zset_values(record.zset_value); break;
+    case value_kind::stream: break;
     }
     if (!ok) read_status_ = read_status::invalid_record;
     return ok;

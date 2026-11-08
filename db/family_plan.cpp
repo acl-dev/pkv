@@ -12,7 +12,7 @@ db::batch_status family_plan::validate(const std::vector<family_edit>& edits) {
     std::set<size_t> origins;
     size_t bytes = 0, records = edits.size();
     auto charge = [&](size_t amount) {
-        if (amount > page_batch::max_bytes - bytes) return false;
+        if (amount > page_batch::max_expanded_bytes - bytes) return false;
         bytes += amount; return true;
     };
     for (const auto& edit : edits) {
@@ -40,7 +40,8 @@ db::batch_status family_plan::validate(const std::vector<family_edit>& edits) {
                 (page.action != db::update_action::write &&
                  page.action != db::update_action::erase) ||
                 (page.action == db::update_action::erase &&
-                 !page.value.empty()) || records == page_batch::max_records ||
+                 !page.value.empty()) ||
+                records == page_batch::max_expanded_records ||
                 !charge(page.owner.size()) || !charge(page.value.size()))
                 return db::batch_status::aborted;
             previous = page.id; ++records;

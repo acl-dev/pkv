@@ -1,5 +1,9 @@
 # Ordered replication protocol 4
 
+PKV4 remains supported. Current negotiation starts at version 5; compact page
+erasures and mixed-version nested groups are described in
+[compact erasure replication](COMPACT_ERASE_REPLICATION.md).
+
 PKV4 is a private replication protocol, not Redis PSYNC. It extends the existing
 bounded page/EXEC framing with family ownership transfer. The public
 [MOVE command](MOVE.md) emits intents through the

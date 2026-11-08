@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "paged_hash.h"
+#include "coder/compact_hash.h"
 #include "common/rank_sampling.h"
 #include <stdexcept>
 
@@ -49,9 +50,42 @@ bool paged_hash::sample(shared_db& db, const std::string& key, long long count,
     }
     bool ok;
     try {
-        ok = run(db, key, [&](map_store& store) {
+        const auto tree = [&](map_store& store) {
             return choose(store, count, with_values, out);
-        });
+        };
+        ok = run_callback(db, key, tree,
+            [&](db::batch_entry&, const compact_hash::view* packed) {
+                if (!packed || !count) return true;
+                const auto size = packed->count();
+                const bool repeat = count < 0;
+                const auto wanted = repeat ? static_cast<uint64_t>(-count) :
+                    std::min<uint64_t>(count, size);
+                if (wanted > out.max_size())
+                    throw std::length_error("compact Hash sample too large");
+                out.reserve(static_cast<size_t>(wanted));
+                const auto append = [&](unsigned rank) {
+                    const auto item = packed->at(rank);
+                    out.emplace_back(item.first.str(),
+                        with_values ? item.second.str() : std::string());
+                };
+                if (!repeat && wanted == size) {
+                    for (unsigned i = 0; i < size; ++i) append(i);
+                } else if (repeat || wanted == 1) {
+                    rank_sampler ranks(size, true);
+                    for (uint64_t i = 0; i < wanted; ++i) append(ranks.next());
+                } else {
+                    std::array<unsigned, compact_hash::max_fields> ranks;
+                    std::iota(ranks.begin(), ranks.begin() + size, 0U);
+                    auto& random = set_sampling_engine();
+                    for (unsigned i = 0; i < wanted; ++i) {
+                        const auto position =
+                            std::uniform_int_distribution<unsigned>(i, size - 1)(random);
+                        std::swap(ranks[i], ranks[position]);
+                        append(ranks[i]);
+                    }
+                }
+                return true;
+            });
     } catch (const std::length_error&) {
         read_status_ = read_status::sample_too_large; ok = false;
     }

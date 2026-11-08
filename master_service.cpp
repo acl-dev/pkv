@@ -1,4 +1,11 @@
 #include "stdafx.h"
+#include <acl-lib/fiber/fiber_base.h>
+#ifdef __APPLE__
+#include <sys/socket.h>
+#include <netdb.h>
+#include <unistd.h>
+#include <fcntl.h>
+#endif
 #include "common/redis_integer.h"
 #include "common/shutdown_signals.h"
 #include <dirent.h>
@@ -49,9 +56,18 @@ int var_cfg_disable_save;
 int var_cfg_cluster_mode;
 static int var_cfg_active_expire;
 static int var_cfg_replica_read_only;
+#ifdef __APPLE__
+static int var_cfg_worker_dispatch;
+static int var_cfg_dispatch_share_stack;
+static int var_cfg_dispatch_stack, var_cfg_dispatch_buf, var_cfg_dispatch_timeout;
+#endif
 
 acl::master_bool_tbl var_conf_bool_tab[] = {
     { "disable_serialize",  0 , &var_cfg_disable_serialize  },
+#ifdef __APPLE__
+    { "worker_dispatch", 1, &var_cfg_worker_dispatch },
+    { "fiber_share_stack", 0, &var_cfg_dispatch_share_stack },
+#endif
     { "disable_save",       0,  &var_cfg_disable_save       },
     { "active_expire",      1,  &var_cfg_active_expire      },
     { "replica_read_only", 1, &var_cfg_replica_read_only },
@@ -63,6 +79,8 @@ acl::master_bool_tbl var_conf_bool_tab[] = {
 static int  var_cfg_io_timeout;
 static int  var_cfg_buf_size;
 static int  var_cfg_ocache_max;
+static int  var_cfg_ocache_idle_max;
+static int var_cfg_fiber_cache_limit;
 static int  var_cfg_db_count;
 static int var_cfg_databases;
 static int var_cfg_acllog_max_len;
@@ -76,10 +94,17 @@ int var_cfg_replica_publish_buffer_limit;
 int var_cfg_replica_pending_messages;
 
 acl::master_int_tbl var_conf_int_tab[] = {
+#ifdef __APPLE__
+    { "fiber_stack_size", 128000, &var_cfg_dispatch_stack, 0, 0 },
+    { "fiber_buf_size", 8192, &var_cfg_dispatch_buf, 0, 0 },
+    { "fiber_rw_timeout", 120, &var_cfg_dispatch_timeout, 0, 0 },
+#endif
     { "io_timeout",           120,     &var_cfg_io_timeout,           0, 0 },
     { "buf_size",             8192,    &var_cfg_buf_size,             0, 0 },
     { "ocache_max",           10000,   &var_cfg_ocache_max,           0, 0 },
+    { "ocache_idle_max",      1024,    &var_cfg_ocache_idle_max,      0, 0 },
     { "redis_max_slots",      16384,   &var_cfg_redis_max_slots,      0, 0 },
+    { "fiber_cache_limit", -1, &var_cfg_fiber_cache_limit, -1, 2147483647 },
     { "active_expire_batch", 64, &var_cfg_expire_batch, 1, 1024 },
     { "active_expire_interval", 100, &var_cfg_expire_interval, 1, 1000 },
     { "databases",            16,      &var_cfg_databases,            1, 65536
@@ -107,6 +132,130 @@ acl::master_int64_tbl var_conf_int64_tab[] = {
 
 using namespace pkv;
 
+#ifdef __APPLE__
+static __thread size_t dispatch_index = static_cast<size_t>(-1);
+
+// Only untouched accepted sockets cross schedulers. Each receiver constructs
+// its own stream and handler; no live coroutine or parser is migrated.
+struct master_service::worker_dispatch {
+    struct pending {
+        master_service& owner;
+        int fd = -1;
+        bool counted = false;
+        pending* next = nullptr;
+        explicit pending(master_service& service) : owner(service) {}
+        ~pending() {
+            if (fd >= 0) ::close(fd);
+            if (counted) owner.users_count_add(-1);
+        }
+        static void serve(ACL_FIBER*, void* context) {
+            std::unique_ptr<pending> client(static_cast<pending*>(context));
+            acl::socket_stream stream;
+            ACL_VSTREAM* raw = acl_vstream_fdopen(client->fd, O_RDWR,
+                var_cfg_dispatch_buf, var_cfg_dispatch_timeout,
+                ACL_VSTREAM_TYPE_SOCK);
+            if (!raw) return;
+            client->fd = -1; // raw now owns the descriptor.
+            if (!stream.open(raw)) { acl_vstream_close(raw); return; }
+            client->owner.serve_client(stream);
+        }
+    };
+    std::mutex mutex;
+    int input = -1, output = -1;
+    bool notified = false;
+    pending* head = nullptr;
+    pending* tail = nullptr;
+    worker_dispatch() {
+        int pair[2];
+        if (socketpair(AF_UNIX, SOCK_STREAM, 0, pair) != 0)
+            throw std::runtime_error("Cannot create worker notification sockets");
+        const int one = 1;
+        bool ok = setsockopt(pair[1], SOL_SOCKET, SO_NOSIGPIPE,
+            &one, sizeof(one)) == 0;
+        for (const int fd : pair) {
+            const int flags = fcntl(fd, F_GETFD);
+            const int status = fcntl(fd, F_GETFL);
+            if (flags < 0 || status < 0 ||
+                fcntl(fd, F_SETFD, flags | FD_CLOEXEC) < 0 ||
+                fcntl(fd, F_SETFL, status | O_NONBLOCK) < 0) ok = false;
+        }
+        if (!ok) {
+            ::close(pair[0]); ::close(pair[1]);
+            throw std::runtime_error("Cannot configure worker notification sockets");
+        }
+        input = pair[0]; output = pair[1];
+    }
+    ~worker_dispatch() {
+        if (input >= 0) ::close(input);
+        if (output >= 0) ::close(output);
+        while (head) {
+            pending* next = head->next;
+            delete head;
+            head = next;
+        }
+    }
+    void push(pending* client) {
+        bool wake = false;
+        {
+            std::lock_guard<std::mutex> lock(mutex);
+            if (tail) tail->next = client;
+            else head = client;
+            tail = client;
+            if (!notified) { notified = true; wake = true; }
+        }
+        if (wake) {
+            // At most one unconsumed byte per inbox. Never perform I/O
+            // while holding the queue mutex, including error/retry paths.
+            const char byte = 1;
+            ssize_t sent;
+            do { sent = ::send(output, &byte, 1, MSG_DONTWAIT); }
+            while (sent < 0 && errno == EINTR);
+            if (sent != 1) {
+                logger_error("Cannot notify worker: fd=%d error=%d", output, errno);
+                std::abort();
+            }
+        }
+    }
+    pending* pop() {
+        while (!acl::fiber::self_killed()) {
+            {
+                std::lock_guard<std::mutex> lock(mutex);
+                if (head) {
+                    pending* client = head;
+                    head = client->next;
+                    if (!head) tail = nullptr;
+                    client->next = nullptr;
+                    return client;
+                }
+            }
+            char byte;
+            ssize_t received;
+            do { received = ::read(input, &byte, 1); }
+            while (received < 0 && errno == EINTR);
+            if (received != 1) {
+                if (acl::fiber::self_killed()) return nullptr;
+                logger_error("Cannot read worker notification: fd=%d error=%d", input, errno);
+                std::abort();
+            }
+            // Clear only after consuming the token. An enqueue before this
+            // lock is seen by the next queue check; a later one sends a token.
+            std::lock_guard<std::mutex> lock(mutex);
+            notified = false;
+        }
+        return nullptr;
+    }
+    void receive() {
+        ACL_FIBER_ATTR attr;
+        acl_fiber_attr_init(&attr);
+        acl_fiber_attr_setstacksize(&attr, var_cfg_dispatch_stack);
+        acl_fiber_attr_setsharestack(&attr, var_cfg_dispatch_share_stack);
+        while (pending* client = pop()) {
+            if (!acl_fiber_create2(&attr, pending::serve, client)) delete client;
+        }
+    }
+};
+#endif
+
 master_service& master_service::get_instance() {
     static master_service instance;
     return instance;
@@ -128,6 +277,33 @@ master_service::~master_service() {
 }
 
 void master_service::on_accept(acl::socket_stream& conn) {
+#ifdef __APPLE__
+    if (!dispatchers_.empty()) {
+        const size_t target = dispatch_next_.fetch_add(1,
+            std::memory_order_relaxed) % dispatchers_.size();
+        if (target != dispatch_index) {
+            try {
+                std::unique_ptr<worker_dispatch::pending> client(
+                    new worker_dispatch::pending(*this));
+                client->fd = fcntl(conn.sock_handle(), F_DUPFD_CLOEXEC, 0);
+                if (client->fd >= 0) {
+                    // The framework retires its original descriptor and count
+                    // after this callback. Retain one count until remote close.
+                    users_count_add(1);
+                    client->counted = true;
+                    dispatchers_[target]->push(client.release());
+                    return;
+                }
+            } catch (const std::bad_alloc&) {
+                // Allocation/descriptor pressure keeps ownership local.
+            }
+        }
+    }
+#endif
+    serve_client(conn);
+}
+
+void master_service::serve_client(acl::socket_stream& conn) {
     //conn.set_rw_timeout(var_cfg_io_timeout);
     //logger(">>>accept connection: %d", conn.sock_handle());
 
@@ -151,7 +327,12 @@ void master_service::run(acl::socket_stream& conn, size_t size,
     pkv::redis_coder parser(*ocache);
     pkv::redis_handler handler(*service_, databases_, parser, conn,
         &statistics);
-    std::vector<char> buf(size < 2 ? 2 : size);
+    constexpr size_t initial_buffer = 2048;
+    constexpr size_t normal_buffer = 8192;
+    constexpr size_t large_buffer = 65536;
+    const bool adaptive = size == normal_buffer;
+    std::vector<char> buf(adaptive ? initial_buffer : std::max<size_t>(size, 2));
+    unsigned consecutive = 0;
 
     while(true) {
         int ret = handler.read(buf.data(), buf.size() - 1);
@@ -163,6 +344,7 @@ void master_service::run(acl::socket_stream& conn, size_t size,
 
         //printf("%s, len=%zd", buf, strlen(buf)); fflush(stdout);
 
+        ocache->activity();
         auto len = (size_t) ret;
         handler.receive(buf.data(), len, buf.capacity());
         auto obj = parser.get_curr();
@@ -180,6 +362,27 @@ void master_service::run(acl::socket_stream& conn, size_t size,
         }
 
         handler.clear_input();
+        ocache->activity();
+        if (!adaptive) continue;
+
+        // Resize after clearing parsed requests, which can borrow this buffer.
+        const bool grow = buf.size() < large_buffer;
+        const auto received = static_cast<size_t>(ret);
+        const bool resize = grow ? received == buf.size() - 1
+                                  : received < normal_buffer / 2;
+        consecutive = resize ? consecutive + 1 : 0;
+        const unsigned resize_after = buf.size() == initial_buffer ? 1 :
+            grow ? 2 : 4;
+        if (consecutive == resize_after) {
+            consecutive = 0;
+            const auto capacity = buf.size() == normal_buffer ? large_buffer : normal_buffer;
+            try {
+                std::vector<char>(capacity).swap(buf);
+                handler.receive_capacity(buf.capacity());
+            } catch (const std::bad_alloc&) {
+                // Keep serving with the current receive buffer.
+            }
+        }
     }
 }
 
@@ -188,6 +391,30 @@ void master_service::proc_pre_jail() {
 }
 
 void master_service::proc_on_listen(acl::server_socket& ss) {
+#ifdef __APPLE__
+    // macOS SO_REUSEPORT selects one listener rather than balancing them.
+    // ACL calls this hook for every worker before any accept loop starts.
+    const int fd = ss.sock_handle();
+    sockaddr_storage address{};
+    socklen_t length = sizeof(address);
+    if (getsockname(fd, reinterpret_cast<sockaddr*>(&address), &length)) {
+        logger_error("Cannot inspect listener: %s", strerror(errno));
+        exit(1);
+    }
+    if (address.ss_family == AF_INET || address.ss_family == AF_INET6) {
+        char host[NI_MAXHOST], port[NI_MAXSERV];
+        const int status = getnameinfo(reinterpret_cast<sockaddr*>(&address),
+            length, host, sizeof(host), port, sizeof(port),
+            NI_NUMERICHOST | NI_NUMERICSERV);
+        if (status) {
+            logger_error("Cannot identify listener: %s", gai_strerror(status));
+            exit(1);
+        }
+        const std::string key = std::to_string(address.ss_family) + ":" +
+            host + ":" + port;
+        listeners_[key].push_back(fd);
+    }
+#endif
     logger(">>>listen %s ok<<<", ss.get_addr());
 }
 
@@ -286,6 +513,13 @@ std::vector<size_t> master_service::existing_databases() const {
 }
 
 void master_service::proc_on_init() {
+    // ACL uses one process-wide limit for its per-thread idle fiber caches.
+    if (var_cfg_fiber_cache_limit >= 0)
+        acl_fiber_set_max_cache(var_cfg_fiber_cache_limit);
+#ifdef __APPLE__
+    listeners_.clear();
+    listeners_shared_ = false;
+#endif
     service_->identity().initialize();
     if (var_cfg_acllog_max_len < 0) {
         logger_error("acllog-max-len must not be negative"); exit(1);
@@ -383,16 +617,63 @@ std::once_flag watch_once;
 
 // One watcher for watching the changing of db.
 
+#ifdef __APPLE__
+void master_service::share_listeners() {
+    std::lock_guard<std::mutex> lock(lifecycle_lock_);
+    if (listeners_shared_) return;
+    for (const auto& group : listeners_) {
+        // Preserve the last bound queue, including pending startup clients.
+        // Every worker passes this barrier before entering its accept loop.
+        const int source = group.second.back();
+        for (const int fd : group.second) {
+            if (fd == source) continue;
+            const int flags = fcntl(fd, F_GETFD);
+            if (flags < 0 || dup2(source, fd) < 0 ||
+                fcntl(fd, F_SETFD, flags) < 0) {
+                logger_error("Cannot share listener: %s", strerror(errno));
+                exit(1);
+            }
+        }
+    }
+    if (var_cfg_worker_dispatch) {
+        size_t workers = 0;
+        for (const auto& group : listeners_)
+            workers = std::max(workers, group.second.size());
+        if (workers > 1) {
+            for (size_t i = 0; i < workers; ++i)
+                dispatchers_.emplace_back(new worker_dispatch);
+        }
+    }
+    listeners_shared_ = true;
+}
+#endif
+
 void master_service::thread_on_init() {
+#ifdef __APPLE__
+    share_listeners();
+    if (!dispatchers_.empty()) {
+        dispatch_index = dispatch_init_.fetch_add(1, std::memory_order_relaxed);
+        assert(dispatch_index < dispatchers_.size());
+        worker_dispatch* const inbox = dispatchers_[dispatch_index].get();
+        go_stack(65536) [inbox] { inbox->receive(); };
+    }
+#endif
     service_->statistics().worker(pkv::client_worker_id());
     // Prepare the cache object first for each thread.
     ocache = new redis_ocache(var_cfg_ocache_max);
     assert(ocache);
-
-    for (int i = 0; i < var_cfg_ocache_max; i++) {
-        auto o = new pkv::redis_object(*ocache);
-        ocache->put(o);
+    if (var_cfg_ocache_idle_max > 0 &&
+        var_cfg_ocache_max > var_cfg_ocache_idle_max) {
+        redis_ocache* const cache = ocache;
+        const auto retained = static_cast<size_t>(var_cfg_ocache_idle_max);
+        go_stack(16384) [cache, retained] {
+            while (!acl::fiber::self_killed()) {
+                acl::fiber::delay(1000);
+                cache->trim_idle(retained);
+            }
+        };
     }
+
 
     std::call_once(watch_once, [this] { start_watcher(); });
 

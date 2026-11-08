@@ -16,6 +16,8 @@ public:
     virtual ~db_watcher() = default;
 
     virtual bool supports_pages() const { return false; }
+    // A false result must remain safe for the current execution admission.
+    virtual bool requires_page_payload() const { return true; }
     virtual bool on_pages_database(unsigned,
         const std::vector<db::batch_entry>&,
         const std::vector<page_change>&) { return false; }
@@ -56,6 +58,7 @@ public:
     bool on_del(const std::string& key, bool ok);
 
     bool supports_pages() const;
+    bool requires_page_payload() const;
     bool can_pages(const std::vector<db::batch_entry>& roots,
         const std::vector<page_change>& pages) const;
     bool on_pages(const std::vector<db::batch_entry>& roots,

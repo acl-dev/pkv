@@ -34,7 +34,9 @@ def configuration(root, backend, port, mode, active, source):
     settings = [
         'master_service = 127.0.0.1|%d' % port,
         'master_type = sock', 'master_reuseport = yes',
-        'fiber_threads = 2', 'ocache_max = 100', 'db_count = 16',
+        # Keep worker maintenance active in the exit/startup fixtures.
+        'fiber_threads = 2', 'ocache_max = 100', 'ocache_idle_max = 16',
+        'db_count = 16',
         'databases = 16', 'dbtype = ' + backend,
         'dbpath = ' + str(root / 'storage'),
         'service = 127.0.0.1:%d' % port,

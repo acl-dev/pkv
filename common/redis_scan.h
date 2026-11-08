@@ -1,5 +1,6 @@
 #pragma once
 #include <array>
+#include <cstdint>
 #include <string>
 #include <vector>
 #include "redis_glob.h"
@@ -21,10 +22,37 @@ struct scan_page {
 
 // Stable buckets retain members' locations while surrounding members change.
 // These cursors are implementation-specific and independent of cluster slots.
-inline size_t scan_bucket(const std::string& value) {
-    unsigned long long hash = 14695981039346656037ULL;
-    for (unsigned char ch : value) { hash ^= ch; hash *= 1099511628211ULL; }
+inline size_t scan_bucket(const char* data, size_t size) {
+    // Only the low byte is observable. The low bytes of the FNV offset
+    // and prime reproduce that byte without 64-bit arithmetic.
+    uint32_t hash = 0x25;
+    constexpr uint32_t prime = 0xb3;
+    while (size >= 8) {
+        hash = (hash ^ static_cast<unsigned char>(data[0])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[1])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[2])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[3])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[4])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[5])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[6])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[7])) * prime;
+        data += 8;
+        size -= 8;
+    }
+    if (size >= 4) {
+        hash = (hash ^ static_cast<unsigned char>(data[0])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[1])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[2])) * prime;
+        hash = (hash ^ static_cast<unsigned char>(data[3])) * prime;
+        data += 4;
+        size -= 4;
+    }
+    for (size_t i = 0; i < size; ++i)
+        hash = (hash ^ static_cast<unsigned char>(data[i])) * prime;
     return static_cast<size_t>(hash & 255);
+}
+inline size_t scan_bucket(const std::string& value) {
+    return scan_bucket(value.data(), value.size());
 }
 inline size_t scan_window(const std::array<size_t, 256>& sizes, const scan_options& options, scan_page& out) {
     out = scan_page();

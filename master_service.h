@@ -2,6 +2,9 @@
 
 #include "db/db.h"
 #include <mutex>
+#include <atomic>
+#include <map>
+#include <vector>
 
 namespace pkv {
     class redis_service;
@@ -45,6 +48,14 @@ protected:
     void thread_on_init() override;
 
 private:
+#ifdef __APPLE__
+    struct worker_dispatch;
+    std::vector<std::unique_ptr<worker_dispatch>> dispatchers_;
+    std::atomic<size_t> dispatch_init_{0}, dispatch_next_{0};
+    std::map<std::string, std::vector<int>> listeners_;
+    bool listeners_shared_ = false;
+    void share_listeners();
+#endif
     std::mutex lifecycle_lock_;
     bool stopping_ = false;
     void shutdown(int received);
@@ -58,6 +69,7 @@ private:
     pkv::slave_watcher* watcher_ = nullptr;
     pkv::cluster_manager& manager_;
 
+    void serve_client(acl::socket_stream& conn);
     void run(acl::socket_stream& conn, size_t size,
         pkv::worker_statistics& statistics);
     std::vector<std::string> database_roots() const;

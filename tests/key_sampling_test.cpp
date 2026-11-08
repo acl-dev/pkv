@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <functional>
 #include "db/mdb/mdb.h"
 #include "db/page_workspace.h"
 #include "dao/paged_string.h"
@@ -205,12 +206,14 @@ static void expiration() {
         !watch[0]->valid(0) && !source->payload_reads,
         "random expiry did not reclaim pages without reading payloads");
 }
-static void collisions(shared_db db) {
+static void collisions(shared_db db, bool tbb) {
     empty(db);
     std::set<std::string> expected;
     for (unsigned i = 0; expected.size() < 32; ++i) {
         const auto key = "collision:" + std::to_string(i);
-        if (acl_hash_crc32(key.data(), key.size()) % 1024) continue;
+        const auto hash = tbb ? acl_hash_crc32(key.data(), key.size()) :
+            std::hash<std::string>()(key);
+        if (hash % 1024) continue;
         put(db, key); expected.insert(key);
     }
     require(ranks(db) == expected, "colliding roots have biased rank coverage");
@@ -283,7 +286,7 @@ int main(int argc, char** argv) {
 #endif
         auto db = tbb ? db::create_mdb_tbb(4) : db::create_mdb(4);
         require(db->open(""), "sampling memory open");
-        membership(db); collisions(db); concurrent(db);
+        membership(db); collisions(db, tbb); concurrent(db);
     }
     std::cout << "Sampling ranks, workspace, memory, errors and races passed\n";
 }

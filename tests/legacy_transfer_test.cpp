@@ -232,8 +232,12 @@ static void allocation_failures() {
     for (unsigned kind = 0; kind < 5; ++kind)
     for (bool rename : {false, true}) {
         const auto count = allocation_count(kind, rename);
-        unsigned completed = 0, rejected = 0;
-        for (long fault = 0; fault <= count; ++fault) {
+        unsigned completed = 0, rejected = 0, positions = 0;
+        // Failed attempts can drain warm buffer pools. Keep testing until
+        // a fresh transaction succeeds, even past the measured warm count.
+        for (long fault = 0; fault < 3000 &&
+            (fault <= count || !completed); ++fault) {
+            ++positions;
             auto source = std::make_shared<failing_db>();
             require(source->open(""), "fault DB open");
             shared_db database = source;
@@ -261,7 +265,7 @@ static void allocation_failures() {
         }
         require(completed && rejected, "allocation sweep coverage");
         std::cout << "Transfer allocation positions: " << kind << ' ' <<
-            rename << ' ' << count + 1 << '\n';
+            rename << ' ' << positions << '\n';
     }
 }
 static void compatibility() {

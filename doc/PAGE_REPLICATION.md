@@ -1,5 +1,9 @@
 # Bounded page-transaction stream components
 
+The PKV2 framing described here remains supported. Current negotiation and the
+bounded grouped-erasure extension are documented in
+[compact erasure replication](COMPACT_ERASE_REPLICATION.md).
+
 Page transactions now flow through subscriber negotiation, the common publication
 FIFO, bounded per-subscriber queues and the live receiver loop. The source uses
 native atomic root/page commits; the receiver applies only completed transactions

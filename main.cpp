@@ -4,6 +4,29 @@
 #include "test/test.h"
 #include "master_service.h"
 
+#ifdef __APPLE__
+#include <sys/resource.h>
+#include <sys/sysctl.h>
+
+static void bound_fiber_fd_tables() {
+    int ceiling = 0;
+    size_t size = sizeof(ceiling);
+    struct rlimit limits;
+    if (sysctlbyname("kern.maxfilesperproc", &ceiling, &size, nullptr, 0) != 0 ||
+        size != sizeof(ceiling) || ceiling <= 0 ||
+        getrlimit(RLIMIT_NOFILE, &limits) != 0)
+        return;
+    const auto bound = static_cast<rlim_t>(ceiling);
+    if (limits.rlim_max <= bound) return;
+    // ACL raises the soft limit to the hard limit and sizes its event tables
+    // from that value. Darwin's descriptor allocator already enforces bound.
+    limits.rlim_max = bound;
+    if (limits.rlim_cur > bound) limits.rlim_cur = bound;
+    if (setrlimit(RLIMIT_NOFILE, &limits) != 0)
+        std::perror("Cannot bound ACL file descriptor tables");
+}
+#endif
+
 #ifdef _WIN32
 static void on_sigint(int) {
     master_service& ms = master_service::get_instance();
@@ -29,6 +52,7 @@ int main(int argc, char *argv[]) {
     }
 
 #ifdef __APPLE__
+    bound_fiber_fd_tables();
     // Complete ACL's kqueue hook lookup before concurrent schedulers start.
     std::thread runtime([] {
         go[] { acl::fiber::delay(1); };
@@ -55,6 +79,14 @@ int main(int argc, char *argv[]) {
         // 禁止生成 acl_master.log 日志
         acl::master_log_enable(false);
 
+#ifndef _WIN32
+        // ACL's C runtime infers daemon mode from stdin and MASTER_SERVICE,
+        // independently of master_fiber::run_alone(). Honor the explicit mode
+        // even with redirected stdin and inherited supervisor descriptors.
+        if (setenv("MASTER_SERVICE", "ALONE", 1) != 0) {
+            std::perror("Cannot select standalone service mode"); return 1;
+        }
+#endif
         const char* addr = nullptr;
         //printf("listen: %s\r\n", addr);
         ms.run_alone(addr, argc >= 3 ? argv[2] : nullptr);

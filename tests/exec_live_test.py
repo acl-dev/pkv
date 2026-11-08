@@ -285,7 +285,8 @@ def greeting(listener):
     line = b''
     while not line.endswith(b'\r\n'):
         line += exact(peer, 1)
-    assert line in (b'PKV-REPL 3\r\n', b'PKV-REPL 4\r\n'), line
+    assert line in (b'PKV-REPL 3\r\n', b'PKV-REPL 4\r\n',
+                    b'PKV-REPL 5\r\n'), line
     peer.sendall(frame(4))
     return peer
 

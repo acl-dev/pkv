@@ -3,8 +3,9 @@
 //
 
 #pragma once
-#include "dao/string.h"
+#include "dao/paged_string.h"
 #include "redis_command.h"
+#include "redis_dispatch.h"
 
 namespace pkv {
 
@@ -20,6 +21,7 @@ public:
     ~redis_string() override;
 
     bool exec(const char* cmd, redis_coder& result);
+    static redis_handler_t bind(const char* name);
 
 public:
     bool set(redis_coder& result);
@@ -45,6 +47,9 @@ public:
     bool bitfield(redis_coder& result);
 
 private:
+    bool dispatch(const char* cmd, bool check_slot,
+        bool (redis_string::*operation)(redis_coder&), redis_coder& result);
+    dao::paged_string data_;
     dao::string* dao_;
 
 };

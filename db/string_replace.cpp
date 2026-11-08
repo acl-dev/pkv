@@ -11,7 +11,11 @@ bool string_store::replace_chunks(uint64_t length, const chunk_source& source) {
         if (!source(0, static_cast<size_t>(length), bytes))
             return fail(status::storage);
         if (bytes.size() != length) return fail(status::invalid);
-        return assign(bytes) && set_expiry(-1);
+        initialize();
+        if (error_ != status::ok) return false;
+        root_.length = length;
+        root_.inline_value.swap(bytes);
+        return true;
     }
     string_root replacement;
     replacement.length = length;
@@ -22,7 +26,8 @@ bool string_store::replace_chunks(uint64_t length, const chunk_source& source) {
         if (!source(i * string_page_codec::page_bytes, size, bytes))
             return fail(status::storage);
         if (bytes.size() != size) return fail(status::invalid);
-        if (!write_page(i, bytes)) return false;
+        if (!transaction_.put_tail_bound(entry_, i + 1, std::move(bytes)))
+            return fail(status::storage);
     }
     // Seal after producing every page so old inputs remained readable. Drop
     // both the old family and any earlier staged edits beyond the new length.

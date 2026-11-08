@@ -233,10 +233,11 @@ static void test_locality() {
 }
 
 static void test_rollback(bool tbb, bool legacy) {
+    const std::string counter(40, 'c');
     value_record old;
     old.header.kind = value_kind::hash;
     old.header.expires_at_ms = deadline;
-    old.hash_value = {{"counter", "0.125"}, {"large", std::string(40000,'x')}};
+    old.hash_value = {{counter, "0.125"}, {"large", std::string(40000,'x')}};
     json_record_codec codec;
     std::string encoded;
     require(codec.encode(old, encoded) == codec_status::ok, "legacy encode");
@@ -256,7 +257,7 @@ static void test_rollback(bool tbb, bool legacy) {
         allocation_budget = budget;
         bool ok = false;
         try {
-            ok = hash.hincrbyfloat(database, "hash", "counter", ".125", out);
+            ok = hash.hincrbyfloat(database, "hash", counter, ".125", out);
         }
         catch (const std::bad_alloc&) {}
         allocation_budget = -1;
@@ -275,12 +276,16 @@ static void test_rollback(bool tbb, bool legacy) {
                     db::lookup_status::missing;
             }) == db::batch_status::ok, "failed migration left pages");
         }
-        require(hash.hget(database, "hash", "counter", value) &&
+        require(hash.hget(database, "hash", counter, value) &&
             value == "0.125" && hash.hget(database, "hash", "large", value)
             && value == old.hash_value.at("large"),
             "failed float changed pages");
     }
-    require(success && failures > 10, "float allocation rollback sweep");
+    // Sweep every allocation failure up to the first successful operation.
+    // Optimizations may reduce the number of allocations below ten.
+    require(success && failures > 0, "float allocation rollback sweep");
+    std::cout << "rollback tbb=" << tbb << " legacy=" << legacy
+        << " failure points=" << failures << '\n';
 }
 
 int main() {

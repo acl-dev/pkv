@@ -21,7 +21,10 @@ db::batch_status family_workspace::stage(
     if (state_->failed || state_->finished) return db::batch_status::aborted;
     if (!batch) return reject(db::batch_status::aborted);
     const auto& size = batch->size();
-    if (!charge(size.bytes, size.records))
+    if (!charge(size.bytes, size.records) ||
+        size.expanded_bytes > page_batch::max_expanded_bytes -
+            state_->expanded_bytes ||
+        size.actions > page_batch::max_expanded_records - state_->actions)
         return reject(db::batch_status::error);
     try {
         // Once retained, all borrowed page pointers survive until discard.
@@ -73,6 +76,8 @@ db::batch_status family_workspace::stage(
             }
         }
         state_->bytes += size.bytes; state_->records += size.records;
+        state_->expanded_bytes += size.expanded_bytes;
+        state_->actions += size.actions;
         return db::batch_status::ok;
     } catch (...) { return reject(db::batch_status::error); }
 }

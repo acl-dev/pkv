@@ -9,6 +9,58 @@ entire configuration inventory or CONFIG REWRITE. See
 
 ## Supported values
 
+On POSIX, the explicit `pkv alone <config>` entry selects ACL standalone mode
+even with redirected stdin or a parent `MASTER_SERVICE` value. It sets
+`MASTER_SERVICE=ALONE` inside the server process before entering ACL. The
+supervisor/daemon entry retains its existing environment and descriptor ABI.
+See the [regression and validation](benchmarks/standalone-mode-2026-11-08.md).
+
+### Startup request-object cache settings
+
+These worker-local settings are read from the service startup configuration
+(`pkv.cf` or `mdb.cf`), separately from the Redis CONFIG GET/SET inventory below.
+
+| Startup setting | Default | Meaning |
+| --- | ---: | --- |
+| ocache_max | 10000 | Maximum number of returned request/reply objects retained for reuse during active processing |
+| ocache_idle_max | 1024 | Retention target after worker inactivity; zero disables idle reclamation |
+
+Each worker samples batch activity once per second. When consecutive samples
+are unchanged, it releases excess returned objects, normally after about one
+to two idle seconds. Borrowed objects keep their ownership. The maintenance
+fiber is created only when `ocache_max` exceeds a positive `ocache_idle_max`;
+it requests a 16 KiB stack. The setting bounds object count, not total buffer
+bytes or database memory.
+
+The local libc measurements showed lower logical heap allocation after
+reclamation, without a corresponding RSS decline. Physical residency remains
+a separate optimization and validation requirement.
+
+The active-processing limit remains 10000: fixing it at 1024 caused substantial
+deep-pipeline regressions. See the [idle-reclamation measurements](benchmarks/performance-cache-idle-2026-11-08.md)
+for memory, throughput, remaining negative results and validation scope.
+
+### Startup worker connection dispatch
+
+On macOS, `worker_dispatch=yes` (default) distributes new TCP connections
+round-robin across the workers sharing a listener. Set `worker_dispatch=no`
+to retain direct processing on the accepting worker. A single worker creates
+no dispatch queue. Other platforms retain their existing acceptance path.
+
+Each remote connection gets a duplicated, close-on-exec descriptor; its stream,
+parser and handler execute on the receiving scheduler. Existing connections
+are not migrated. The receiver inherits `fiber_stack_size`, `fiber_share_stack`,
+`fiber_buf_size` and `fiber_rw_timeout`; descriptor/allocation pressure falls
+back to local processing. This balances connection counts, not the request
+volumes of differently loaded clients.
+
+Dispatch adds worker notification fibers and can increase retained memory.
+The [measurement report](benchmarks/performance-worker-dispatch-2026-11-08.md)
+includes the throughput improvement, CPU regressions and higher post-load RSS.
+This startup option is separate from the Redis CONFIG inventory below.
+
+### Redis CONFIG values
+
 | Name | GET value | Runtime SET |
 | --- | --- | --- |
 | aclfile | Configured ACL file path | Immutable |

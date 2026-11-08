@@ -4,25 +4,26 @@
 
 namespace pkv {
 namespace {
-template<class Operation>
+template<bool UsesState, class Operation>
 void combine(char* output, char* state, const char* input, size_t size,
     Operation operation) {
     size_t offset = 0;
     for (; size - offset >= sizeof(uint64_t); offset += sizeof(uint64_t)) {
         uint64_t value, mask, next;
         std::memcpy(&value, output + offset, sizeof(value));
-        std::memcpy(&mask, state + offset, sizeof(mask));
+        mask = 0;
+        if (UsesState) std::memcpy(&mask, state + offset, sizeof(mask));
         std::memcpy(&next, input + offset, sizeof(next));
         value = operation(value, next, mask);
         std::memcpy(output + offset, &value, sizeof(value));
-        std::memcpy(state + offset, &mask, sizeof(mask));
+        if (UsesState) std::memcpy(state + offset, &mask, sizeof(mask));
     }
     for (; offset < size; ++offset) {
-        uint64_t mask = static_cast<unsigned char>(state[offset]);
+        uint64_t mask = UsesState ? static_cast<unsigned char>(state[offset]) : 0;
         output[offset] = static_cast<char>(operation(
             static_cast<unsigned char>(output[offset]),
             static_cast<unsigned char>(input[offset]), mask));
-        state[offset] = static_cast<char>(mask);
+        if (UsesState) state[offset] = static_cast<char>(mask);
     }
 }
 } // namespace
@@ -46,23 +47,23 @@ void bitop_fold(bitmap_operation operation, char* output, char* state,
     const char* input, size_t size) {
     switch (operation) {
     case bitmap_operation::conjunction:
-        combine(output, state, input, size,
+        combine<false>(output, state, input, size,
             [](uint64_t a, uint64_t b, uint64_t&) { return a & b; }); break;
     case bitmap_operation::disjunction:
-        combine(output, state, input, size,
+        combine<false>(output, state, input, size,
             [](uint64_t a, uint64_t b, uint64_t&) { return a | b; }); break;
     case bitmap_operation::exclusive_or:
-        combine(output, state, input, size,
+        combine<false>(output, state, input, size,
             [](uint64_t a, uint64_t b, uint64_t&) { return a ^ b; }); break;
     case bitmap_operation::difference:
     case bitmap_operation::reverse_difference:
     case bitmap_operation::and_or:
-        combine(output, state, input, size,
+        combine<true>(output, state, input, size,
             [](uint64_t a, uint64_t b, uint64_t& mask) {
                 mask |= b; return a;
             }); break;
     case bitmap_operation::one:
-        combine(output, state, input, size,
+        combine<true>(output, state, input, size,
             [](uint64_t a, uint64_t b, uint64_t& mask) {
                 mask |= a & b; return (a ^ b) & ~mask;
             }); break;
@@ -74,16 +75,16 @@ void bitop_finish(bitmap_operation operation, char* output, char* state,
     size_t size) {
     switch (operation) {
     case bitmap_operation::invert:
-        combine(output, state, state, size,
+        combine<false>(output, state, output, size,
             [](uint64_t a, uint64_t, uint64_t&) { return ~a; }); break;
     case bitmap_operation::difference:
-        combine(output, state, state, size,
+        combine<true>(output, state, state, size,
             [](uint64_t a, uint64_t b, uint64_t&) { return a & ~b; }); break;
     case bitmap_operation::reverse_difference:
-        combine(output, state, state, size,
+        combine<true>(output, state, state, size,
             [](uint64_t a, uint64_t b, uint64_t&) { return ~a & b; }); break;
     case bitmap_operation::and_or:
-        combine(output, state, state, size,
+        combine<true>(output, state, state, size,
             [](uint64_t a, uint64_t b, uint64_t&) { return a & b; }); break;
     default: break;
     }

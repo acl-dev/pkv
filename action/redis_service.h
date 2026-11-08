@@ -16,6 +16,7 @@
 #include "common/process_info.h"
 #include "common/client_registry.h"
 #include "common/pubsub.h"
+#include "redis_dispatch.h"
 
 namespace pkv {
 
@@ -24,9 +25,6 @@ class redis_object;
 class redis_coder;
 class slave_watcher;
 class move_journal;
-
-typedef std::function<bool(redis_handler&, const char* cmd,
-    const redis_object&, redis_coder& result)> redis_handler_t;
 
 enum class redis_command_kind {
     regular, acl, config, info, client, keys, randomkey, dbsize, exec,

@@ -1,8 +1,10 @@
 #include "stdafx.h"
+#include <functional>
 #include <algorithm>
 #include <new>
 #include <climits>
 #include <stdexcept>
+#include <typeinfo>
 #include "mdb.h"
 #include "db/key_count.h"
 #include "db/page_transaction.h"
@@ -24,8 +26,9 @@ mdb::~mdb() = default;
 bool mdb::dbopen(const char*) { return true; }
 
 mdb::location mdb::locate(const std::string& key) const {
-    const auto hash = static_cast<size_t>(acl_hash_crc32(key.data(),
-        key.size()));
+    // This hash only selects in-memory shards and scan buckets.
+    // Encoded page IDs and logical map-tree buckets keep their format.
+    const auto hash = std::hash<std::string>()(key);
     return {hash % stores_.size(), (hash / stores_.size()) % scan_buckets};
 }
 
@@ -46,7 +49,7 @@ bool mdb::dbset(const std::string& key, const std::string& value) {
                 return false;
         }
         else it->second.value = value;
-        erase_pages(key);
+        erase_pages(position, key);
         return true;
     } catch (const std::bad_alloc&) { return false; }
 }
@@ -62,47 +65,61 @@ bool mdb::dbget(const std::string& key, std::string& value) {
     return true;
 }
 
-mdb::inline_status mdb::dbread_inline(const std::string& key, int64_t now,
-    std::string& out) {
+mdb::lookup_status mdb::dbprobe_root(const std::string& key,
+    std::string& scratch) {
+    if (typeid(*this) != typeid(mdb)) return db::dbprobe_root(key, scratch);
+    const auto position = locate(key);
+    std::lock_guard<lock_t> guard(*locks_[position.shard]);
+    const auto* bucket = find_store(position, false);
+    return bucket && bucket->find(key) != bucket->end() ?
+        lookup_status::found : lookup_status::missing;
+}
+
+mdb::inline_status mdb::dbread_inline(const std::string& key,
+    std::string& out, size_t offset, size_t limit) {
     const auto position = locate(key);
     std::lock_guard<lock_t> guard(*locks_[position.shard]);
     auto* bucket = find_store(position, false);
     if (!bucket) return inline_status::missing;
     const auto it = bucket->find(key);
     if (it == bucket->end()) return inline_status::missing;
-    return decode_inline(it->second.value, now, out);
+    return decode_inline(it->second.value, out, offset, limit);
 }
 
 bool mdb::dbdel(const std::string& key) {
     const auto position = locate(key);
     std::lock_guard<lock_t> guard(*locks_[position.shard]);
-    auto* bucket = find_store(position, false);
-    bool erased = false;
-    if (bucket) {
-        const auto node = bucket->find(key);
-        if (node != bucket->end()) {
-            erase_root(*stores_[position.shard], *bucket, node);
-            erased = true;
-        }
-    }
-    erase_pages(key);
+    const bool erased = erase_root(position, key);
+    erase_pages(position, key);
     return erased;
 }
 
 mdb::page_family* mdb::find_page_family(const location& position,
     bool create) {
-    auto& family = stores_[position.shard]->pages[position.bucket];
+    auto& pages = stores_[position.shard]->pages;
+    if (!pages) {
+        if (!create) return nullptr;
+        pages.reset(new page_directory);
+    }
+    auto& family = pages->buckets[position.bucket];
     if (!family && create) {
         family.reset(new page_family);
+        ++pages->allocated;
     }
     return family.get();
 }
 
-void mdb::erase_pages(const std::string& owner) {
-    auto* family = find_page_family(locate(owner), false);
-    if (family) {
-        family->erase(owner);
-    }
+void mdb::erase_pages(const location& position, const std::string& owner) {
+    auto* family = find_page_family(position, false);
+    if (!family) return;
+    family->erase(owner);
+    if (family->empty()) prune_page_family(position);
+}
+
+void mdb::prune_page_family(const location& position) {
+    auto& pages = stores_[position.shard]->pages;
+    pages->buckets[position.bucket].reset();
+    if (--pages->allocated == 0) pages.reset();
 }
 
 db::lookup_status mdb::dblookup_page(const std::string& owner, uint64_t id,
@@ -117,12 +134,62 @@ db::lookup_status mdb::dblookup_page(const std::string& owner, uint64_t id,
     if (record == family->end()) {
         return lookup_status::missing;
     }
-    const auto page = record->second.find(id);
-    if (page == record->second.end()) {
+    const auto page = record->second.get(id);
+    if (!page) {
         return lookup_status::missing;
     }
-    value = page->second;
+    value = *page;
     return lookup_status::found;
+}
+
+bool mdb::dbborrows_pages() const {
+    // A subclass may customize the legacy lookup hook. Preserve that hook
+    // unless it explicitly opts in to the synchronous inspection contract.
+    return typeid(*this) == typeid(mdb);
+}
+
+db::lookup_status mdb::dbinspect_page(const std::string& owner, uint64_t id,
+    std::string& scratch, page_inspection& inspection) {
+    if (!dbborrows_pages())
+        return db::dbinspect_page(owner, id, scratch, inspection);
+    const auto position = locate(owner);
+    std::lock_guard<lock_t> guard(*locks_[position.shard]);
+    const auto* family = find_page_family(position, false);
+    if (!family) return lookup_status::missing;
+    const auto record = family->find(owner);
+    if (record == family->end()) return lookup_status::missing;
+    const auto page = record->second.get(id);
+    if (!page) return lookup_status::missing;
+    // Holding the shard lock pins the string for this nonreentrant decoder.
+    inspection.consume(*page);
+    return lookup_status::found;
+}
+
+bool mdb::dbbind_page_reader(const std::string& owner, page_reader& reader) {
+    // Subclasses retain their existing per-page lookup/inspection hooks.
+    if (typeid(*this) != typeid(mdb)) return false;
+    const auto position = locate(owner);
+    std::lock_guard<lock_t> guard(*locks_[position.shard]);
+    const auto* family = find_page_family(position, false);
+    const page_map* pages = nullptr;
+    if (family) {
+        const auto record = family->find(owner);
+        if (record != family->end()) pages = &record->second;
+    }
+    // Like dbvisit_pages, the logical key lock pins this mapped object even
+    // when other owners rehash the containing family. Writes to this owner
+    // remain staged until after the page transaction's final read.
+    auto read = [](const void* raw, uint64_t id) -> const std::string* {
+        const auto* records = static_cast<const page_map*>(raw);
+        return records ? records->get(id) : nullptr;
+    };
+    reader = page_reader(read, pages);
+    return true;
+}
+
+bool mdb::reader_has_more_pages(const page_reader& reader, size_t count) {
+    const auto* pages = static_cast<const page_map*>(reader.context_);
+    return pages && pages->size() > count;
 }
 
 db::count_status mdb::dbkey_count(uint64_t& out) {

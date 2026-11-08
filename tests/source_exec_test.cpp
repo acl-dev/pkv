@@ -1,6 +1,8 @@
 #include "stdafx.h"
 #include "action/redis_handler.h"
 #include "action/redis_service.h"
+#include "action/redis_string.h"
+#include "action/redis_hash.h"
 #include "common/transaction_database.h"
 #include "coder/redis_ocache.h"
 #include "coder/record_codec.h"
@@ -106,6 +108,60 @@ struct connection {
         return receive();
     }
 };
+static void command_dao_lifetime() {
+    connection client(memory());
+    client.prepare({{"GET", "missing"}, {"HGET", "missing", "field"}});
+    const auto& objects = client.parser.get_objects();
+    require(objects.size() == 2, "DAO lifetime request parse");
+    bool constructed = false;
+    budget = 0;
+    try {
+        redis_string strings(*client.handler, *objects[0]);
+        redis_hash hashes(*client.handler, *objects[1]);
+        auto string = redis_string::bind("gEt");
+        auto hash = redis_hash::bind("hGeT");
+        auto copied = string;
+        constructed = string && hash && copied;
+    } catch (const std::bad_alloc&) {}
+    budget = -1;
+    require(constructed, "command DAO construction allocated");
+    require(client.run({{"HSET", "single", "", ""},
+        {"HSET", "single", "", "value"},
+        {"HMSET", "single", "field", "a"},
+        {"HSET", "single", "field", "b", "field", "c", "new", "d"},
+        {"HGET", "single", "field"}, {"HLEN", "single"},
+        {"HGET", "single", ""}}) ==
+        ":1\r\n:0\r\n+OK\r\n:1\r\n$1\r\nc\r\n:3\r\n"
+        "$5\r\nvalue\r\n", "single Hash write pipeline/counts");
+    const auto replies = client.run({
+        {"HSET", "hash", "field", "v"}, {"GET", "hash"},
+        {"GET", "missing"}, {"SET", "str", "value"}, {"GET", "str"},
+        {"HGET", "str", "field"}, {"HGET", "hash", "missing"},
+        {"HGET", "hash", "field"}, {"HGETALL", "hash"},
+        {"HGETALL", "missing"}, {"INCR", "str"},
+        {"SET", "str", "7"}, {"INCR", "str"}});
+    const std::string wrong_type =
+        "-WRONGTYPE Operation against a key holding the wrong kind of value"
+        "\r\n";
+    require(replies == ":1\r\n" + wrong_type +
+        "$-1\r\n+OK\r\n$5\r\nvalue\r\n" + wrong_type +
+        "$-1\r\n$1\r\nv\r\n*2\r\n$5\r\nfield\r\n$1\r\nv\r\n*0\r\n"
+        "-ERR value is not an integer or out of range\r\n+OK\r\n:8\r\n",
+        "command DAO state leaked between pipelined requests");
+    require(client.run({{"sEt", "alias", "abcdef"},
+        {"sUbStR", "alias", "1", "3"},
+        {"gEtRaNgE", "alias", "1", "3"},
+        {"sEt", "number", "10"}, {"dEcRbY", "number", "3"},
+        {"mSeTnX", "number", "99", "new", "x"},
+        {"gEt", "number"}, {"hSeT", "mixed-hash", "f", "v"},
+        {"hGeT", "mixed-hash", "f"}, {"mUlTi"},
+        {"aPpEnD", "alias", "g"}, {"hLeN", "mixed-hash"},
+        {"eXeC"}}) ==
+        "+OK\r\n$3\r\nbcd\r\n$3\r\nbcd\r\n+OK\r\n:7\r\n:0\r\n"
+        "$1\r\n7\r\n:1\r\n$1\r\nv\r\n+OK\r\n+QUEUED\r\n"
+        "+QUEUED\r\n*2\r\n:7\r\n:1\r\n",
+        "bound dispatch lost mixed-case, alias or EXEC semantics");
+}
 static std::string get(shared_db database, const std::string& key) {
     dao::paged_string strings; std::string out;
     require(strings.get(database, key, out), "missing String"); return out;
@@ -462,6 +518,7 @@ int main(int argc, char** argv) {
         } else verify_crash(source, phase != "verify-before");
         return 0;
     }
+    command_dao_lifetime();
     eligibility(); atomic_commands(); selection(); rejected_commit();
     compatibility(); legacy_expiry_boundary(); legacy_transfers();
     allocation_failures(); transfer_allocation_failures();

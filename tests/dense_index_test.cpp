@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <functional>
 #include "common/dense_key_index.h"
 #include "db/page_transaction.h"
 #include <array>
@@ -81,11 +82,13 @@ static shared_db create(bool tbb) {
     auto db = tbb ? db::create_mdb_tbb(4) : db::create_mdb(4);
     require(db->open(""), "dense open"); return db;
 }
-static std::vector<std::string> collisions() {
+static std::vector<std::string> collisions(bool tbb) {
     std::vector<std::string> keys;
     for (unsigned i = 0; keys.size() < 96; ++i) {
         const auto key = "dense:" + std::to_string(i);
-        if (acl_hash_crc32(key.data(), key.size()) % 1024 == 0)
+        const auto hash = tbb ? acl_hash_crc32(key.data(), key.size()) :
+            std::hash<std::string>()(key);
+        if (hash % 1024 == 0)
             keys.push_back(key);
     }
     return keys;
@@ -191,11 +194,11 @@ static void concurrent(bool tbb, const std::vector<std::string>& keys) {
 int main() {
     acl::acl_cpp_init();
     metadata();
-    const auto keys = collisions();
     for (bool tbb : {false, true}) {
 #ifndef HAS_TBB
         if (tbb) continue;
 #endif
+        const auto keys = collisions(tbb);
         growth(tbb, keys); faults(tbb, keys); concurrent(tbb, keys);
     }
     std::cout << "Dense growth, arbitrary erase, reuse and rollback passed\n";

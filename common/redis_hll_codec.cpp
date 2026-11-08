@@ -48,30 +48,6 @@ void put(std::string& value, size_t index, uint8_t frequency) {
     value[offset + 1] = static_cast<char>((next & ~(63U >> (8 - shift))) |
         (frequency >> (8 - shift)));
 }
-bool decode_run(const std::string& value, size_t offset, run& out) {
-    if (offset >= value.size()) return false;
-    const auto byte = static_cast<uint8_t>(value[offset]);
-    out = run(); out.bytes = 1;
-    if (byte & 128) {
-        out.length = (byte & 3) + 1; out.value = ((byte >> 2) & 31) + 1;
-    } else if (byte & 64) {
-        if (offset + 1 >= value.size()) return false;
-        out.bytes = 2;
-        out.length = ((byte & 63) << 8) +
-            static_cast<uint8_t>(value[offset + 1]) + 1;
-    } else out.length = (byte & 63) + 1;
-    return true;
-}
-void encode_run(std::string& value, size_t length, uint8_t frequency) {
-    if (!length) return;
-    if (frequency) value += static_cast<char>(128 |
-        ((frequency - 1) << 2) | (length - 1));
-    else if (length <= 64) value += static_cast<char>(length - 1);
-    else {
-        value += static_cast<char>(64 | ((length - 1) >> 8));
-        value += static_cast<char>((length - 1) & 255);
-    }
-}
 bool merge(const std::string& value, registers& into) {
     if (!header(value, value.size())) return false;
     if (!value[4]) {

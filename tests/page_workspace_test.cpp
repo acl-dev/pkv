@@ -274,6 +274,7 @@ static void model(shared_db source) {
 }
 static void faults(bool committing) {
     size_t failures = 0; bool success = false;
+    long first_success = -1;
     const std::string added(200, 'n');
     const std::string second = encoded("second"), created = encoded("created");
     for (long fail = 0; fail < 220; ++fail) {
@@ -306,7 +307,10 @@ static void faults(bool committing) {
                     });
         } catch (const std::bad_alloc&) {}
         budget = -1;
-        if (result == status::ok) success = true;
+        if (result == status::ok) {
+            if (!success) first_success = fail;
+            success = true;
+        }
         else ++failures;
         std::string out;
         if (committing && result == status::ok) {
@@ -332,7 +336,13 @@ static void faults(bool committing) {
             require(workspace.commit() == status::ok, "failure retry");
         }
     }
-    require(success && failures > 10, "fault sweep missed allocation paths");
+    // Every budget below the first success must fail, and every later budget
+    // must succeed. This stays exhaustive when allocation counts decrease.
+    require(success && failures > 0 &&
+        failures == static_cast<size_t>(first_success),
+        "fault sweep skipped an allocation boundary");
+    std::cout << (committing ? "commit" : "stage") << " fault boundaries: "
+        << failures << '\n';
 }
 static void migration(shared_db source) {
     value_record record; record.header.kind = value_kind::list;

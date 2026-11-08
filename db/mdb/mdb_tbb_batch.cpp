@@ -59,8 +59,9 @@ bool mdb_tbb::commit_state::gather() {
     guards.reserve(roots.size());
     replacements.reserve(roots.size() + pages.size());
     additions.reserve(pages.size());
-    std::vector<std::pair<size_t, scan_index*>> indexes;
-    indexes.reserve(roots.size());
+    using stripe = std::pair<size_t, acl::fiber_mutex*>;
+    std::vector<stripe> stripes;
+    stripes.reserve(roots.size());
     for (const auto& root : roots) {
         const auto position = database.locate(root.key);
         const owner_value* canonical = nullptr;
@@ -71,24 +72,22 @@ bool mdb_tbb::commit_state::gather() {
         if (create || (data && root.action == update_action::erase)) {
             part = database.index(position, create);
             if (!part) return false;
-            indexes.emplace_back(position.shard * scan_buckets +
-                position.bucket, part);
+            stripes.emplace_back(position.shard * scan_lock_count +
+                position.bucket % scan_lock_count, &database.scan_lock(position));
         }
         owners.emplace_back(root, std::move(data),
             database.stores_[position.shard].get(), part);
         owners.back().created = create;
         owners.back().canonical = canonical;
     }
-    std::sort(indexes.begin(), indexes.end(),
-        [](const std::pair<size_t, scan_index*>& a,
-            const std::pair<size_t, scan_index*>& b) {
+    std::sort(stripes.begin(), stripes.end(), [](const stripe& a, const stripe& b) {
         return a.first < b.first;
     });
-    scan_index* previous = nullptr;
-    for (const auto& item : indexes) {
+    acl::fiber_mutex* previous = nullptr;
+    for (const auto& item : stripes) {
         if (item.second == previous) continue;
-        if (!item.second->mutex.lock()) return false;
-        guards.emplace_back(item.second->mutex, std::adopt_lock);
+        if (!item.second->lock()) return false;
+        guards.emplace_back(*item.second, std::adopt_lock);
         previous = item.second;
     }
     return true;
@@ -110,11 +109,11 @@ bool mdb_tbb::commit_state::prepare() {
             page.action != update_action::write) continue;
         if (!plan->data) return false;
         auto& values = plan->data->pages;
-        const auto found = values.find(page.id);
-        if (found == values.end()) {
+        auto* found = values.get(page.id);
+        if (!found) {
             values.emplace(page.id, page.value);
             additions.emplace_back(&values, page.id);
-        } else replacements.emplace_back(&found->second, page.value);
+        } else replacements.emplace_back(found, page.value);
     }
     for (auto& plan : owners) {
         if (!plan.created) continue;
@@ -160,17 +159,27 @@ mdb_tbb::commit_state::prepare_family(const std::string& key,
 }
 
 void mdb_tbb::commit_state::publish() noexcept {
-    // All allocation and lock acquisition finished during preparation.
+    // All required allocation and lock acquisition finished during preparation.
     for (auto& value : replacements) value.first->swap(value.second);
     for (const auto& page : pages) {
         if (page.action != update_action::erase) continue;
         auto* plan = owner(page.owner);
-        if (plan && plan->data) plan->data->pages.erase(page.id);
+        if (plan && plan->data) plan->data->pages.erase(page.id, true);
     }
     for (auto& plan : owners) {
         if (plan.root->action != update_action::erase || !plan.data) continue;
         plan.index->keys.erase(plan.canonical);
         plan.shard->owners.erase(plan.root->key);
+    }
+    // Promotion can relocate values. Do it after all staged pointers have
+    // been consumed, and keep the old representation if allocation fails.
+    for (auto first = additions.begin(); first != additions.end();) {
+        auto last = first + 1;
+        while (last != additions.end() && last->first == first->first)
+            ++last;
+        first->first->promote_prefix(static_cast<size_t>(last - first));
+        first->first->promote_tail((last - 1)->second);
+        first = last;
     }
     done = true;
     guards.clear(); // Reclaim old payloads after releasing SCAN index locks.

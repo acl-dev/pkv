@@ -4,7 +4,8 @@
 
 #include "stdafx.h"
 #include "db_watcher.h"
-#include "rpc/page_batch.h"
+#include "rpc/page_measure.h"
+#include "rpc/page_wire.h"
 
 namespace pkv {
 
@@ -49,9 +50,39 @@ bool db_watchers::supports_pages() const {
     return true;
 }
 
+bool db_watchers::requires_page_payload() const {
+    for (const auto watcher : watchers_) {
+        if (watcher->requires_page_payload()) return true;
+    }
+    return false;
+}
+
 bool db_watchers::can_pages(const std::vector<db::batch_entry>& roots,
     const std::vector<page_change>& pages) const {
     if (!supports_pages()) return false;
+    // A root and up to two bounded pages fit without computing wire sizes.
+    // The full measure still handles compact encodings and other batches.
+    static_assert(5 * page_wire::header_bytes + 32 +
+        3 * (page_batch::max_key_bytes + page_transaction::max_value_bytes) <=
+        page_batch::max_bytes && page_batch::max_records >= 5,
+        "small page preflight must fit the plain wire budget");
+    if (roots.size() == 1 && pages.size() <= 2 &&
+        database_ < page_batch::max_databases) {
+        const auto& root = roots.front();
+        if (root.key.size() <= page_batch::max_key_bytes &&
+            (root.action != db::update_action::keep || !pages.empty()) &&
+            page_measure::valid_root(root, nullptr)) {
+            uint64_t previous = 0;
+            bool valid = true;
+            for (const auto& page : pages) {
+                valid = page.owner == root.key &&
+                    page_measure::valid_page(root, page, previous);
+                if (!valid) break;
+                previous = page.id;
+            }
+            if (valid) return true;
+        }
+    }
     page_batch_size size;
     return page_batch::measure(database_, roots, pages, size);
 }

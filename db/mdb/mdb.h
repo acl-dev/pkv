@@ -5,6 +5,7 @@
 #pragma once
 
 #include "../db.h"
+#include "page_index.h"
 #include <unordered_map>
 #include <array>
 #include <map>
@@ -32,9 +33,11 @@ protected:
 
     // @override
     bool dbget(const std::string& key, std::string& value) override;
+    lookup_status dbprobe_root(const std::string& key,
+        std::string& scratch) override;
     bool dbinline_strings() const override { return true; }
-    inline_status dbread_inline(const std::string& key, int64_t now,
-        std::string& out) override;
+    inline_status dbread_inline(const std::string& key,
+        std::string& out, size_t offset, size_t limit) override;
 
     // @override
     bool dbdel(const std::string& key) override;
@@ -65,8 +68,16 @@ protected:
         prepare_callback& ready) override;
     lookup_status dblookup_page(const std::string& owner, uint64_t id,
         std::string& value) override;
+    virtual bool dbborrows_pages() const;
+    lookup_status dbinspect_page(const std::string& owner, uint64_t id,
+        std::string& scratch, page_inspection& inspection) override;
+    bool dbbind_page_reader(const std::string& owner,
+        page_reader& reader) override;
     batch_status dbapply_pages(const std::vector<batch_entry>& roots,
         const std::vector<page_change>& pages) override;
+    batch_status dbadopt_page(const batch_entry& root, page_change& page) override;
+    batch_status dbadopt_page_family(const std::vector<batch_entry>& roots,
+        std::vector<page_change>& pages) override;
 
 
     // @override
@@ -89,9 +100,11 @@ protected:
     }
 
 private:
+    friend class db;
+    friend struct packed_resp_access;
     std::vector<std::unique_ptr<lock_t>> locks_;
-    static const size_t scan_buckets = 256;
-    using page_map = std::map<uint64_t, std::string>;
+    static const size_t scan_buckets = 32;
+    using page_map = mdb_page_index;
     using page_family = std::unordered_map<std::string, page_map>;
     struct root_record {
         std::string value;
@@ -99,25 +112,42 @@ private:
         explicit root_record(const std::string& bytes) : value(bytes) {}
     };
     using root_map = std::unordered_map<std::string, root_record>;
+    struct page_directory {
+        std::array<std::unique_ptr<page_family>, scan_buckets> buckets;
+        size_t allocated = 0;
+    };
     struct store {
         dense_key_index<root_map::value_type> keys;
         // Names remain owned only by stable hash nodes; the index borrows them.
         std::array<std::unique_ptr<root_map>, scan_buckets> buckets;
         // Physical pages are never entries in the user-visible key map.
-        std::array<std::unique_ptr<page_family>, scan_buckets> pages;
+        std::unique_ptr<page_directory> pages;
     };
     struct location { size_t shard; size_t bucket; };
     location locate(const std::string& key) const;
-    // Caller holds the shard lock; bucket objects remain stable once created.
+    // Caller holds the shard lock; committed erases can release empty buckets.
     root_map* find_store(const location& position, bool create);
     bool add_root(store& shard, root_map& bucket, const std::string& key,
         const std::string& value);
     void erase_root(store& shard, root_map& bucket, root_map::iterator node);
+    bool erase_root(const location& position, const std::string& key);
     page_family* find_page_family(const location& position, bool create);
-    void erase_pages(const std::string& owner);
+    void erase_pages(const location& position, const std::string& owner);
+    void prune_page_family(const location& position);
+    bool replace_root(const batch_entry& root);
+    bool replace_page(const batch_entry& root, const page_change& page,
+        std::string* adopted = nullptr, page_map* bound = nullptr,
+        std::string** bound_root = nullptr);
+    batch_status replace_bound_page(const batch_entry& root, page_change& page,
+        const page_reader& reader, std::string*& bound_root, bool& adopt);
+    static bool reader_has_more_pages(const page_reader& reader, size_t count);
+    batch_status apply_bound_pages(const std::vector<batch_entry>& roots,
+        const std::vector<page_change>& pages, const page_reader& reader,
+        std::string** bound_root);
     batch_status commit(const std::vector<batch_entry>& roots,
         const std::vector<page_change>& pages, bool preserve_pages,
-        prepare_callback* ready = nullptr);
+        prepare_callback* ready = nullptr, page_map* bound = nullptr,
+        std::string** bound_root = nullptr);
     struct commit_state;
     std::vector<std::unique_ptr<store>> stores_;
 };

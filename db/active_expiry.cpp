@@ -4,6 +4,10 @@
 #include "coder/record_codec.h"
 
 namespace pkv {
+void db::track_deadline(const std::string& key, long long deadline) noexcept {
+    if (expiry_) expiry_->set(key, deadline);
+}
+
 void db::track_expiry(const std::string& key,
     const std::string* value) noexcept {
     if (!expiry_) return;

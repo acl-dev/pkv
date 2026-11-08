@@ -26,8 +26,9 @@ db::scan_status mdb_tbb::dbvisit_keys(const key_visitor& visit) {
     for (const auto& store : stores_)
         for (const auto& slot : store->indexes) {
             const auto* index = slot.load(std::memory_order_acquire);
-            if (index) for (const auto* node : index->keys)
-                if (!visit(node->first)) return scan_status::ok;
+            if (!index) continue;
+            for (size_t i = 0; i < index->keys.size(); ++i)
+                if (!visit(index->keys[i]->first)) return scan_status::ok;
         }
     return scan_status::ok;
 }

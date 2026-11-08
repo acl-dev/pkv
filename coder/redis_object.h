@@ -36,7 +36,24 @@ public:
     void operator=(const redis_object&) = delete;
 
     void set_parent(redis_object* parent);
-    void reset();
+    void reset() {
+        if (obj_ || (objs_ && !objs_->empty())) recycle_children();
+        // Raw replies adopt fresh frames. Large argument and reply buffers
+        // should also leave the worker cache when their commands finish.
+        if (response_kind_ == response_kind::raw ||
+            response_kind_ == response_kind::raw_set ||
+            buf_.capacity() > 128 * 1024) std::string().swap(buf_);
+        else buf_.clear();
+        response_kind_ = response_kind::plain;
+        response_protocol_ = 0;
+        status_ = redis_s_begin;
+        type_ = REDIS_OBJ_UNKOWN;
+        parent_ = this;
+        cnt_ = 0;
+        depth_ = 0;
+        line_cr_ = false;
+        strend_pos_ = 0;
+    }
 
 //private:
     ~redis_object();
@@ -79,6 +96,12 @@ public:
     redis_object& set_number(long long n, bool return_parent = false);
     redis_object& set_string(const std::string& data, bool return_parent = false);
     redis_object& set_raw(std::string&& data);
+    redis_object& set_bulk_collection(const std::vector<std::string>& values,
+        bool as_set = false);
+    redis_object& set_bulk_collection(const std::string* values, size_t count,
+        bool as_set = false);
+    // Borrow value pointers only while encoding this response.
+    redis_object& set_bulk_array(const std::string* const* values, size_t count);
     redis_object& set_null(bool return_parent = false);
     redis_object& create_child();
     void adopt_child(redis_object& object);
@@ -86,7 +109,7 @@ public:
 
     bool to_string(std::string& out, bool one_line = false) const;
     enum class response_kind : unsigned char {
-        plain, map, set, pairs, real, verbatim, raw
+        plain, map, set, pairs, real, verbatim, raw, raw_set
     };
     redis_object& response_as(response_kind kind) {
         response_kind_ = kind; return *this;
@@ -106,6 +129,8 @@ public:
     }
 
 private:
+    friend class redis_coder;
+    void recycle_children();
     int status_ = redis_s_begin;
     redis_obj_t type_ = REDIS_OBJ_UNKOWN;
 

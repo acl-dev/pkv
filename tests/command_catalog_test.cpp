@@ -1,5 +1,8 @@
 #include "stdafx.h"
 #include "action/redis_service.h"
+#include "action/redis_string.h"
+#include "action/redis_hash.h"
+#include "action/redis_list.h"
 #include "common/command_catalog.h"
 #include "coder/redis_coder.h"
 #include "coder/redis_ocache.h"
@@ -15,9 +18,20 @@ static void verify(const redis_service& service) {
     redis_ocache cache(32);
     const auto names = service.command_names();
     require(names.size() == service.command_count(), "registry count");
+    size_t string_commands = 0, hash_commands = 0, list_commands = 0;
+    using direct_handler = bool (*)(redis_handler&, const char*,
+        const redis_object&, redis_coder&);
     for (const auto& name : names) {
         const auto* entry = command_catalog(name);
         const auto* spec = service.get_command(name.c_str());
+        const auto string = redis_string::bind(name.c_str());
+        const auto hash = redis_hash::bind(name.c_str());
+        const auto list = redis_list::bind(name.c_str());
+        string_commands += bool(string); hash_commands += bool(hash);
+        list_commands += bool(list);
+        if (string || hash || list) require(spec && spec->handler &&
+            !spec->handler.target<direct_handler>(),
+            "family command retained generic linear dispatcher");
         require(entry && spec && static_cast<size_t>(entry->arity < 0 ?
             -entry->arity : entry->arity) == spec->min_args,
             "registry/catalog arity mismatch");
@@ -47,6 +61,12 @@ static void verify(const redis_service& service) {
         require(!command_catalog(name + std::string("\0suffix", 7)),
             "catalog truncated a binary command name");
     }
+    require(string_commands == 32 && hash_commands == 16 &&
+        list_commands == 22,
+        "registry/family table binding coverage");
+    require(!redis_string::bind("UNKNOWN") && !redis_hash::bind("UNKNOWN") &&
+        !redis_list::bind("UNKNOWN"),
+        "unknown family command binding");
 }
 int main() {
     acl::acl_cpp_init();

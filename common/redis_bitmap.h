@@ -2,6 +2,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#if defined(__aarch64__) && defined(__ARM_NEON)
+#include <arm_neon.h>
+#endif
 
 namespace pkv {
 
@@ -45,6 +48,26 @@ inline unsigned bitmap_word_count(uint64_t word) {
 
 inline uint64_t bitmap_popcount(const char* bytes, size_t size) {
     uint64_t count = 0;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+    while (size >= 64) {
+        // Each lane counts at most 64 bits per block. Reduce before a
+        // 16-bit lane could overflow, even for an all-ones input.
+        const auto blocks = size > 32768 ? size_t(512) : size / 64;
+        auto lanes = vdupq_n_u16(0);
+        auto* data = reinterpret_cast<const uint8_t*>(bytes);
+        for (size_t i = 0; i < blocks; ++i, data += 64) {
+            const auto a = vcntq_u8(vld1q_u8(data));
+            const auto b = vcntq_u8(vld1q_u8(data + 16));
+            const auto c = vcntq_u8(vld1q_u8(data + 32));
+            const auto d = vcntq_u8(vld1q_u8(data + 48));
+            lanes = vpadalq_u8(lanes, vaddq_u8(vaddq_u8(a, b),
+                vaddq_u8(c, d)));
+        }
+        count += vaddlvq_u16(lanes);
+        bytes += blocks * 64;
+        size -= blocks * 64;
+    }
+#endif
     while (size >= sizeof(uint64_t)) {
         uint64_t word;
         std::memcpy(&word, bytes, sizeof(word));
@@ -58,6 +81,16 @@ inline uint64_t bitmap_popcount(const char* bytes, size_t size) {
 
 inline long long bitmap_position(const char* bytes, size_t size, bool bit) {
     size_t offset = 0;
+#if defined(__aarch64__) && defined(__ARM_NEON)
+    const auto fill = vdupq_n_u8(bit ? 0 : 255);
+    while (size - offset >= 32) {
+        const auto* data = reinterpret_cast<const uint8_t*>(bytes + offset);
+        const auto first = veorq_u8(vld1q_u8(data), fill);
+        const auto second = veorq_u8(vld1q_u8(data + 16), fill);
+        if (vmaxvq_u8(vorrq_u8(first, second))) break;
+        offset += 32;
+    }
+#endif
     const uint64_t absent = bit ? 0 : UINT64_MAX;
     while (size - offset >= sizeof(uint64_t)) {
         uint64_t word;

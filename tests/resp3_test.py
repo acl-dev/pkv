@@ -125,6 +125,27 @@ def exercise(port, reference):
         compare('ZRANDMEMBER', 'one-z', -2, 'WITHSCORES')
         compare('ZADD', 'one-z', 'INCR', 1.5, 'x')
         compare('ZINCRBY', 'one-z', -2.75, 'x')
+        compare('ZADD', 'pop-one-z', '-inf', b'a\0' * 256, '+inf', b'b\xff')
+        compare('ZPOPMAX', 'pop-one-z', 1)
+        compare('ZPOPMIN', 'pop-one-z')
+        compare('ZPOPMIN', 'pop-one-z', 1)
+        pairs = [part for i in range(80) for part in (i / 2, b'm\0' + bytes([i]))]
+        members = [b'm\0' + bytes([i]) for i in range(40)]
+        for extra in ([], [b'fragment' * 12]):
+            compare('SADD', 'pop-bulk-set', *(members + extra))
+            compare('SPOP', 'pop-bulk-set', 64)
+            compare('EXISTS', 'pop-bulk-set')
+        compare('ZADD', 'pop-bulk-z', *pairs)
+        score_members = [b'm\0' + bytes([i]) for i in range(79, -1, -1)]
+        compare('ZMSCORE', 'pop-bulk-z', *(score_members + ['missing'] +
+                 score_members))
+        compare('ZRANGE', 'pop-bulk-z', 0, -1, 'WITHSCORES')
+        compare('ZRANGE', 'pop-bulk-z', 8, 71, 'WITHSCORES')
+        compare('ZREVRANGE', 'pop-bulk-z', 8, 71, 'WITHSCORES')
+        compare('ZRANGE', 'pop-bulk-z', 35.5, 4, 'BYSCORE', 'REV', 'WITHSCORES')
+        compare('ZREVRANGE', 'pop-bulk-z', 0, -1, 'WITHSCORES')
+        compare('ZPOPMAX', 'pop-bulk-z', 80)
+        compare('EXISTS', 'pop-bulk-z')
         excluded = {b'client', b'command', b'config', b'cluster',
                     b'cluster|syncslots', b'cluster|addslave'}
         names = a.call('COMMAND', 'LIST').value
@@ -247,8 +268,137 @@ def pipelines(port, reference):
             assert [r.kind for r in result.value] == \
                 [b'$', b'%', b'_', b'%', b'*', b'$']
             assert replies[-1].kind == b'$'
+            assert c.call('HSET', 'hmget-wire', b'f\0', b'v\0\xff', 'empty',
+                          '') == Reply(b':', 2)
+            fields = (b'f\0', 'missing', 'empty', b'f\0', b'f\0') * 3
+            get = ('HMGET', 'hmget-wire', *fields)
+            missing = ('HMGET', 'absent', *fields)
+            commands = [get, ('HELLO', 3), get, missing, ('MULTI',),
+                        get, ('EXEC',), ('HELLO', 2), get]
+            c.socket.sendall(b''.join(c.encode(args) for args in commands))
+            replies = [c.read() for _ in commands]
+            for index, null_kind in [(0, b'$'), (2, b'_'), (8, b'$')]:
+                expected = Reply(b'*', [
+                    Reply(null_kind, None) if field == 'missing' else
+                    Reply(b'$', b'' if field == 'empty' else b'v\0\xff')
+                    for field in fields])
+                assert replies[index] == expected
+            assert replies[3] == Reply(b'*', [Reply(b'_', None)] * len(fields))
+            assert replies[6] == Reply(b'*', [replies[2]])
+            assert c.call('ZADD', 'zmscore-wire', '1.5', b'm\0',
+                          '-inf', 'low') == Reply(b':', 2)
+            members = (b'm\0', 'missing', 'low') * 44
+            scores = ('ZMSCORE', 'zmscore-wire', *members)
+            commands = [scores, ('HELLO', 3), scores, ('MULTI',),
+                        scores, ('EXEC',), ('HELLO', 2), scores]
+            c.socket.sendall(b''.join(c.encode(args) for args in commands))
+            replies = [c.read() for _ in commands]
+            resp2 = Reply(b'*', [Reply(b'$', b'1.5'), Reply(b'$', None),
+                                 Reply(b'$', b'-inf')] * 44)
+            resp3 = Reply(b'*', [Reply(b',', 1.5), Reply(b'_', None),
+                                 Reply(b',', float('-inf'))] * 44)
+            assert replies[0] == replies[7] == resp2
+            assert replies[2] == resp3
+            assert replies[5] == Reply(b'*', [resp3])
+            values = [bytes([i, 0, 255]) for i in range(47)]
+            for protocol in (2, 3):
+                hello(c, protocol)
+                key = 'list-pop-wire'
+                assert c.call('RPUSH', key, *values) == Reply(b':', 47)
+                assert c.call('RPOP', key, 0) == Reply(b'*', [])
+                commands = [('LPOP', key, 15), ('MULTI',),
+                            ('RPOP', key, 16), ('LPOP', key, 32), ('EXEC',),
+                            ('RPOP', key, 32)]
+                c.socket.sendall(b''.join(c.encode(args) for args in commands))
+                replies = [c.read() for _ in commands]
+                assert replies[0] == Reply(b'*', [Reply(b'$', v) for v in values[:15]])
+                assert replies[4] == Reply(b'*', [
+                    Reply(b'*', [Reply(b'$', v) for v in reversed(values[31:])]),
+                    Reply(b'*', [Reply(b'$', v) for v in values[15:31]])])
+                assert replies[5] == Reply(b'*' if protocol == 2 else b'_', None)
+                assert c.call('RPUSH', key, values[0]) == Reply(b':', 1)
+                assert c.call('RPOP', key, 1) == Reply(b'*', [Reply(b'$', values[0])])
+                assert c.call('RPOP', key, 1) == Reply(
+                    b'*' if protocol == 2 else b'_', None)
+                assert c.call('RPOP', key) == Reply(
+                    b'$' if protocol == 2 else b'_', None)
+            assert c.call('ZADD', 'zrange-wire',
+                          *(part for i in range(128)
+                            for part in (i, f'member:{i}'))) == Reply(b':', 128)
+            forward = ('ZRANGE', 'zrange-wire', 0, 127, 'WITHSCORES')
+            reverse = ('ZREVRANGE', 'zrange-wire', 0, 127, 'withscores')
+            for protocol in (2, 3):
+                hello(c, protocol)
+                assert c.call('ZADD', 'zrange-wire', 1, 'member:1') == Reply(b':', 0)
+                before = c.call(*forward)
+                before_reverse = c.call(*reverse)
+                commands = [forward, forward, reverse, reverse,
+                            ('ZADD', 'zrange-wire', 1.5, 'member:1'),
+                            forward, forward]
+                c.socket.sendall(b''.join(c.encode(args) for args in commands))
+                replies = [c.read() for _ in commands]
+                assert replies[0] == replies[1] == before
+                assert replies[2] == replies[3] == before_reverse
+                assert replies[4] == Reply(b':', 0)
+                assert replies[5] == replies[6] == c.call(*forward)
+                assert replies[5] != before
+            assert c.call('SET', 'hmget-wire', 'string') == Reply(b'+', b'OK')
+            assert c.call(*get).kind == b'-'
+            pairs = [(f'f:{i}', b'value') for i in range(126)]
+            pairs.extend([(b'f\0', b'v\0\xff' * 4000), ('empty', b'')])
+            assert c.call('HSET', 'hmget-dense',
+                          *(part for pair in pairs for part in pair)) == Reply(b':', 128)
+            hello(c, 3)
+            query = pairs[::-1] + [('missing', None), pairs[-2]]
+            reply = c.call('HMGET', 'hmget-dense', *(name for name, _ in query))
+            assert reply == Reply(b'*', [
+                Reply(b'_', None) if value is None else Reply(b'$', value)
+                for _, value in query])
+            large = b'x' * (300 * 1024)
+            assert c.call('HSET', 'hmget-dense', 'empty', large) == Reply(b':', 0)
+            reply = c.call('HMGET', 'hmget-dense', *(name for name, _ in query))
+            assert reply == Reply(b'*', [
+                Reply(b'_', None) if value is None else
+                Reply(b'$', large if name == 'empty' else value)
+                for name, value in query])
         finally:
             c.close()
+
+def identical_hash_write(port, reference):
+    for selected in (port, reference):
+        reader, writer = RespClient(selected), RespClient(selected)
+        try:
+            key, field, value = b'hash-watch\0', b'f\0', b'v\0'
+            deadline = 4102444800123
+            assert reader.call('HSET', key, field, value) == Reply(b':', 1)
+            assert reader.call('PEXPIREAT', key, deadline) == Reply(b':', 1)
+            assert reader.call('WATCH', key) == Reply(b'+', b'OK')
+            writer.socket.sendall(writer.encode(('HSET', key, field, value)) * 16)
+            assert [writer.read() for _ in range(16)] == [Reply(b':', 0)] * 16
+            assert reader.call('MULTI') == Reply(b'+', b'OK')
+            assert reader.call('HGET', key, field) == Reply(b'+', b'QUEUED')
+            assert reader.call('EXEC') == Reply(b'*', None)
+            assert reader.call('HGET', key, field) == Reply(b'$', value)
+            assert reader.call('PEXPIRETIME', key) == Reply(b':', deadline)
+            pair = b'hash-pair\0'
+            assert reader.call('HSET', pair, field, b'first', field, value) == Reply(b':', 1)
+            assert reader.call('HGET', pair, field) == Reply(b'$', value)
+            assert reader.call('HMSET', pair, field, value, field, b'last') == Reply(b'+', b'OK')
+            assert reader.call('HGET', pair, field) == Reply(b'$', b'last')
+            assert reader.call('HSET', pair, b'z\0', b'z', field, value) == Reply(b':', 1)
+            assert reader.call('HLEN', pair) == Reply(b':', 2)
+            commands = [('HGET', pair, field),
+                        ('HSET', pair, b'z\0', b'updated', field, b'new'),
+                        ('HGET', pair, field),
+                        ('HSET', pair, field, b'ignored', field, value),
+                        ('HGET', pair, field)]
+            writer.socket.sendall(b''.join(writer.encode(args) for args in commands))
+            assert [writer.read() for _ in commands] == [
+                Reply(b'$', value), Reply(b':', 0), Reply(b'$', b'new'),
+                Reply(b':', 0), Reply(b'$', value)]
+        finally:
+            reader.close()
+            writer.close()
 
 
 def topology(binary):
@@ -295,6 +445,7 @@ def main():
         checks = exercise(port, ref)
         negotiation(port, ref)
         pipelines(port, ref)
+        identical_hash_write(port, ref)
         watched(port, ref)
         cli(args.redis, ref, b'redis')
         cli(args.redis, port, b'pkv')

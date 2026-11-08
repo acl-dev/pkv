@@ -14,14 +14,10 @@ namespace pkv {
 #define EQ  !strcasecmp
 
 redis_string::redis_string(redis_handler& handler, const redis_object &obj)
-: redis_command(handler, obj)
-{
-    dao_ = new dao::paged_string;
-}
+: redis_command(handler, obj), data_(handler.page_pipeline_scope_), dao_(&data_)
+{}
 
-redis_string::~redis_string() {
-    delete dao_;
-}
+redis_string::~redis_string() = default;
 
 struct string_handler {
     const char* cmd;
@@ -29,7 +25,7 @@ struct string_handler {
     bool (redis_string::*func) (redis_coder&);
 };
 
-static struct string_handler handlers[] = {
+static const struct string_handler handlers[] = {
     { "GETBIT",     true,   &redis_string::bitmap },
     { "SETBIT",     true,   &redis_string::bitmap },
     { "BITCOUNT",   true,   &redis_string::bitcount },
@@ -69,13 +65,32 @@ static struct string_handler handlers[] = {
 bool redis_string::exec(const char* cmd, redis_coder& result) {
     for (int i = 0; handlers[i].cmd != nullptr; i++) {
         if (EQ(cmd, handlers[i].cmd)) {
-            if (check_cluster_mode(handlers[i].check_slot) && route_keys(cmd, result)) return true;
-            return (this->*(handlers[i].func))(result);
+            return dispatch(cmd, handlers[i].check_slot, handlers[i].func,
+                result);
         }
     }
 
     logger_error("Not support, cmd=%s", cmd);
     return false;
+}
+
+bool redis_string::dispatch(const char* cmd, bool check_slot,
+    bool (redis_string::*operation)(redis_coder&), redis_coder& result) {
+    if (check_cluster_mode(check_slot) && route_keys(cmd, result)) return true;
+    return (this->*operation)(result);
+}
+
+redis_handler_t redis_string::bind(const char* name) {
+    for (const auto* entry = handlers; entry->cmd; ++entry) {
+        if (strcasecmp(name, entry->cmd)) continue;
+        return [entry](redis_handler& handler, const char* cmd,
+            const redis_object& object, redis_coder& result) {
+            redis_string command(handler, object);
+            return command.dispatch(cmd, entry->check_slot, entry->func,
+                result);
+        };
+    }
+    return {};
 }
 
 static bool set_option_is(const std::string& value, const char* expected) {
@@ -207,6 +222,7 @@ bool redis_string::delex(redis_coder& result) {
 
 bool redis_string::mget(redis_coder& result) {
     std::vector<std::string> keys;
+    keys.reserve(obj_.size() - 1);
     for (size_t i = 1; i < obj_.size(); ++i) keys.push_back(*obj_.argument(i));
     std::vector<dao::string_result> values;
     if (!dao_->mget(handler_.get_db(), keys, values)) {
@@ -214,6 +230,21 @@ bool redis_string::mget(redis_coder& result) {
         return true;
     }
     auto& reply = result.create_object();
+    const std::string* payloads[64];
+    if (values.size() <= 64) {
+        size_t bytes = 0;
+        size_t i = 0;
+        for (; i < values.size(); ++i) {
+            const auto& value = values[i];
+            if (!value.found || value.value.size() > 32 * 1024 - bytes) break;
+            bytes += value.value.size();
+            payloads[i] = &value.value;
+        }
+        if (i == values.size()) {
+            reply.set_bulk_array(payloads, i);
+            return true;
+        }
+    }
     reply.set_type(REDIS_OBJ_ARRAY);
     for (const auto& value : values) {
         if (value.found) reply.create_child().set_string(value.value);
@@ -366,14 +397,13 @@ bool redis_string::get(redis_coder& result) {
         result.create_object().set_error("ERR invalid arguments");
         return true;
     }
-    std::string value;
-    if (dao_->get(handler_.get_db(), *key, value)) {
-        result.create_object().set_string(value);
-    } else if (dao_->status() == dao::dao_base::read_status::missing) {
-        result.create_object().set_null();
-    } else {
-        result.create_object().set_error(dao_->error());
+    redis_coder::pending_reply reply(result);
+    if (!dao_->get(handler_.get_db(), *key, reply.string())) {
+        if (dao_->status() == dao::dao_base::read_status::missing)
+            reply.object().set_null();
+        else reply.object().set_error(dao_->error());
     }
+    reply.publish();
     return true;
 }
 

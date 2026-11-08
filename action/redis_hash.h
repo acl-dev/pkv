@@ -3,7 +3,9 @@
 //
 
 #pragma once
+#include "dao/paged_hash.h"
 #include "redis_command.h"
+#include "redis_dispatch.h"
 
 namespace pkv {
 
@@ -19,6 +21,7 @@ public:
     ~redis_hash() override;
 
     bool exec(const char* cmd, redis_coder& result);
+    static redis_handler_t bind(const char* name);
 
 public:
     bool hset(redis_coder& result);
@@ -39,6 +42,9 @@ public:
     bool hrandfield(redis_coder& result);
    
 private:
+    bool dispatch(const char* cmd, bool check_slot,
+        bool (redis_hash::*operation)(redis_coder&), redis_coder& result);
+    dao::paged_hash data_;
     dao::hash* dao_;
 };
 

@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "coder/compact_hash.h"
 #include "dao/paged_hash.h"
 #include "dao/json/json_hash.h"
 #include "dao/json/json_key.h"
@@ -78,6 +79,8 @@ static void semantics(dao::hash& hash, shared_db db) {
     require(hash.hmset(db, "hash", {{"", ""}, {binary, bytes},
         {"a", "one"}, {"b", "two"}, {"c", "three"}}) == 5, "seed");
     deadline(hash, db);
+    std::string original;
+    require(db->get("hash", original), "seed root");
     require(take(hash, db, {binary, binary, "absent", "", "a"}, out) &&
         out.size() == 5 && out[0].found && out[0].value == bytes &&
         !out[1].found && !out[2].found && out[3].found &&
@@ -85,6 +88,12 @@ static void semantics(dao::hash& hash, shared_db db) {
     require(expiry(db) == future && hash.hgetall(db, "hash") &&
         hash.get_fields() == std::map<std::string, std::string>(
             {{"b", "two"}, {"c", "three"}}), "remaining data and TTL");
+    if (compact_hash::matches(original)) {
+        std::string remaining;
+        require(db->get("hash", remaining) && compact_hash::matches(remaining) &&
+            compact_hash::view(remaining).count() == 2,
+            "compact partial deletion allocated pages");
+    }
     require(take(hash, db, {"b", "c", "b"}, out) && out[0].found &&
         out[1].found && !out[2].found, "drain");
     std::string root;
@@ -177,7 +186,9 @@ static void allocation(dao::hash& hash) {
     }
     std::cout << "HGETDEL allocation failure points: " << failures <<
         ", reached success: " << success << '\n';
-    require(success && failures > 10, "allocation sweep incomplete");
+    // The sweep covers every budget before the first success. The number
+    // of allocations can shrink when the fragment reader avoids copies.
+    require(success && failures != 0, "allocation sweep incomplete");
 }
 static void legacy() {
     auto db = memory(); dao::paged_hash hash; dao::json_hash json;

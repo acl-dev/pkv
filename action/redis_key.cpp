@@ -125,10 +125,16 @@ bool redis_key::rename(redis_coder& result) {
 }
 
 bool redis_key::del(redis_coder& result) {
-    std::vector<std::string> keys;
-    for (size_t i = 1; i < obj_.size(); ++i) keys.push_back(*obj_.argument(i));
+    auto& db = handler_.get_db();
     long long removed;
-    if (!dao_->del(handler_.get_db(), keys, removed)) return key_error(*dao_, result);
+    if (obj_.size() == 2) {
+        if (!dao_->del_one(db, *obj_.argument(1), removed)) return key_error(*dao_, result);
+    } else {
+        std::vector<std::string> keys;
+        keys.reserve(obj_.size() - 1);
+        for (size_t i = 1; i < obj_.size(); ++i) keys.push_back(*obj_.argument(i));
+        if (!dao_->del(db, keys, removed)) return key_error(*dao_, result);
+    }
     result.create_object().set_number(removed);
     return true;
 }

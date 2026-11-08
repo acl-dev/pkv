@@ -248,7 +248,7 @@ def run_versioned(port):
         checks += 1
         invalid = Replica(port)
         try:
-            invalid.socket.sendall(b'PKV-REPL 5\r\n')
+            invalid.socket.sendall(b'PKV-REPL 6\r\n')
             invalid.socket.settimeout(3)
             assert invalid.socket.recv(1) == b''
         finally: invalid.close()
@@ -401,6 +401,13 @@ def set_apply_cases(source, target):
     assert source.call('RENAME', 'apply:set', 'apply:renamed-set') == b'OK'
     assert source.call('SREM', 'apply:renamed-set', members[1]) == 1
     assert source.call('PERSIST', 'apply:renamed-set') == 1
+    packed = 'apply:compact-set'
+    assert source.call('MULTI') == b'OK'
+    assert source.call('SADD', packed, *members[:2]) == b'QUEUED'
+    assert source.call('PEXPIREAT', packed, 4102444800123) == b'QUEUED'
+    assert source.call('COPY', packed, packed, 'DB', 1) == b'QUEUED'
+    assert source.call('EXEC') == [2, 1, 1]
+    assert source.call('MOVE', packed, 2) == 1
     assert source.call('SET', 'apply:set-barrier', 'complete') == b'OK'
     assert target.call('SELECT', 7) == b'OK'
     for attempt in range(200):
@@ -417,7 +424,11 @@ def set_apply_cases(source, target):
     assert target.call('SELECT', 1) == b'OK'
     assert set(target.call('SMEMBERS', 'apply:set')) == set(members)
     assert target.call('PEXPIRETIME', 'apply:set') == 4102444800123
-    return 19
+    for database in (1, 2):
+        assert target.call('SELECT', database) == b'OK'
+        assert target.call('SMISMEMBER', packed, *members[:2]) == [1, 1]
+        assert target.call('PEXPIRETIME', packed) == 4102444800123
+    return 31
 
 
 def zset_apply_cases(source, target):
@@ -436,6 +447,20 @@ def zset_apply_cases(source, target):
     assert source.call('ZRANGESTORE', 'apply:range-zset',
                        'apply:renamed-zset', 0, -1) == 2
     assert source.call('ZPOPMIN', 'apply:range-zset') == [b'', b'-0']
+    compact = [f'm{score:05d}' for score in range(48)]
+    pairs = [item for score, name in enumerate(compact, 8192)
+             for item in (score, name)]
+    assert source.call('ZADD', 'apply:compact-zset', *pairs) == len(compact)
+    wide_zset = [bytes([letter]) * 160 for letter in b'abcd']
+    assert source.call('ZADD', 'apply:large-compact-zset',
+                       *(arg for score, member in enumerate(wide_zset)
+                         for arg in (score, member))) == len(wide_zset)
+    assert source.call('HSET', 'apply:wide-hash', 'a', b'x' * 254,
+                       'b', b'y' * 254) == 2
+    assert source.call('SADD', 'apply:wide-set', b'a' * 255,
+                       b'b' * 255) == 2
+    list_values = [bytes([letter]) * 128 for letter in b'abcde']
+    assert source.call('RPUSH', 'apply:wide-list', *list_values) == len(list_values)
     assert source.call('SET', 'apply:zset-barrier', 'complete') == b'OK'
     assert target.call('SELECT', 7) == b'OK'
     for attempt in range(200):
@@ -444,6 +469,15 @@ def zset_apply_cases(source, target):
         time.sleep(.01)
     else:
         raise AssertionError('ZSet page stream did not reach marker')
+    assert target.call('ZRANGE', 'apply:compact-zset', 0, -1) == [
+        name.encode() for name in compact]
+    assert target.call('ZSCORE', 'apply:compact-zset', compact[-1]) == b'8239'
+    assert target.call('ZRANGE', 'apply:large-compact-zset', 0, -1) == wide_zset
+    assert target.call('HMGET', 'apply:wide-hash', 'a', 'b') == [
+        b'x' * 254, b'y' * 254]
+    assert target.call('LRANGE', 'apply:wide-list', 0, -1) == list_values
+    assert set(target.call('SMEMBERS', 'apply:wide-set')) == {
+        b'a' * 255, b'b' * 255}
     assert target.call('ZRANGE', 'apply:renamed-zset', 0, -1,
                        'WITHSCORES') == [b'', b'-0', member, b'5']
     assert target.call('ZCARD', 'apply:union-zset') == 3
@@ -457,7 +491,7 @@ def zset_apply_cases(source, target):
     assert target.call('ZSCORE', 'apply:zset', member) == b'2'
     assert target.call('ZSCORE', 'apply:zset', b'') == b'-0'
     assert target.call('PEXPIRETIME', 'apply:zset') == 4102444800123
-    return 25
+    return 28
 
 
 def string_apply_cases(source, target):
@@ -584,7 +618,8 @@ def run_reconnect_and_legacy(binary):
             assert data and len(greeting) < 64
             greeting.extend(data)
         assert greeting in (b'PKV-REPL 1\r\n', b'PKV-REPL 2\r\n',
-                            b'PKV-REPL 3\r\n', b'PKV-REPL 4\r\n')
+                            b'PKV-REPL 3\r\n', b'PKV-REPL 4\r\n',
+                            b'PKV-REPL 5\r\n')
         checks += 1
         return peer
     def value(client, expected):

@@ -22,9 +22,12 @@ public:
     // Both zeros have the same key. NaN and noncanonical negative zero fail.
     static bool encode_score(double score, std::string& out);
     static bool decode_score(const std::string& bytes, double& out);
+    static bool decode_score_prefix(const std::string& key, double& out);
     // Member payloads preserve signed zero; sorting keys normalize it.
     static bool encode_value(double score, std::string& out);
+    static bool append_value(double score, std::string& out);
     static bool decode_value(const std::string& bytes, double& out);
+    static bool decode_value(const char* bytes, size_t length, double& out);
     static bool score_key(double score, const std::string& member,
         std::string& out);
 };

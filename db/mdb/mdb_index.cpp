@@ -16,4 +16,14 @@ void mdb::erase_root(store& shard, root_map& bucket, root_map::iterator node) {
     shard.keys.erase(&*node);
     bucket.erase(node);
 }
+bool mdb::erase_root(const location& position, const std::string& key) {
+    auto& shard = *stores_[position.shard];
+    auto& bucket = shard.buckets[position.bucket];
+    if (!bucket) return false;
+    const auto node = bucket->find(key);
+    if (node == bucket->end()) return false;
+    erase_root(shard, *bucket, node);
+    if (bucket->empty()) bucket.reset();
+    return true;
+}
 } // namespace pkv

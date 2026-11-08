@@ -73,6 +73,19 @@ static void index_checks() {
         }
     }
     require(seen.size() == 2000, "expiry index key lifetime after rehash");
+    for (unsigned i = 0; i < 256; ++i)
+        require(index.set(std::to_string(i), i), "heap seed");
+    for (unsigned i = 0; i < 256; ++i) {
+        const auto key = std::to_string(i);
+        if (i % 3 == 0) index.erase(key);
+        else require(index.set(key, 255 - i), "heap refresh");
+    }
+    require(!index.due(63, 256, due), "unexpected due limit");
+    seen = std::unordered_set<std::string>(due.begin(), due.end());
+    require(seen.size() == due.size(), "duplicate due key after heap edits");
+    for (unsigned i = 0; i < 256; ++i)
+        require(seen.count(std::to_string(i)) == (i % 3 != 0 && i >= 192),
+            "heap edits changed due membership");
     for (long position = 0; position < 8; ++position) {
         expiry_index failing;
         budget = position;
@@ -118,10 +131,10 @@ static void cached_deadlines() {
     budget = 0;
     const bool changed = index.set("old", 10);
     budget = -1;
-    require(!changed && index.dirty() && !index.due(4, 64, due) && due.empty(),
-        "failed deadline update published a new minimum");
-    index.due(5, 64, due);
-    require(due.size() == 1 && due[0] == "old", "lost old cached deadline");
+    require(changed && !index.dirty() && !index.due(5, 64, due) && due.empty(),
+        "existing deadline refresh allocated or kept the old deadline");
+    index.due(10, 64, due);
+    require(due.size() == 1 && due[0] == "old", "lost refreshed deadline");
 }
 static void concurrent_index() {
     expiry_index index;

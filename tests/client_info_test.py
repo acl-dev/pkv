@@ -264,6 +264,30 @@ def backpressure(port):
         target.close()
 
 
+def adaptive_receive_buffer(port):
+    target, admin = Client(port), Client(port)
+    try:
+        identity = target.call('CLIENT', 'ID')
+        before = int(observe(admin, identity)[b'tot-mem'])
+        values = [b'\0' * 35999 + bytes([i]) for i in range(32)]
+        target.socket.sendall(b''.join(
+            target.encode(('HSET', 'info-adaptive', 'field', value))
+            for value in values))
+        assert [target.read() for _ in values] == [1] + [0] * (len(values) - 1)
+        grown = int(observe(admin, identity)[b'tot-mem'])
+        assert abs(grown - before - 56 * 1024) < 1024, (before, grown)
+        for _ in range(4):
+            assert target.call('PING') == b'PONG'
+        shrunk = int(observe(admin, identity)[b'tot-mem'])
+        # Reply and parser caches can retain small buffers independently.
+        assert abs(shrunk - before) < 1024, (before, grown, shrunk)
+        assert target.call('HGET', 'info-adaptive', 'field') == values[-1]
+        assert target.call('DEL', 'info-adaptive') == 1
+    finally:
+        target.close()
+        admin.close()
+
+
 def cli(reference, port):
     program = Path(reference).with_name('redis-cli')
     result = subprocess.run([str(program), '-3', '-p', str(port),
@@ -299,6 +323,7 @@ def main():
             resp3(target)
             cli(args.redis, target)
         fragmented(port)
+        adaptive_receive_buffer(port)
         churn(port)
         backpressure(port)
     protected(args.pkv, args.redis)

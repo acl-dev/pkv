@@ -65,7 +65,7 @@ class Upstream:
         self.address = '127.0.0.1:%d' % self.listener.getsockname()[1]
         self.peers = []
 
-    def accept(self, version=4, ready=True):
+    def accept(self, version=5, ready=True):
         peer, _ = self.listener.accept()
         self.peers.append(peer)
         peer.settimeout(4)
@@ -132,7 +132,21 @@ def test_subscriber(port):
         assert client.call('SET', 'subscriber:marker', 'new') == b'OK'
         roots, pages = receive_group(peer)
         assert roots[0][:3] == (12, 7, b'subscriber:marker') and not pages
-        assert roots[0][3][:4] == b'PSR\1' and roots[0][3][32:] == b'new'
+        assert roots[0][3] == b'PSR\2\0\0\3new'
+        grouped_key = b'subscriber:grouped-list'
+        seed = b's' * 700
+        assert client.call('RPUSH', grouped_key, seed, seed) == 2
+        receive_group(peer)
+        appended = [b'a' * 700, b'b' * 700]
+        client.socket.sendall(b''.join(client.encode(('RPUSH', grouped_key, value))
+                                      for value in appended))
+        assert [client.read(), client.read()] == [3, 4]
+        for value in appended:
+            roots, pages = receive_group(peer)
+            assert len(roots) == 1 and roots[0][2] == grouped_key
+            assert any(item[0] == 9 and item[2] == grouped_key and
+                       value in item[3] for item in pages)
+        assert client.call('LRANGE', grouped_key, 0, -1) == [seed, seed] + appended
         members = [b'', b'a\0b', b'x' * 100000]
         assert client.call('RPUSH', 'subscriber:list', *members) == 3
         roots, pages = receive_group(peer)
@@ -151,12 +165,13 @@ def test_subscriber(port):
                            b'v' * 100000, 'count', '1') == 2
         roots, pages = receive_group(peer)
         assert roots[0][:3] == (12, 7, b'subscriber:hash')
-        assert roots[0][3][:5] == b'PMR\2\1' and len(roots[0][3]) == 48
+        assert roots[0][3][:6] == b'PMR\4\1\0' and len(roots[0][3]) == 12
         assert len(pages) > 2
         assert client.call('PEXPIREAT', 'subscriber:hash', 4102444800123) == 1
         roots, pages = receive_group(peer)
         assert roots[0][:3] == (7, 7, b'subscriber:hash') and not pages
-        assert struct.unpack_from('!Q', roots[0][3], 8)[0] == 4102444800123
+        assert roots[0][3][:6] == b'PMR\4\1\1' and len(roots[0][3]) == 20
+        assert struct.unpack_from('!Q', roots[0][3], 12)[0] == 4102444800123
         assert client.call('HINCRBYFLOAT', 'subscriber:hash', 'count',
                            '.125') == b'1.125'
         roots, pages = receive_group(peer)
@@ -169,26 +184,41 @@ def test_subscriber(port):
                            '.125') == b'0.125'
         roots, pages = receive_group(peer)
         assert roots[0][:3] == (12, 7, b'subscriber:float') and not pages
-        assert roots[0][3][:4] == b'PSR\1' and roots[0][3][32:] == b'0.125'
+        assert roots[0][3] == b'PSR\2\0\0\x050.125'
         assert client.call('SADD', 'subscriber:set', *members) == 3
         roots, pages = receive_group(peer)
         assert roots[0][:3] == (12, 7, b'subscriber:set')
-        assert roots[0][3][:5] == b'PMR\2\2' and len(roots[0][3]) == 48
+        assert roots[0][3][:6] == b'PMR\4\2\0' and len(roots[0][3]) == 12
         assert len(pages) > 2
         assert client.call('PEXPIREAT', 'subscriber:set', 4102444800123) == 1
         roots, pages = receive_group(peer)
         assert roots[0][:3] == (7, 7, b'subscriber:set') and not pages
-        assert struct.unpack_from('!Q', roots[0][3], 8)[0] == 4102444800123
+        assert roots[0][3][:6] == b'PMR\4\2\1' and len(roots[0][3]) == 20
+        assert struct.unpack_from('!Q', roots[0][3], 12)[0] == 4102444800123
         assert client.call('ZADD', 'subscriber:zset', '-0', b'', 2,
                            b'a\0b', 'inf', b'x' * 100000) == 3
         roots, pages = receive_group(peer)
         assert roots[0][:3] == (12, 7, b'subscriber:zset')
-        assert roots[0][3][:4] == b'PZR\1' and len(roots[0][3]) == 64
+        assert roots[0][3][:5] == b'PZR\2\0' and len(roots[0][3]) == 13
         assert len(pages) > 2
         assert client.call('PEXPIREAT', 'subscriber:zset', 4102444800123) == 1
         roots, pages = receive_group(peer)
         assert roots[0][:3] == (7, 7, b'subscriber:zset') and not pages
-        assert struct.unpack_from('!Q', roots[0][3], 8)[0] == 4102444800123
+        assert roots[0][3][:5] == b'PZR\2\1' and len(roots[0][3]) == 21
+        assert struct.unpack_from('!Q', roots[0][3], 13)[0] == 4102444800123
+        pairs = [item for score in range(16) for item in (score, f'm{score:05d}')]
+        assert client.call('ZADD', 'subscriber:compact-zset', *pairs) == 16
+        roots, pages = receive_group(peer)
+        assert roots[0][:3] == (12, 7, b'subscriber:compact-zset')
+        if roots[0][3].startswith(b'{'):
+            assert not pages
+            assert json.loads(roots[0][3]) == {
+                'V': 1, 'T': 'Z', 'E': -1, 'P': -1,
+                'D': [[f'm{score:05d}', str(score)] for score in range(16)],
+            }
+        else:
+            assert any(item[3][8:12] == b'PMN\x0d' and len(item[3]) == 30
+                       for item in pages)
         peer.sendall(b'PKV-REPL 1\r\n')
         closed(peer)
     finally:
@@ -254,8 +284,10 @@ def run(binary):
                 assert client.call('GET', 'interleaved') is None
                 assert client.call('MGET', *KEYS) == [b'reconnected'] * 2
                 checks += 2
-                # Model a v1 server rejecting v4, v3 and v2 requests.
+                # Model a v1 server rejecting v5, v4, v3 and v2 requests.
                 peer = upstream.accept(ready=False)
+                peer.close()
+                peer = upstream.accept(version=4, ready=False)
                 peer.close()
                 peer = upstream.accept(version=3, ready=False)
                 peer.close()

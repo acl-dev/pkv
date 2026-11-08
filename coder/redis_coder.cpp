@@ -66,6 +66,30 @@ redis_object& redis_coder::create_object() {
     return *obj;
 }
 
+redis_coder::pending_reply::pending_reply(redis_coder& owner)
+    : owner_(owner), object_(owner.cache_.get()) {}
+
+redis_coder::pending_reply::~pending_reply() {
+    if (object_) owner_.cache_.put(object_);
+}
+
+std::string& redis_coder::pending_reply::string() {
+    assert(object_);
+    object_->set_type(REDIS_OBJ_STRING);
+    return object_->buf_;
+}
+
+redis_object& redis_coder::pending_reply::object() {
+    assert(object_);
+    return *object_;
+}
+
+void redis_coder::pending_reply::publish() {
+    assert(object_);
+    owner_.objs_.push_back(object_);
+    object_ = nullptr;
+}
+
 bool redis_coder::to_string(std::string& out) const {
     for (const auto& obj : objs_) {
         if (!obj->to_resp(out)) {
@@ -74,6 +98,38 @@ bool redis_coder::to_string(std::string& out) const {
     }
 
     return true;
+}
+
+bool redis_coder::take_frame(std::string& out) {
+    using kind = redis_object::response_kind;
+    if (out.empty() && objs_.size() == 1) {
+        auto& reply = *objs_.front();
+        const auto format = reply.response_kind_;
+        const auto protocol = reply.response_protocol_;
+        if (reply.get_type() == REDIS_OBJ_STRING && !reply.size() &&
+            (protocol == 0 || protocol == 2 || protocol == 3) &&
+            (format == kind::raw || format == kind::raw_set)) {
+            if (format == kind::raw_set && protocol == 3) {
+                if (reply.buf_.empty() || reply.buf_.front() != '*') return false;
+                reply.buf_.front() = '~';
+            }
+            out.swap(reply.buf_);
+            return true;
+        }
+    }
+    // Flat replies already know their wire sizes. Reserve the whole batch
+    // before appending so a large pipeline does not grow the frame repeatedly.
+    if (out.empty() && objs_.size() > 1 && objs_.front()->buf_.size() >= 1024) {
+        size_t bytes = 0;
+        for (const auto* reply : objs_) {
+            const auto format = reply->response_kind_;
+            if ((format != kind::raw && format != kind::raw_set) ||
+                reply->buf_.size() > out.max_size() - bytes) return to_string(out);
+            bytes += reply->buf_.size();
+        }
+        out.reserve(bytes);
+    }
+    return to_string(out);
 }
 
 void redis_coder::move_to(redis_object& array) {

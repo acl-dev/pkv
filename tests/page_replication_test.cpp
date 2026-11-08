@@ -751,6 +751,37 @@ static void test_maintenance_wire() {
         "maintenance without reset accepted");
 }
 
+static void test_small_batch_preflight() {
+    struct page_observer : events {
+        bool supports_pages() const override { return true; }
+    } observer;
+    for (unsigned index : {0U, page_batch::max_databases}) {
+        db_watchers watchers(index);
+        watchers.add_watcher(&observer);
+        for (auto kind : {action::keep, action::write, action::erase})
+        for (unsigned flags = 0; flags < 16; ++flags)
+        for (unsigned shape = 0; shape < 8; ++shape) {
+            std::vector<db::batch_entry> entries;
+            entries.emplace_back("root", (flags & 1) != 0, "value");
+            auto& root = entries.front();
+            root.action = kind;
+            root.clear_pages = (flags & 2) != 0;
+            root.maintenance_only = (flags & 4) != 0;
+            root.force_watch_invalidation = (flags & 8) != 0;
+            std::vector<page_change> changes;
+            if (shape) changes.emplace_back(shape == 1 ? "other" : "root",
+                shape == 2 ? 0 : 1, "value", action::write);
+            if (shape >= 4) changes.emplace_back("root", shape == 4 ? 1 : 2,
+                shape == 5 ? "invalid" : "", shape == 6 ? action::keep :
+                    action::erase);
+            page_batch_size measured;
+            require(watchers.can_pages(entries, changes) ==
+                page_batch::measure(index, entries, changes, measured),
+                "small preflight changed accepted batches");
+        }
+    }
+}
+
 int main() {
     acl::acl_cpp_init();
     test_stream_and_apply();
@@ -759,6 +790,7 @@ int main() {
     test_truncation_and_reset();
     test_frame_validation();
     test_capture_bounds();
+    test_small_batch_preflight();
     test_delete_and_missing_base();
     test_edit_copy_move_replication();
     test_list_replace_replication();

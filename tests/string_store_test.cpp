@@ -89,11 +89,22 @@ static void test_codec() {
                 "truncated String root/output changed");
         }
         output.length = 17;
-        bytes[3] = 2;
+        bytes[3] = 127;
         require(string_page_codec::decode_root(bytes, output) ==
             string_page_status::unsupported && output.length == 17,
             "future String root");
     }
+    std::string legacy(32, '\0');
+    legacy.replace(0, 4, "PSR\1", 4);
+    legacy[7] = 1;
+    legacy.replace(8, 8, 8, '\xff');
+    legacy[23] = 3;
+    legacy.append("a\0b", 3);
+    string_root legacy_value;
+    require(string_page_codec::decode_root(legacy, legacy_value) ==
+        string_page_status::ok && legacy_value.expires_at_ms == -1 &&
+        legacy_value.inline_value == std::string("a\0b", 3),
+        "legacy inline String root");
     string_root invalid;
     invalid.expires_at_ms = -2;
     std::string unchanged = "keep";
@@ -311,7 +322,7 @@ static void test_corruption() {
     std::string after;
     require(database->get("source", after) && after == root_before,
         "corrupt read changed root");
-    for (const auto& bytes : {std::string("PSR\2future", 10),
+    for (const auto& bytes : {std::string("PSR\177future", 10),
         std::string("PSR\1broken", 10)}) {
         require(database->set("bad", bytes), "invalid root seed");
         require(run(database, "bad", [](string_store& store) {
@@ -407,7 +418,114 @@ static void disk(const std::string& kind, const std::string& path) {
     std::cout << kind << ": native String pages reopen passed\n";
 }
 
+static void test_root_buffer_reuse() {
+    for (size_t size : {size_t(0), size_t(3), size_t(1024), size_t(1025)}) {
+        string_root root;
+        root.length = size; root.pages = string_page_codec::pages_for(size);
+        if (!root.pages) root.inline_value = binary(size);
+        std::string expected, out = "keep";
+        require(string_page_codec::encode_root(root, expected) ==
+            string_page_status::ok, "root reuse fixture");
+        out.reserve(expected.size());
+        allocation_budget = 0;
+        const auto result = string_page_codec::encode_root(root, out);
+        allocation_budget = -1;
+        require(result == string_page_status::ok && out == expected,
+            "String root failed to reuse output capacity");
+        std::string cold = "keep";
+        const bool fits = expected.size() <= cold.capacity();
+        allocation_budget = 0;
+        const auto failed = string_page_codec::encode_root(root, cold);
+        allocation_budget = -1;
+        require(fits ? failed == string_page_status::ok && cold == expected :
+            failed == string_page_status::out_of_memory && cold == "keep",
+            "String root allocation behavior changed output");
+        auto tight = root;
+        const auto before = tight.inline_value;
+        if (tight.inline_value.capacity() < expected.size()) {
+            allocation_budget = 0;
+            const auto alias_failure = string_page_codec::encode_root(tight,
+                tight.inline_value);
+            allocation_budget = -1;
+            require(alias_failure == string_page_status::out_of_memory &&
+                tight.inline_value == before && tight.length == size,
+                "aliased root allocation failure changed input/output");
+        }
+        auto alias = root;
+        alias.inline_value.reserve(expected.size());
+        allocation_budget = 0;
+        const auto aliased = string_page_codec::encode_root(alias,
+            alias.inline_value);
+        allocation_budget = -1;
+        require(aliased == string_page_status::ok &&
+            alias.inline_value == expected, "aliased root encode changed data");
+        if (!root.pages) {
+            auto direct = root.inline_value;
+            direct.reserve(expected.size());
+            allocation_budget = 0;
+            const auto status = string_page_codec::encode_inline(-1, direct,
+                direct);
+            allocation_budget = -1;
+            require(status == string_page_status::ok && direct == expected,
+                "inline input alias changed root bytes or allocated");
+        }
+        root.expires_at_ms = -2;
+        require(string_page_codec::encode_root(root, out) ==
+            string_page_status::invalid && out == expected,
+            "invalid String root changed reused output");
+    }
+}
+
+static void test_integer_encoding() {
+    std::vector<long long> values = {0, 1, -1, LLONG_MIN, LLONG_MIN + 1,
+        LLONG_MAX - 1, LLONG_MAX};
+    for (long long power = 1;; power *= 10) {
+        for (long long delta : {-1, 0, 1}) {
+            values.push_back(power + delta);
+            values.push_back(-power + delta);
+        }
+        if (power == 1000000000000000000LL) break;
+    }
+    std::mt19937_64 random(7189);
+    for (unsigned i = 0; i < 5000; ++i)
+        values.push_back(static_cast<long long>(random()));
+    for (int64_t expiry : {int64_t(-1), int64_t(0), deadline, INT64_MAX}) {
+        for (long long value : values) {
+            string_root root;
+            root.expires_at_ms = expiry;
+            root.inline_value = std::to_string(value);
+            root.length = root.inline_value.size();
+            std::string expected, out;
+            require(string_page_codec::encode_root(root, expected) ==
+                string_page_status::ok, "reference integer encoding");
+            out.reserve(52);
+            allocation_budget = 0;
+            const auto status = string_page_codec::encode_integer(expiry,
+                value, out);
+            allocation_budget = -1;
+            string_root decoded;
+            require(status == string_page_status::ok && out == expected &&
+                string_page_codec::decode_root(out, decoded) ==
+                    string_page_status::ok &&
+                decoded.inline_value == root.inline_value &&
+                decoded.expires_at_ms == expiry,
+                "integer encoding bytes/TTL/reused capacity");
+        }
+    }
+    std::string out = "unchanged";
+    allocation_budget = 0;
+    const auto failed = string_page_codec::encode_integer(-1, LLONG_MIN, out);
+    allocation_budget = -1;
+    require(failed == string_page_status::out_of_memory && out == "unchanged",
+        "failed integer encoding changed output");
+    require(string_page_codec::encode_integer(-2, 0, out) ==
+        string_page_status::invalid && out == "unchanged",
+        "invalid integer expiry changed output");
+}
+
 int main(int argc, char** argv) {
+    test_integer_encoding();
+    test_root_buffer_reuse();
     acl::acl_cpp_init();
     if (argc == 4 && std::string(argv[1]) == "--disk") {
         disk(argv[2], argv[3]); return 0;

@@ -1,5 +1,12 @@
 #include "server_statistics.h"
 #include "command_catalog.h"
+#include "statistics_clock.h"
+#if defined(__APPLE__) && defined(__SIZEOF_INT128__) && \
+    defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && \
+    __ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__ >= 101200
+#include <mach/mach_time.h>
+#define PKV_CONTINUOUS_STATISTICS_CLOCK 1
+#endif
 #include <chrono>
 #include <limits>
 #include <new>
@@ -7,6 +14,16 @@
 
 namespace pkv {
 uint64_t statistics_time_us() {
+#ifdef PKV_CONTINUOUS_STATISTICS_CLOCK
+    static const detail::statistics_clock_ratio scale = [] {
+        mach_timebase_info_data_t info{};
+        if (mach_timebase_info(&info) != KERN_SUCCESS)
+            return detail::statistics_clock_ratio(0, 0);
+        return detail::statistics_clock_ratio(info.numer, info.denom);
+    }();
+    if (scale.denominator)
+        return scale.microseconds(mach_continuous_time());
+#endif
     return static_cast<uint64_t>(std::chrono::duration_cast<
         std::chrono::microseconds>(std::chrono::steady_clock::now().
         time_since_epoch()).count());

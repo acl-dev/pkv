@@ -3,58 +3,120 @@
 #include "redis_handler.h"
 #include "dao/paged_list.h"
 #include "common/redis_integer.h"
+#include "common/list_values_workspace.h"
+#include <cstring>
 
 namespace pkv {
 
 // Shared by direction, insertion and search option parsing.
 static bool list_keyword(const std::string& value, const char* keyword);
 
+redis_list::operation redis_list::classify(const char* name) {
+    struct binding { const char* name; operation op; };
+    static const binding entries[] = {
+        {"BLPOP", operation::blpop},
+        {"BRPOP", operation::brpop},
+        {"BLMPOP", operation::blmpop},
+        {"BLMOVE", operation::blmove},
+        {"BRPOPLPUSH", operation::brpoplpush},
+        {"LMOVE", operation::lmove},
+        {"RPOPLPUSH", operation::rpoplpush},
+        {"LMPOP", operation::lmpop},
+        {"LPOS", operation::lpos},
+        {"LPUSH", operation::lpush},
+        {"RPUSH", operation::rpush},
+        {"LPUSHX", operation::lpushx},
+        {"RPUSHX", operation::rpushx},
+        {"LPOP", operation::lpop},
+        {"RPOP", operation::rpop},
+        {"LINSERT", operation::linsert},
+        {"LREM", operation::lrem},
+        {"LLEN", operation::llen},
+        {"LINDEX", operation::lindex},
+        {"LSET", operation::lset},
+        {"LRANGE", operation::lrange},
+        {"LTRIM", operation::ltrim},
+    };
+    for (const auto& entry : entries)
+        if (!strcasecmp(name, entry.name)) return entry.op;
+    return operation::unknown;
+}
+
+redis_handler_t redis_list::bind(const char* name) {
+    const auto op = classify(name);
+    if (op == operation::unknown) return {};
+    return [op](redis_handler& handler, const char* cmd,
+        const redis_object& object, redis_coder& result) {
+        redis_list command(handler, object);
+        return command.execute(op, cmd, result);
+    };
+}
+
 bool redis_list::exec(const char* cmd, redis_coder& result) {
-    if (!strcasecmp(cmd, "BLPOP") || !strcasecmp(cmd, "BRPOP") ||
-        !strcasecmp(cmd, "BLMPOP") || !strcasecmp(cmd, "BLMOVE") ||
-        !strcasecmp(cmd, "BRPOPLPUSH")) return blocking(cmd, result);
-    if (!strcasecmp(cmd, "LMOVE")) return move(false, result);
-    if (!strcasecmp(cmd, "RPOPLPUSH")) return move(true, result);
-    if (!strcasecmp(cmd, "LMPOP")) return mpop(result);
-    if (!strcasecmp(cmd, "LPOS")) return positions(result);
+    return execute(classify(cmd), cmd, result);
+}
+
+bool redis_list::execute(operation op, const char* cmd, redis_coder& result) {
+    if (op == operation::blpop || op == operation::brpop ||
+        op == operation::blmpop || op == operation::blmove ||
+        op == operation::brpoplpush) return blocking(cmd, result);
+    if (op == operation::lmove) return move(false, result);
+    if (op == operation::rpoplpush) return move(true, result);
+    if (op == operation::lmpop) return mpop(result);
+    if (op == operation::lpos) return positions(result);
     if (check_cluster_mode(true) && route_keys(cmd, result)) return true;
-    dao::paged_list data;
+    dao::paged_list data(handler_.page_pipeline_scope_);
     auto& reply = result.create_object();
     auto& db = handler_.get_db();
     const auto& key = *obj_.argument(1);
-    const auto is = [&](const char* name) { return !strcasecmp(cmd, name); };
+    const auto is = [op](operation selected) { return op == selected; };
     const auto fail = [&]() { reply.set_error(data.error()); return true; };
     const auto integer_error = [&]() {
         reply.set_error("ERR value is not an integer or out of range");
         return true;
     };
-    const auto array = [&](const std::vector<std::string>& values) {
-        reply.set_type(REDIS_OBJ_ARRAY);
-        for (const auto& value : values) reply.create_child().set_string(value);
-    };
-    if (is("LPUSH") || is("RPUSH") || is("LPUSHX") || is("RPUSHX")) {
-        std::vector<std::string> values;
-        for (size_t i = 2; i < obj_.size(); ++i)
-            values.push_back(*obj_.argument(i));
+    if (is(operation::lpush) || is(operation::rpush) ||
+        is(operation::lpushx) || is(operation::rpushx)) {
         long long length;
-        if (!data.push(db, key, values, is("LPUSH") || is("LPUSHX"),
-            is("LPUSHX") || is("RPUSHX"), length)) return fail();
+        const bool left = is(operation::lpush) || is(operation::lpushx);
+        const bool only_existing = is(operation::lpushx) ||
+            is(operation::rpushx);
+        if (obj_.size() == 3) {
+            if (!data.push(db, key, list_values_view(obj_.argument(2), 1),
+                left, only_existing, length)) return fail();
+        } else {
+            detail::list_values_workspace workspace;
+            auto& values = workspace.values();
+            values.resize(obj_.size() - 2);
+            for (size_t i = 2; i < obj_.size(); ++i)
+                values[i - 2] = *obj_.argument(i);
+            if (!data.push(db, key, values, left, only_existing, length))
+                return fail();
+        }
         reply.set_number(length);
-    } else if (is("LPOP") || is("RPOP")) {
+    } else if (is(operation::lpop) || is(operation::rpop)) {
+        const bool left = is(operation::lpop);
+        const bool counted = obj_.size() == 3;
         long long count = 1;
-        const bool has_count = obj_.size() == 3;
-        if ((has_count && !parse_redis_integer(*obj_.argument(2), count)) ||
-            count < 0) {
+        if (counted && (!parse_redis_integer(*obj_.argument(2), count) || count < 0)) {
             reply.set_error("ERR value is out of range, must be positive");
             return true;
         }
+        if (count == 1) {
+            std::string value;
+            bool found;
+            if (!data.pop_one(db, key, left, value, found)) return fail();
+            if (!found)
+                reply.set_type(counted ? REDIS_OBJ_NULL_ARRAY : REDIS_OBJ_NULL_STRING);
+            else if (counted) reply.set_bulk_collection(&value, 1);
+            else reply.set_string(value);
+            return true;
+        }
         dao::list_result out;
-        if (!data.pop(db, key, is("LPOP"), count, out)) return fail();
-        if (!out.found) reply.set_type(has_count ? REDIS_OBJ_NULL_ARRAY :
-            REDIS_OBJ_NULL_STRING);
-        else if (has_count) array(out.values);
-        else reply.set_string(out.values.at(0));
-    } else if (is("LINSERT")) {
+        if (!data.pop(db, key, left, count, out)) return fail();
+        if (!out.found) reply.set_type(REDIS_OBJ_NULL_ARRAY);
+        else reply.set_bulk_collection(out.values);
+    } else if (is(operation::linsert)) {
         const auto& option = *obj_.argument(2);
         const bool before = list_keyword(option, "BEFORE");
         if (!before && !list_keyword(option, "AFTER")) {
@@ -64,38 +126,39 @@ bool redis_list::exec(const char* cmd, redis_coder& result) {
         if (!data.insert(db, key, before, *obj_.argument(3), *obj_.argument(4),
             length)) return fail();
         reply.set_number(length);
-    } else if (is("LREM")) {
+    } else if (is(operation::lrem)) {
         long long count, removed;
         if (!parse_redis_integer(*obj_.argument(2), count))
             return integer_error();
         if (!data.remove(db, key, count, *obj_.argument(3), removed))
             return fail();
         reply.set_number(removed);
-    } else if (is("LLEN")) {
+    } else if (is(operation::llen)) {
         long long length;
         if (!data.length(db, key, length)) return fail();
         reply.set_number(length);
-    } else if (is("LINDEX")) {
+    } else if (is(operation::lindex)) {
         dao::list_result out;
         if (!data.index(db, key, *obj_.argument(2), out)) return fail();
         if (!out.found) reply.set_null();
         else reply.set_string(out.values.at(0));
-    } else if (is("LSET")) {
+    } else if (is(operation::lset)) {
         if (!data.set(db, key, *obj_.argument(2), *obj_.argument(3)))
             return fail();
         reply.set_status("OK");
-    } else if (is("LRANGE") || is("LTRIM")) {
+    } else if (is(operation::lrange) || is(operation::ltrim)) {
         long long start, end;
         if (!parse_redis_integer(*obj_.argument(2), start) ||
             !parse_redis_integer(*obj_.argument(3), end))
             return integer_error();
-        if (is("LTRIM")) {
+        if (is(operation::ltrim)) {
             if (!data.trim(db, key, start, end)) return fail();
             reply.set_status("OK");
         } else {
             std::vector<std::string> values;
             if (!data.range(db, key, start, end, values)) return fail();
-            array(values);
+            // RESP2 and RESP3 use the same array of bulk strings here.
+            reply.set_bulk_collection(values);
         }
     } else return false;
     return true;

@@ -13,9 +13,16 @@ std::shared_ptr<const exec_batch> exec_batch::capture(
         for (const auto& batch : batches) {
             if (!batch || batch->size().bytes >
                 page_batch::max_bytes - out->bytes_ || batch->size().records >
-                page_batch::max_records - out->records_) return nullptr;
+                page_batch::max_records - out->records_ ||
+                batch->size().expanded_bytes >
+                    page_batch::max_expanded_bytes - out->expanded_bytes_ ||
+                batch->size().actions > page_batch::max_expanded_records -
+                    out->actions_) return nullptr;
             out->bytes_ += batch->size().bytes;
             out->records_ += batch->size().records;
+            out->expanded_bytes_ += batch->size().expanded_bytes;
+            out->actions_ += batch->size().actions;
+            out->compact_ = out->compact_ || batch->size().compact;
         }
         out->batches_ = std::move(batches);
         return out;

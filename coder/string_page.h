@@ -11,6 +11,7 @@ struct string_root_header {
     int64_t expires_at_ms = -1;
     uint64_t length = 0;
     uint64_t pages = 0;
+    size_t payload_offset = 0;
 };
 
 struct string_root {
@@ -20,7 +21,7 @@ struct string_root {
     std::string inline_value;
 };
 
-// PSR v1 roots are bounded. Large values use deterministic private page IDs
+// PSR roots are bounded. Large values use deterministic private page IDs
 // 1..pages; all but the last data page contain exactly page_bytes raw bytes.
 class string_page_codec {
 public:
@@ -35,6 +36,11 @@ public:
     static size_t page_size(const string_root& root, uint64_t index);
     static string_page_status encode_root(const string_root& root,
         std::string& out);
+    static string_page_status encode_inline(int64_t expires_at_ms,
+        const std::string& value, std::string& out);
+    // Canonical decimal String root, without an intermediate owning payload.
+    static string_page_status encode_integer(int64_t expires_at_ms,
+        long long value, std::string& out);
     static string_page_status decode_header(const std::string& bytes,
         string_root_header& out);
     static string_page_status decode_root(const std::string& bytes,

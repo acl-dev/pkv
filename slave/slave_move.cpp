@@ -6,7 +6,8 @@ namespace pkv {
 slave_watcher::prepared_move::~prepared_move() {
     if (!reserved_) return;
     std::lock_guard<std::mutex> guard(owner_.queue_lock_);
-    owner_.budget_.release_encoded(bytes_, records_);
+    owner_.budget_.release_encoded(bytes_, records_,
+        expanded_bytes_, actions_);
     if (grouped_ && generation_ == owner_.exec_generation_)
         owner_.exec_preparing_ = false;
 }
@@ -24,7 +25,8 @@ void slave_watcher::prepared_move::publish() noexcept {
             owner_.exec_preparing_ = false;
             if (owner_.exec_failed_ || owner_.eof_ || epoch_ != owner_.epoch_) {
                 owner_.exec_failed_ = true;
-                owner_.budget_.release_encoded(bytes_, records_);
+                owner_.budget_.release_encoded(bytes_, records_,
+                    expanded_bytes_, actions_);
             } else {
                 if (converted_.empty()) {
                     if (owner_.exec_entries_.size() ==
@@ -37,6 +39,8 @@ void slave_watcher::prepared_move::publish() noexcept {
                 owner_.exec_bytes_ += bytes_; owner_.exec_records_ += records_;
                 owner_.exec_staged_bytes_ += charge_;
                 owner_.exec_staged_records_ += count_;
+                owner_.exec_expanded_bytes_ += expanded_bytes_;
+                owner_.exec_actions_ += actions_;
             }
             reserved_ = false; return;
         }
@@ -49,7 +53,8 @@ void slave_watcher::prepared_move::publish() noexcept {
             else rejected = owner_.invalidate_locked();
         } else if (owner_.eof_ && epoch_ == owner_.epoch_)
             rejected = owner_.invalidate_locked();
-        if (!queued) owner_.budget_.release_encoded(bytes_, records_);
+        if (!queued) owner_.budget_.release_encoded(bytes_, records_,
+            expanded_bytes_, actions_);
         reserved_ = false;
     }
     for (const auto& client : rejected) client->disconnect();

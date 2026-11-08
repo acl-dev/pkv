@@ -1,6 +1,6 @@
 # Inline String reads
 
-MDB and oneTBB GET can read a valid PSR v1 inline String directly from its
+MDB and oneTBB GET can read a valid PSR v1 or v2 inline String directly from its
 stored root. They retain execution admission and the ordinary logical key
 mutex. MDB also holds its shard lock while copying the payload. oneTBB obtains
 the record with its concurrent hash map and keeps the logical key lock while

@@ -15,6 +15,7 @@
 #include "common/connection_input.h"
 #include "common/connection_output.h"
 #include "common/command_catalog.h"
+#include "common/redis_integer.h"
 
 namespace pkv {
 
@@ -68,8 +69,174 @@ redis_handler::~redis_handler() {
     input_.reset();
 }
 
+static const std::string* pipeline_page_key(const redis_object& object) {
+    const auto* name = object.argument(0);
+    if (!name || name->empty()) return nullptr;
+    const auto prefix = name->front();
+    if (prefix == 'Z' || prefix == 'z') {
+        const auto length = name->size();
+        const auto argc = object.size();
+        const auto* suffix = name->c_str() + 1;
+        if (argc == 4 && ((length == 4 && !strcasecmp(suffix, "ADD")) ||
+            (length == 7 && !strcasecmp(suffix, "INCRBY")))) {
+            const auto* score = object.argument(2);
+            const auto* member = object.argument(3);
+            if (score && score->size() <= 128 &&
+                member && member->size() <= 1024)
+                return object.argument(1);
+        }
+        if ((argc == 4 || argc == 5) &&
+            ((length == 6 && !strcasecmp(suffix, "RANGE")) ||
+             (length == 9 && !strcasecmp(suffix, "REVRANGE")))) {
+            if (argc == 5) {
+                const auto* option = object.argument(4);
+                if (!option || option->size() != 10 ||
+                    strcasecmp(option->c_str(), "WITHSCORES")) return nullptr;
+            }
+            const auto* first = object.argument(2);
+            const auto* last = object.argument(3);
+            long long start, end;
+            if (first && last && parse_redis_integer(*first, start) &&
+                parse_redis_integer(*last, end) && start >= 0 && end >= start &&
+                end - start < db::page_lock_scope::max_cached_range)
+                return object.argument(1);
+        }
+        if (argc == 7 &&
+            ((length == 13 && !strcasecmp(suffix, "RANGEBYSCORE")) ||
+             (length == 16 && !strcasecmp(suffix, "REVRANGEBYSCORE")))) {
+            const auto* option = object.argument(4);
+            const auto* offset = object.argument(5);
+            const auto* limit = object.argument(6);
+            const auto* first = object.argument(2);
+            const auto* last = object.argument(3);
+            long long skip, count;
+            if (option && option->size() == 5 &&
+                !strcasecmp(option->c_str(), "LIMIT") && first && last &&
+                first->size() <= 128 && last->size() <= 128 && offset && limit &&
+                parse_redis_integer(*offset, skip) && skip >= 0 &&
+                parse_redis_integer(*limit, count) && count >= 0 &&
+                count <= db::page_lock_scope::max_cached_range)
+                return object.argument(1);
+        }
+        if (argc == 4 && length == 6 && !strcasecmp(suffix, "COUNT")) {
+            const auto* lower = object.argument(2);
+            const auto* upper = object.argument(3);
+            if (lower && upper && lower->size() <= 128 && upper->size() <= 128)
+                return object.argument(1);
+        }
+        if ((argc == 3 && length == 6 && !strcasecmp(suffix, "SCORE")) ||
+            (argc >= 3 && argc <= 8 && length == 7 &&
+                !strcasecmp(suffix, "MSCORE")) ||
+            ((argc == 3 || argc == 4) &&
+                ((length == 5 && !strcasecmp(suffix, "RANK")) ||
+                 (length == 8 && !strcasecmp(suffix, "REVRANK"))))) {
+            return object.argument(1);
+        }
+    }
+    if ((prefix == 'S' || prefix == 's') && name->size() == 4 &&
+        object.size() == 2 && !strcasecmp(name->c_str() + 1, "POP")) {
+        return object.argument(1);
+    }
+    if (prefix == 'H' || prefix == 'h' || prefix == 'S' || prefix == 's') {
+        const auto argc = object.size();
+        const auto length = name->size();
+        const auto* suffix = name->c_str() + 1;
+        const bool hash = prefix == 'H' || prefix == 'h';
+        const bool single = argc == 3 && (hash ?
+            ((length == 4 && !strcasecmp(suffix, "GET")) ||
+             (length == 7 && !strcasecmp(suffix, "EXISTS")) ||
+             (length == 7 && !strcasecmp(suffix, "STRLEN"))) :
+            (length == 9 && !strcasecmp(suffix, "ISMEMBER")));
+        const bool multiple = argc >= 3 && argc <= 8 && (hash ?
+            (length == 5 && !strcasecmp(suffix, "MGET")) :
+            (length == 10 && !strcasecmp(suffix, "MISMEMBER")));
+        if (single || multiple) {
+            for (size_t i = 2; i < argc; ++i) {
+                const auto* member = object.argument(i);
+                if (!member || member->size() > 1024) return nullptr;
+            }
+            return object.argument(1);
+        }
+        if (hash && argc == 4 &&
+            ((length == 7 && !strcasecmp(suffix, "INCRBY")) ||
+             (length == 12 && !strcasecmp(suffix, "INCRBYFLOAT")))) {
+            const auto* field = object.argument(2);
+            const auto* delta = object.argument(3);
+            if (field && field->size() <= 1024 && delta &&
+                delta->size() <= (length == 7 ? 20 : 128))
+                return object.argument(1);
+        }
+    }
+    if ((prefix == 'Z' || prefix == 'z') && name->size() == 7 &&
+        object.size() == 2 && (!strcasecmp(name->c_str() + 1, "POPMIN") ||
+            !strcasecmp(name->c_str() + 1, "POPMAX"))) {
+        return object.argument(1);
+    }
+    if ((prefix == 'X' || prefix == 'x') && name->size() == 4 &&
+        object.size() == 5 && !strcasecmp(name->c_str() + 1, "ADD")) {
+        const auto* id = object.argument(2);
+        const auto* field = object.argument(3);
+        const auto* value = object.argument(4);
+        if (id && field && value && id->size() <= 41 &&
+            field->size() <= 1024 && value->size() <= 1024) {
+            return object.argument(1);
+        }
+    }
+    if (name->size() == 4 && object.size() == 2 &&
+        (((prefix == 'I' || prefix == 'i') && !strcasecmp(name->c_str() + 1, "NCR")) ||
+         ((prefix == 'D' || prefix == 'd') && !strcasecmp(name->c_str() + 1, "ECR")))) {
+        return object.argument(1);
+    }
+    if ((prefix == 'S' || prefix == 's') && name->size() == 4 &&
+        object.size() == 3 && !strcasecmp(name->c_str() + 1, "ADD")) {
+        const auto* member = object.argument(2);
+        if (member && member->size() <= 1024) {
+            return object.argument(1);
+        }
+    }
+    if ((prefix == 'H' || prefix == 'h' || prefix == 'Z' || prefix == 'z') &&
+        name->size() == 4 && (object.size() == 4 ||
+            ((prefix == 'H' || prefix == 'h') && object.size() == 6)) &&
+        !strcasecmp(name->c_str() + 1, (prefix == 'H' || prefix == 'h') ?
+            "SET" : "ADD")) {
+        for (size_t i = 2; i < object.size(); ++i) {
+            const auto* value = object.argument(i);
+            if (!value || value->size() > 1024) return nullptr;
+        }
+        return object.argument(1);
+    }
+    if (prefix != 'L' && prefix != 'l' && prefix != 'R' && prefix != 'r')
+        return nullptr;
+    if (prefix == 'L' || prefix == 'l') {
+        const auto argc = object.size();
+        const auto length = name->size();
+        const auto* suffix = name->c_str() + 1;
+        if ((argc == 3 && length == 6 && !strcasecmp(suffix, "INDEX")) ||
+            (argc == 4 && length == 4 && !strcasecmp(suffix, "SET"))) {
+            const auto* index = object.argument(2);
+            const auto* value = argc == 4 ? object.argument(3) : nullptr;
+            if (index && index->size() <= 20 &&
+                (argc == 3 || (value && value->size() <= 1024)))
+                return object.argument(1);
+        }
+    }
+    if (name->size() == 4 && !strcasecmp(name->c_str() + 1, "POP")) {
+        if (object.size() == 2) return object.argument(1);
+        const auto* count = object.size() == 3 ? object.argument(2) : nullptr;
+        long long amount;
+        if (count && parse_redis_integer(*count, amount) &&
+            amount > 0 && amount <= 32) return object.argument(1);
+    }
+    if (name->size() == 5 && object.size() == 3 &&
+        !strcasecmp(name->c_str() + 1, "PUSH")) {
+        const auto* value = object.argument(2);
+        if (value && value->size() <= 1024) return object.argument(1);
+    }
+    return nullptr;
+}
+
 bool redis_handler::handle() {
-    auto objs = parser_.get_objects();
+    const auto& objs = parser_.get_objects();
     if (objs.empty()) {
         return connection_->status() == client_connection::state::open;
     }
@@ -86,18 +253,19 @@ bool redis_handler::handle() {
 
     //if (objs.size() >= 20) { printf(">>>objs=%zd\r\n", objs.size()); }
 
-    for (const auto& obj : objs) {
-        const auto state = connection_->status();
-        if (state == client_connection::state::immediate ||
-            state == client_connection::state::retired) return false;
-        if (state == client_connection::state::after_reply) break;
+    constexpr size_t pipeline_reply_budget = 32 * 1024;
+    size_t pending_payload = 0;
+    const auto process = [&](const redis_object* obj) {
         const auto* name = obj->argument(0);
         bool blocking = false;
         if (name && !name->empty() &&
             (name->front() == 'B' || name->front() == 'b')) {
             const auto* spec = service_.get_command(name->c_str());
             blocking = spec && spec->kind == redis_command_kind::blocking;
-            if (blocking && !send_pending()) return false;
+            if (blocking) {
+                if (!send_pending()) return false;
+                pending_payload = 0;
+            }
         }
         if (output_ && !blocking) {
             output_reply_ = output_->reserve_reply();
@@ -113,18 +281,64 @@ bool redis_handler::handle() {
         if (!root_executed_ && builder_.get_objects().size() > first &&
             builder_.get_objects().back()->get_type() == REDIS_OBJ_ERROR)
             statistics_->reject(root_statistic_);
-        errors(builder_, first);
-        for (size_t i = first; i < builder_.get_objects().size(); ++i)
-            builder_.get_objects()[i]->response_protocol(client_.protocol());
+        const auto& replies = builder_.get_objects();
+        for (size_t i = first; i < replies.size(); ++i) {
+            auto& reply = *replies[i];
+            if (reply.get_type() == REDIS_OBJ_ERROR) record_error(reply);
+            reply.response_protocol(client_.protocol());
+            if (!output_) pending_payload += reply.get_buf().size();
+        }
         if (output_ && !send_pending()) return false;
-        if (quit_) break;
+        return true;
+    };
+    const bool group_pages = !output_ && !var_cfg_cluster_mode &&
+        !transaction_.active() && objs.size() > 1;
+    size_t index = 0;
+    while (index < objs.size() && !quit_) {
+        const auto state = connection_->status();
+        if (state == client_connection::state::immediate ||
+            state == client_connection::state::retired) return false;
+        if (state == client_connection::state::after_reply) break;
+        // Large flat replies can dominate pipeline memory. Flush between
+        // commands, after any page lock from the previous group is released.
+        if (pending_payload >= pipeline_reply_budget) {
+            if (!send_pending()) return false;
+            pending_payload = 0;
+        }
+        constexpr size_t group_limit = 64;
+        const auto* key = group_pages && !transaction_.active() &&
+            index + 1 < objs.size() ? pipeline_page_key(*objs[index]) :
+            nullptr;
+        size_t end = index + 1;
+        while (key && end < objs.size() && end - index < group_limit) {
+            const auto* next = pipeline_page_key(*objs[end]);
+            if (!next || *next != *key) break;
+            ++end;
+        }
+        if (end == index + 1) {
+            if (!process(objs[index++])) return false;
+            continue;
+        }
+        execution_guard admission;
+        db::page_lock_scope scope(*db_, *key);
+        struct reset_scope {
+            db::page_lock_scope*& pointer;
+            ~reset_scope() { pointer = nullptr; }
+        } reset{page_pipeline_scope_};
+        page_pipeline_scope_ = &scope;
+        do {
+            if (!process(objs[index++])) return false;
+        } while (index < end && !quit_ &&
+            pending_payload < pipeline_reply_budget &&
+            connection_->status() == client_connection::state::open);
     }
 
     return send_pending();
 }
 bool redis_handler::send_pending() {
-    std::string buf;
-    if (!builder_.to_string(buf)) {
+    response_buffer_cache::frame frame(response_buffer_);
+    auto& buf = frame.bytes();
+    if (!builder_.take_frame(buf)) {
         builder_.clear();
         return false;
     }
@@ -134,6 +348,14 @@ bool redis_handler::send_pending() {
     if (buf.empty() && !output_reply_) {
         return connection_->status() == client_connection::state::open;
     }
+    // A client can fill its send window before it starts reading a pipeline.
+    // Keep draining input while the owner sends a large reply. Only the owner
+    // parses and executes commands, so replies remain in request order.
+    constexpr size_t duplex_reply_size = 32 * 1024;
+    if (!input_ && buf.size() >= duplex_reply_size &&
+        connection_->status() == client_connection::state::open &&
+        acl_fiber_running()) promote_input();
+
     if (output_) {
         const auto ticket = output_reply_ ? output_reply_ :
             output_->reserve_reply();
@@ -168,7 +390,6 @@ bool redis_handler::handle_one(const redis_object& object) {
         return true;
     }
     const char* cmd = command->c_str();
-    const bool exact_name = command->find('\0') == std::string::npos;
     size_t argument_bytes = command->size();
     for (size_t i = 1; i < object.size(); ++i) {
         const auto* argument = object.argument(i);
@@ -179,7 +400,14 @@ bool redis_handler::handle_one(const redis_object& object) {
         }
         argument_bytes += argument->size();
     }
-    const auto* spec = exact_name ? service_.get_command(cmd) : nullptr;
+    // Command specs have the lifetime of the service. Comparing the full
+    // string also keeps embedded NULs on the invalid-command path.
+    const auto* spec = last_command_;
+    if (!spec || *command != spec->name) {
+        spec = command->find('\0') == std::string::npos ?
+            service_.get_command(cmd) : nullptr;
+        last_command_ = spec;
+    }
     const auto* label = spec && spec->name[0] != 'C' &&
         (spec->name[0] != 'A' || std::strcmp(spec->name, "ACL")) &&
         (spec->name[0] != 'P' || std::strcmp(spec->name, "PUBSUB")) ?

@@ -102,7 +102,8 @@ def server(binary, redis=False, cluster=False, databases=None,
            active_expire=None, password=None, masterauth=None, aclfile=None,
            login=None, acllog_max_len=None, storage_path=None,
            replica_read_only=None, process_info=None,
-           move_journal_path=None):
+           move_journal_path=None, fiber_threads=2, inherited_fds=(),
+           stdin=None, startup_env=None):
     port = ports()
     with tempfile.TemporaryDirectory(prefix='pkv-integration-') as directory:
         root = Path(directory)
@@ -126,9 +127,9 @@ def server(binary, redis=False, cluster=False, databases=None,
             config = root / 'pkv.cf'
             config.write_text('service pkv\n{\n'
                               'master_service = 127.0.0.1|%d\n'
-                              'master_type = sock\nmaster_reuseport = yes\nfiber_threads = 2\n'
+                              'master_type = sock\nmaster_reuseport = yes\nfiber_threads = %d\n'
                               'ocache_max = 100\ndb_count = 16\ndbtype = mdb\n'
-                              'service = 127.0.0.1:%d\ncluster_mode = %s\n}\n' % (port, port, '1' if cluster else '0'))
+                              'service = 127.0.0.1:%d\ncluster_mode = %s\n}\n' % (port, fiber_threads, port, '1' if cluster else '0'))
             if databases is not None:
                 config.write_text(config.read_text().replace('dbtype = mdb\n', 'dbtype = mdb\ndatabases = %d\n' % databases))
             if replica_rpc_source is not None:
@@ -185,8 +186,11 @@ def server(binary, redis=False, cluster=False, databases=None,
             command = [binary, 'alone', str(config)]
         with (root / 'server.log').open('w+') as log:
             env = os.environ.copy()
+            env.update(startup_env or {})
             env['UBSAN_OPTIONS'] = env.get('UBSAN_OPTIONS', '') + ':halt_on_error=1'
-            process = subprocess.Popen(command, cwd=directory, stdout=log, stderr=subprocess.STDOUT, env=env)
+            process = subprocess.Popen(command, cwd=directory, stdout=log,
+                                       stderr=subprocess.STDOUT, env=env,
+                                       pass_fds=inherited_fds, stdin=stdin)
             try:
                 if process_info is not None:
                     process_info['pid'] = process.pid
@@ -226,6 +230,10 @@ def server(binary, redis=False, cluster=False, databases=None,
                 raise
             finally:
                 stop_server(process, log, sys.exc_info()[0] is not None)
+                if process_info is not None:
+                    log.flush()
+                    log.seek(0)
+                    process_info['log_text'] = log.read()
 
 
 def run(port):
@@ -526,6 +534,33 @@ def run(port):
         check(1, 'PEXPIREAT', 'integer-new', deadline)
         check(11, 'INCR', 'integer-new')
         check(deadline, 'PEXPIRETIME', 'integer-new')
+        pipeline_key = b'integer\0pipeline'
+        requests = [('SET', pipeline_key, 0, 'PXAT', deadline)]
+        requests += [('incr', pipeline_key)] * 17
+        requests += [('DECR', pipeline_key), ('PEXPIRETIME', pipeline_key),
+                     ('SET', pipeline_key, 9223372036854775807),
+                     ('INCR', pipeline_key), ('DECR', pipeline_key),
+                     ('GET', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        replies = [c.read() for _ in requests]
+        assert replies[:21] == [b'OK'] + list(range(1, 18)) + [16, deadline, b'OK']
+        assert isinstance(replies[21], ErrorReply) and b'overflow' in replies[21]
+        assert replies[22:] == [9223372036854775806, b'9223372036854775806']
+        count += len(requests)
+        stream_key = b'stream\0pipeline'
+        requests = [('xadd', stream_key, f'1-{i}', b'f\0', str(i))
+                    for i in range(1, 18)]
+        requests += [('XADD', stream_key, '1-17', 'f', 'duplicate'),
+                     ('XADD', stream_key, '1-18', b'f\0', '18'),
+                     ('XLEN', stream_key), ('XRANGE', stream_key, '1-16', '1-18'),
+                     ('DEL', stream_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        replies = [c.read() for _ in requests]
+        assert replies[:17] == [f'1-{i}'.encode() for i in range(1, 18)]
+        assert isinstance(replies[17], ErrorReply) and b'equal or smaller' in replies[17]
+        assert replies[18:] == [b'1-18', 18,
+            [[f'1-{i}'.encode(), [b'f\0', str(i).encode()]] for i in range(16, 19)], 1]
+        count += len(requests)
         check(-9223372036854775808, 'INCRBY', 'integer-min', '-9223372036854775808')
         error(b'ERR increment or decrement would overflow', 'DECR', 'integer-min')
         check(b'-9223372036854775808', 'GET', 'integer-min')
@@ -630,6 +665,16 @@ def run(port):
         replies = [c.read() for _ in commands]
         assert replies[0] == b'OK' and isinstance(replies[1], ErrorReply) and replies[2:] == [b'v', b'']
         count += 4
+        large = b'a\0' * (36 * 1024)
+        check(b'OK', 'SET', 'large-pipeline', large)
+        commands = [('GET', 'large-pipeline'), ('ECHO', b'between'),
+                    ('GET', 'large-pipeline'), ('GET',), ('PING',),
+                    ('DEL', 'large-pipeline')]
+        c.socket.sendall(b''.join(c.encode(args) for args in commands))
+        replies = [c.read() for _ in commands]
+        assert replies[:3] == [large, b'between', large]
+        assert isinstance(replies[3], ErrorReply) and replies[4:] == [b'PONG', 1]
+        count += len(commands)
         wire = c.encode(('SET', b'fragmented\0key', b'a\0b\r\n')) + c.encode(('GET', b'fragmented\0key'))
         for byte in wire:
             c.socket.sendall(bytes([byte]))
@@ -868,6 +913,51 @@ def run_lists(port):
     payload = [b'', bytes(range(256)), b'a\0b', b'last']
     deadline = 4102444800123
     try:
+        pipeline_key = key + b':pipeline'
+        requests = [('rpush', pipeline_key, str(i)) for i in range(65)]
+        requests += [('LPOP', pipeline_key), ('RPOP', pipeline_key),
+                     ('RPUSH', key, b'other'), ('LLEN', pipeline_key),
+                     ('RPOP', key), ('DEL', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        expected = list(range(1, 66)) + [b'0', b'64', 1, 63, b'other', 1]
+        assert [c.read() for _ in requests] == expected
+        count += len(requests)
+        requests = [('RPUSH', pipeline_key, b'last'), ('RPOP', pipeline_key),
+                    ('RPOP', pipeline_key), ('SADD', pipeline_key, b'member'),
+                    ('RPUSH', pipeline_key, b'wrong-type'),
+                    ('SADD', pipeline_key, b'member'), ('TYPE', pipeline_key),
+                    ('DEL', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        replies = [c.read() for _ in requests]
+        assert replies[:4] == [1, b'last', None, 1]
+        assert isinstance(replies[4], ErrorReply) and replies[4].startswith(b'WRONGTYPE ')
+        assert replies[5:] == [0, b'set', 1]
+        count += len(requests)
+        wide = [str(i).encode().ljust(1024, b'x') for i in range(80)]
+        check(80, 'RPUSH', pipeline_key, *wide)
+        requests = [('RPOP', pipeline_key)] * len(wide)
+        requests += [('RPUSH', pipeline_key, b'new'), ('RPOP', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        assert [c.read() for _ in requests] == wide[::-1] + [1, b'new']
+        count += len(requests)
+        for width in (128, 1024):
+            a, b = b'a' * width, b'b' * width
+            requests = [('RPUSH', pipeline_key, a), ('RPUSH', pipeline_key, b),
+                        ('RPOP', pipeline_key), ('RPOP', pipeline_key),
+                        ('RPUSH', pipeline_key, b), ('LPUSH', pipeline_key, a),
+                        ('RPOP', pipeline_key), ('RPOP', pipeline_key)]
+            c.socket.sendall(b''.join(c.encode(args) for args in requests))
+            assert [c.read() for _ in requests] == [1, 2, b, a, 1, 2, b, a]
+            count += len(requests)
+        batch = [bytes([i, 0, 255]) * 43 for i in range(64)]
+        check(64, 'RPUSH', pipeline_key, *batch)
+        requests = [('RPOP', pipeline_key, 32), ('LPOP', pipeline_key, 32),
+                    ('RPOP', pipeline_key, 32), ('LPUSH', pipeline_key, b'new'),
+                    ('RPOP', pipeline_key, 32)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        assert [c.read() for _ in requests] == [batch[32:][::-1],
+                                               batch[:32], None, 1, [b'new']]
+        count += len(requests)
         check(0, 'LLEN', key)
         check([], 'LRANGE', key, 0, -1)
         check(None, 'LINDEX', key, 'invalid')  # lookup precedes index parsing
@@ -1405,6 +1495,37 @@ def run_sets(port):
     binary = bytes(range(256))
     deadline = 4102444800123
     try:
+        pipeline_key = key + b':pipeline'
+        requests = [('sadd', pipeline_key, binary)] * 17
+        requests += [('SREM', pipeline_key, binary), ('SADD', pipeline_key, b''),
+                     ('SCARD', pipeline_key), ('SET', pipeline_key, 'string'),
+                     ('SADD', pipeline_key, 'a'), ('SADD', pipeline_key, 'b'),
+                     ('GET', pipeline_key), ('DEL', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        replies = [c.read() for _ in requests]
+        assert replies[:21] == [1] + [0] * 16 + [1, 1, 1, b'OK']
+        assert all(isinstance(reply, ErrorReply) and reply.startswith(b'WRONGTYPE ')
+                   for reply in replies[21:23])
+        assert replies[23:] == [b'string', 1]
+        count += len(requests)
+        requests = [('SPOP', pipeline_key), ('spop', pipeline_key),
+                    ('SADD', pipeline_key, binary), ('SPOP', pipeline_key),
+                    ('SPOP', pipeline_key), ('SADD', pipeline_key, b''),
+                    ('SPOP', pipeline_key), ('SPOP', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        assert [c.read() for _ in requests] == [
+            None, None, 1, binary, None, 1, b'', None]
+        count += len(requests)
+        bucketed = key + b':bucketed-pipeline'
+        members = [b'member\0%04d' % i for i in range(4096)]
+        check(len(members), 'SADD', bucketed, *members)
+        requests = [('SADD', bucketed, member) for member in members[::128]]
+        requests.extend([('SADD', bucketed, binary), ('SADD', bucketed, binary)])
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        assert [c.read() for _ in requests] == [0] * 32 + [1, 0]
+        count += len(requests)
+        check(len(members) + 1, 'SCARD', bucketed)
+        check(1, 'DEL', bucketed)
         check(0, 'SCARD', key)
         check(0, 'SISMEMBER', key, b'')
         check([0, 0, 0], 'SMISMEMBER', key, b'', 'a', b'')
@@ -2701,6 +2822,65 @@ def run_zsets(port):
         assert actual in (b'0', b'-0') and float(actual) == 0.0, actual
         count += 1
     try:
+        pipeline_key = key + b':pipeline'
+        requests = [('HSET', pipeline_key, b'field', b'first'),
+                    ('hset', pipeline_key, b'field', b'second'),
+                    ('ZADD', pipeline_key, '1', b'member'),
+                    ('HGET', pipeline_key, b'field'), ('DEL', pipeline_key),
+                    ('zadd', pipeline_key, '1', b'member'),
+                    ('ZADD', pipeline_key, 'bad', b'member'),
+                    ('ZADD', pipeline_key, '2', b'member'),
+                    ('HSET', pipeline_key, b'field', b'value'),
+                    ('ZSCORE', pipeline_key, b'member'), ('DEL', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        replies = [c.read() for _ in requests]
+        assert replies[:2] == [1, 0]
+        assert isinstance(replies[2], ErrorReply) and replies[2].startswith(b'WRONGTYPE ')
+        assert replies[3:6] == [b'second', 1, 1]
+        assert isinstance(replies[6], ErrorReply) and replies[6].startswith(b'ERR ')
+        assert replies[7] == 0
+        assert isinstance(replies[8], ErrorReply) and replies[8].startswith(b'WRONGTYPE ')
+        assert replies[9:] == [b'2', 1]
+        count += len(requests)
+        requests = [('ZPOPMIN', pipeline_key), ('zpopmax', pipeline_key),
+                    ('ZADD', pipeline_key, '5', b'x'),
+                    ('ZPOPMIN', pipeline_key), ('ZPOPMAX', pipeline_key),
+                    ('ZADD', pipeline_key, '3', b'y'),
+                    ('ZPOPMAX', pipeline_key), ('ZPOPMIN', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        assert [c.read() for _ in requests] == [
+            [], [], 1, [b'x', b'5'], [], 1, [b'y', b'3'], []]
+        count += len(requests)
+        pairs = [part for i in range(64) for part in (i, f'm{i:03d}')]
+        check(64, 'ZADD', pipeline_key, *pairs)
+        requests = [('ZADD', pipeline_key, 100, 'm000'),
+                    ('ZADD', pipeline_key, 101, 'm001'),
+                    ('ZADD', pipeline_key, 102, 'new'),
+                    ('ZADD', pipeline_key, 103, 'm001'),
+                    ('ZADD', pipeline_key, 104, 'new'),
+                    ('ZADD', pipeline_key, 104, 'new'),
+                    ('ZADD', pipeline_key, 104, 'new'),
+                    ('ZADD', pipeline_key, 105, 'new'),
+                    ('ZSCORE', pipeline_key, 'new'),
+                    ('ZSCORE', pipeline_key, 'm001')]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        assert [c.read() for _ in requests] == [0, 0, 1, 0, 0, 0, 0, 0, b'105', b'103']
+        count += len(requests)
+        check(65, 'ZCARD', pipeline_key)
+        check(1, 'DEL', pipeline_key)
+        requests = [('ZADD', pipeline_key, 1, 'a'),
+                    ('ZADD', pipeline_key, 2, 'b'),
+                    ('ZADD', pipeline_key, 3, 'c'),
+                    ('ZPOPMIN', pipeline_key), ('ZPOPMIN', pipeline_key),
+                    ('ZPOPMIN', pipeline_key),
+                    ('ZADD', pipeline_key, 4, 'd'),
+                    ('ZADD', pipeline_key, 5, 'e'),
+                    ('ZSCORE', pipeline_key, 'e')]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        assert [c.read() for _ in requests] == [
+            1, 1, 1, [b'a', b'1'], [b'b', b'2'], [b'c', b'3'], 1, 1, b'5']
+        count += len(requests)
+        check(1, 'DEL', pipeline_key)
         check(0, 'ZCARD', key)
         check(None, 'ZSCORE', key, b'')
         check([None, None], 'ZMSCORE', key, b'', binary)
@@ -2805,6 +2985,20 @@ def run_zsets(port):
         check(-1, 'PTTL', key)
         check(1, 'ZREM', key, 'revived')
         check(b'none', 'TYPE', key)
+        check(3, 'ZADD', 'zset-pop-all', 1, b'a', 1, b'b\0', 2, b'c')
+        check([b'c', b'2', b'b\0', b'1', b'a', b'1'],
+              'ZPOPMAX', 'zset-pop-all', 10)
+        check(0, 'EXISTS', 'zset-pop-all')
+        key_partial = 'zset-pop-rebuild'
+        check(128, 'ZADD', key_partial, *[part for i in range(128)
+                                          for part in (i, f'm{i:03d}')])
+        check(1, 'PEXPIREAT', key_partial, deadline)
+        check([part for i in range(127, 15, -1)
+               for part in (f'm{i:03d}'.encode(), str(i).encode())],
+              'ZPOPMAX', key_partial, 112)
+        check([f'm{i:03d}'.encode() for i in range(16)], 'ZRANGE', key_partial, 0, -1)
+        check(deadline, 'PEXPIRETIME', key_partial)
+        check(1, 'DEL', key_partial)
         for cmd, expected in [('ZPOPMIN', [b'a', b'1', b'b', b'1']), ('ZPOPMAX', [b'c', b'2', b'b', b'1'])]:
             check(3, 'ZADD', key, 1, 'a', 1, 'b', 2, 'c')
             check(1, 'PEXPIREAT', key, deadline)
@@ -3204,6 +3398,74 @@ def run_zset_float_differential(pkv_binary, redis_binary):
     return comparisons
 
 
+def run_inline_pipeline(port):
+    client = Client(port)
+    frames = [
+        (b'PING\r\n', b'PONG'),
+        (b' \tSET inline:key value \t\r\n', b'OK'),
+        (Client.encode(('GET', 'inline:key')), b'value'),
+        (b'PING payload\n', b'payload'),
+        (Client.encode(('ECHO', b'a\0b')), b'a\0b'),
+        (b'SET inline:number 40\r\n', b'OK'),
+        (b'INCR inline:number\r\n', 41),
+        (b'SET "inline:quoted key" "two words"\r\n', b'OK'),
+        (Client.encode(('GET', 'inline:quoted key')), b'two words'),
+        (b"PING 'hello world'\r\n", b'hello world'),
+    ]
+    wire = b''.join(frame for frame, _ in frames)
+    count = 0
+    try:
+        for chunk in (1, 2, 7, 64, len(wire)):
+            for pos in range(0, len(wire), chunk):
+                client.socket.sendall(wire[pos:pos + chunk])
+            for frame, expected in frames:
+                actual = client.read()
+                assert type(actual) is type(expected) and actual == expected, (
+                    frame, actual, expected)
+                count += 1
+    finally:
+        client.close()
+    return count
+
+
+def run_wide_pipeline(port):
+    client = Client(port)
+    try:
+        key = 'pipeline-zadd-cache'
+        members = [f'member:{i:03d}' for i in range(128)]
+        pairs = [part for member in members for part in (0, member)]
+        assert client.call('ZADD', key, *pairs) == len(members)
+        first, second = members[:2]
+        updates = [(0, first), (0, second), (0, first), (9, first),
+                   (0, second), (0, first), (0, second), (0, first)]
+        client.socket.sendall(b''.join(
+            client.encode(('ZADD', key, score, member))
+            for score, member in updates))
+        assert [client.read() for _ in updates] == [0] * len(updates)
+        # Reapplying the old score after a write must not use a stale hit.
+        assert client.call('ZSCORE', key, first) == b'0'
+        assert client.call('ZCARD', key) == len(members)
+
+        fields = [f'field:{i:014d}' for i in range(1536)]
+        values = [f'value:{i:054d}' for i in range(len(fields))]
+        pairs = [part for pair in zip(fields, values) for part in pair]
+        assert client.call('HSET', 'wide-pipeline', *pairs) == len(fields)
+        names = fields[::2] + fields[1::2]
+        expected = [value.encode() for value in values[::2] + values[1::2]]
+        request = client.encode(('HMGET', 'wide-pipeline', *names))
+        # Fill the client's send window before reading any reply, as
+        # redis-benchmark does. Both directions exceed the TCP buffers.
+        client.socket.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 32768)
+        client.socket.settimeout(5)
+        client.socket.sendall(request * 64 + client.encode(('PING',)))
+        client.socket.shutdown(socket.SHUT_WR)
+        for _ in range(64):
+            assert client.read() == expected
+        assert client.read() == b'PONG'
+    finally:
+        client.close()
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--pkv', required=True)
@@ -3216,6 +3478,10 @@ def main():
                 count = run_cluster(port) if args.cluster_only else run(port)
                 print('%s: %d %s assertions passed' % ('Redis' if is_redis else 'pkv', count, 'cluster routing' if args.cluster_only else 'socket'))
                 if not args.cluster_only:
+                    run_wide_pipeline(port)
+                    print('%s: %d mixed inline pipeline assertions passed' %
+                          ('Redis' if is_redis else 'pkv',
+                           run_inline_pipeline(port)))
                     print('%s: %d list assertions passed' % ('Redis' if is_redis else 'pkv', run_lists(port)))
                     print('%s: %d list transaction assertions passed' % ('Redis' if is_redis else 'pkv', run_list_transactions(port)))
                     print('%s: %d list edit/search assertions passed' % ('Redis' if is_redis else 'pkv', run_list_edit_search(port)))

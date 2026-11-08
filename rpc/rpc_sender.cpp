@@ -16,7 +16,7 @@ namespace pkv {
 namespace {
 
 bool message_size(const kv_message* message, size_t& size, unsigned version) {
-    if (!message || version > 4) {
+    if (!message || version > 5) {
         return false;
     }
     if (message->get_oper() == message_oper_exec) {
@@ -25,7 +25,8 @@ bool message_size(const kv_message* message, size_t& size, unsigned version) {
         size = message->wire_bytes(); return true;
     }
     if (message->get_oper() == message_oper_pages) {
-        if (version < 2 || !message->get_pages()) {
+        if (!message->get_pages() ||
+            version < message->get_pages()->required_protocol()) {
             return false;
         }
         size = message->wire_bytes();
@@ -108,15 +109,25 @@ bool send_frames(acl::shared_stream& conn,
     }
     try {
         if (version >= 2) {
-            for (const auto message : messages) {
+            for (size_t i = 0; i < messages.size();) {
+                const auto* message = messages[i];
+                if (message->get_oper() == message_oper_pages) {
+                    const page_batch* run[16];
+                    size_t count = 0;
+                    do {
+                        run[count++] = messages[i++]->get_pages().get();
+                    } while (count < sizeof(run) / sizeof(run[0]) &&
+                        i < messages.size() &&
+                        messages[i]->get_oper() == message_oper_pages);
+                    if (!page_stream::send_run(conn, run, count, version))
+                        return false;
+                    continue;
+                }
                 const bool sent = message->get_oper() == message_oper_exec ?
                     exec_stream::send(conn, *message->get_exec(), version) :
-                    message->get_oper() == message_oper_pages ?
-                    page_stream::send(conn, *message->get_pages(), version) :
                     write_normal(conn, *message, version);
-                if (!sent) {
-                    return false;
-                }
+                if (!sent) return false;
+                ++i;
             }
             return true;
         }
@@ -162,7 +173,7 @@ bool rpc_sender::send(acl::shared_stream& conn,
 
 bool rpc_sender::send_versioned(acl::shared_stream& conn,
     const std::vector<kv_message*>& messages, unsigned version) {
-    if (!version || version > 4) {
+    if (!version || version > 5) {
         return false;
     }
     return send_frames(conn, messages, static_cast<size_t>(INT_MAX), version);

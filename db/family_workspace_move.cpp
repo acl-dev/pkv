@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "family_workspace_internal.h"
 #include "database_pool.h"
+#include "rpc/move_intent.h"
 
 namespace pkv {
 db::batch_status family_workspace::stage(const family_move& move) {
@@ -17,7 +18,11 @@ db::batch_status family_workspace::stage(const family_move& move) {
     // Normalized staging cost, not a negotiated/encoded wire format.
     const size_t bytes = 64 + 2 * move.key.size() + move.source_root.size() +
         move.target_root.size();
-    if (!charge(bytes, 3)) return reject(db::batch_status::error);
+    const auto expanded = move_intent::expanded_bytes(move);
+    if (!charge(bytes, 3) || expanded > page_batch::max_expanded_bytes -
+        state_->expanded_bytes ||
+        3 > page_batch::max_expanded_records - state_->actions)
+        return reject(db::batch_status::error);
     try {
         owner *source, *target;
         auto status = touch(move.source, move.key, source);
@@ -41,6 +46,7 @@ db::batch_status family_workspace::stage(const family_move& move) {
         target->dirty = target->logical = target->history = true;
         record_ready(*target);
         state_->bytes += bytes; state_->records += 3;
+        state_->expanded_bytes += expanded; state_->actions += 3;
         return db::batch_status::ok;
     } catch (...) { return reject(db::batch_status::error); }
 }

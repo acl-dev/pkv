@@ -28,8 +28,12 @@ public:
     const list_root& metadata() const { return root_; }
     status error() const { return error_; }
 
-    bool push(const std::vector<std::string>& values, bool left);
+    bool push(const std::vector<std::string>& values, bool left) {
+        return push(list_values_view(values.data(), values.size()), left);
+    }
+    bool push(list_values_view values, bool left);
     bool pop(uint64_t count, bool left, std::vector<std::string>* out);
+    bool pop_one(bool left, std::string& out);
     bool range(long long start, long long end, std::vector<std::string>& out);
     bool index(long long position, std::string& out, bool& found);
     bool trim(long long start, long long end);
@@ -98,21 +102,35 @@ private:
     };
 
     bool locate(uint64_t index, span& out);
+    bool compact_index(uint64_t offset, list_page_update& result,
+        bool& handled, const std::string* replacement = nullptr);
+    bool compact_range(uint64_t skip, uint64_t count, bool reverse,
+        std::vector<std::string>& values, bool& handled);
     bool splice(position begin, position end, const std::string* value,
         uint64_t removed);
     bool neighbors(const list_page& first, const list_page& last,
         uint64_t new_first, uint64_t new_last);
     bool fail(status value);
+    bool inspect(uint64_t id, std::string& scratch,
+        db::page_inspector visit, void* context);
     bool read_page(uint64_t id, list_page& out);
+    bool check_links(uint64_t id, uint64_t previous, uint64_t next);
+    bool prepare_push(list_values_view values, bool left,
+        list_page& page, bool& applied, size_t fill_target);
+    bool pop_values(uint64_t count, bool left, std::vector<std::string>* out,
+        std::string* single);
+    bool prepare_pop(bool left, std::string* out,
+        list_page& page, bool& applied, uint64_t count = 1,
+        std::vector<std::string>* values = nullptr, uint64_t removed_neighbor = 0,
+        uint32_t* consumed = nullptr);
     bool write_page(const list_page& page);
     bool counter();
     bool allocate(list_page& page);
     bool grow(list_page& page, bool left);
-    bool append(list_page& page, const std::string& value, bool left);
-    bool take(list_page& page, bool left, std::string* out,
-        std::unordered_set<uint64_t>& visited);
-    bool advance(list_page& page, bool left,
-        std::unordered_set<uint64_t>& visited);
+    bool append(list_page& page, const std::string& value, bool left,
+        size_t fill_target);
+    bool take(list_page& page, bool left, std::string* out);
+    bool advance(list_page& page, bool left);
     static size_t used(const list_page& page);
 };
 

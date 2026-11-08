@@ -20,6 +20,7 @@ public:
 
     // @override
     bool del(shared_db& db, const std::string& json_key) override;
+    bool del_one(shared_db& db, const std::string& key, long long& removed) override;
 
     bool del(shared_db& db, const std::vector<std::string>& keys, long long& removed) override;
     bool exists(shared_db& db, const std::vector<std::string>& keys, long long& count) override;
@@ -50,7 +51,7 @@ private:
         long long deadline, unsigned conditions, bool persist, bool& changed,
         bool& unsupported);
     bool encode_expiry(shared_db& db, std::string& bytes,
-        long long deadline, bool& preserve_pages);
+        long long deadline, bool paged, bool& preserve_pages);
 };
 
 } // namespace dao

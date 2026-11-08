@@ -1,11 +1,13 @@
 #pragma once
 #include "string.h"
 #include "string_status.h"
+#include <functional>
 
 namespace pkv {
 namespace dao {
 class paged_string : public string {
 public:
+    explicit paged_string(db::page_lock_scope* scope = nullptr) : scope_(scope) {}
     bool set(shared_db& db, const std::string& key, const char* data) override;
     bool set(shared_db& db, const std::string& key,
         const std::string& data) override;
@@ -54,6 +56,7 @@ public:
         const std::vector<const std::string*>& elements, long long& changed);
     bool pfcount(shared_db& db, const std::vector<std::string>& keys,
         long long& count);
+    bool pfcount_one(shared_db& db, const std::string& key, long long& count);
     bool pfmerge(shared_db& db, const std::vector<std::string>& keys);
     bool lcs(shared_db& db, const std::string& first,
         const std::string& second,
@@ -69,12 +72,25 @@ private:
         const set_options& options, const std::string* old, bool& equal);
     bool valid_bit_offset(long long offset);
     long long now_ = 0;
+    db::page_lock_scope* scope_;
     using operation = std::function<bool(string_store&)>;
-    bool run(shared_db& db, const std::string& key, const operation& callback);
+    // These private operations run synchronously and never retain callbacks.
+    template <class Callback>
+    bool run(shared_db& db, const std::string& key, Callback&& callback) {
+        const operation view(std::ref(callback));
+        return run_callback(db, key, view);
+    }
+    bool run_callback(shared_db& db, const std::string& key,
+        const operation& callback,
+        const db::page_root_callback* root = nullptr);
+    db::page_root_result increment_root(db::batch_entry& root,
+        long long delta, long long& value);
     bool open(shared_db& db, page_transaction& tx, const std::string& key,
         string_store& store);
     bool import(string_store& store);
     bool stored(string_store& store);
+    bool write_inline_root(db::batch_entry& entry, const std::string& value,
+        int64_t expiry);
     bool result(db::batch_status status);
     bool matches(page_transaction& tx, const std::string& key,
         const std::string& expected, bool& equal);

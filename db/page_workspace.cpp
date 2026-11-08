@@ -18,6 +18,7 @@ page_workspace::~page_workspace() = default;
 void page_workspace::discard() {
     owners_.clear(); batches_.clear(); root_count_delta_ = 0;
     bytes_ = 56; records_ = 2; finished_ = true;
+    expanded_bytes_ = page_batch::group_storage_bytes; actions_ = 2;
 }
 db::batch_status page_workspace::commit() {
     if (finished_) return batch_status::aborted;

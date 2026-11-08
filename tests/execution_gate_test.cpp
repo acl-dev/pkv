@@ -157,10 +157,83 @@ static void suspended_fibers() {
     acl::fiber::schedule();
     require(resumed.load() == 8, "paused fibers failed to resume");
 }
+static void admission_across_actor_switches() {
+    std::atomic<unsigned> completed{0};
+    for (unsigned actor = 0; actor < 8; ++actor) go[&, actor] {
+        const bool replica = actor % 2 == 0;
+        replica_read_guard replica_scope(replica);
+        for (unsigned round = 0; round < 20; ++round) {
+            execution_guard outer;
+            {
+                execution_guard inner;
+                execution_pause pause;
+                acl::fiber::yield();
+                require(execution_replica_read() == replica,
+                    "paused actor inherited replica state");
+            }
+            acl::fiber::yield();
+            require(execution_replica_read() == replica,
+                "guard release crossed actor state");
+        }
+        completed.fetch_add(1);
+    };
+    go[&] {
+        for (unsigned round = 0; round < 20; ++round) {
+            execution_guard writer(true);
+            const auto time = execution_time_us();
+            acl::fiber::yield();
+            execution_guard nested;
+            require(execution_time_us() == time && !execution_replica_read(),
+                "exclusive handoff lost actor-local state");
+        }
+    };
+    acl::fiber::schedule();
+    require(completed.load() == 8, "actors failed to release cached scopes");
+    require(!execution_replica_read(), "replica scope escaped scheduler");
+    execution_guard after(true);
+}
+static void clocks_across_actors() {
+    std::atomic<bool> started{false}, thread_done{false};
+    bool actor_done = false;
+    long long snapshot = 0;
+    auto ordinary_clock = [] {
+        const auto ms = execution_time_ms(), us = execution_time_us();
+        std::this_thread::sleep_for(std::chrono::milliseconds(15));
+        require(execution_time_ms() > ms && execution_time_us() > us,
+            "ordinary actor inherited an EXEC clock");
+    };
+    std::thread outside([&] {
+        while (!started.load()) std::this_thread::yield();
+        ordinary_clock();
+        thread_done.store(true);
+    });
+    go[&] {
+        execution_guard writer(true);
+        snapshot = execution_time_us();
+        started.store(true);
+        while (!actor_done || !thread_done.load()) {
+            acl::fiber::yield();
+            require(execution_time_us() == snapshot &&
+                execution_time_ms() == snapshot / 1000,
+                "yielded EXEC lost its frozen clock");
+        }
+    };
+    go[&] {
+        while (!started.load()) acl::fiber::yield();
+        ordinary_clock();
+        actor_done = true;
+    };
+    acl::fiber::schedule();
+    outside.join();
+    require(execution_time_us() > snapshot,
+        "clock presence outlived exclusive admission");
+}
 int main() {
     acl::acl_cpp_init();
     nesting(); parallel_readers(); writers_and_fibers(); frozen_time();
     suspended(); suspended_fibers();
+    admission_across_actor_switches();
+    clocks_across_actors();
     // Exercise reuse of per-thread specific keys across scheduler runs.
     for (unsigned i = 0; i < 3; ++i) {
         go[] { nesting(); };

@@ -63,7 +63,7 @@ static bool operation(shared_db database, const std::string& key,
     const std::function<bool(map_store&)>& callback,
     map_kind kind = map_kind::hash) {
     return database->transact_pages({key}, [&](page_transaction& tx) {
-        map_store map(tx, key, kind);
+        map_store map(tx, key, kind, false);
         return map.open() && callback(map) && map.finish();
     }) == db::batch_status::ok;
 }

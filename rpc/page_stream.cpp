@@ -6,39 +6,64 @@
 namespace pkv {
 namespace {
 
-bool write_frame(acl::shared_stream& connection, page_operation operation,
-    unsigned protocol, unsigned database, const std::string& key,
-    const char* value,
-    size_t length, uint64_t id = 0) {
-    const bool page = operation == page_operation::page_write ||
-        operation == page_operation::page_erase;
-    char header[20], number[8];
-    page_wire::put32(header, page_wire::magic_for(protocol));
-    page_wire::put32(header + 4, static_cast<uint32_t>(operation));
-    page_wire::put32(header + 8, database);
-    page_wire::put32(header + 12, static_cast<uint32_t>(key.size()));
-    page_wire::put32(header + 16,
-        static_cast<uint32_t>(length + (page ? 8 : 0)));
-    iovec vectors[4];
-    vectors[0].iov_base = header;
-    vectors[0].iov_len = sizeof(header);
-    int count = 1;
-    if (!key.empty()) {
-        vectors[count].iov_base = const_cast<char*>(key.data());
-        vectors[count++].iov_len = key.size();
+// Borrow payloads from the batch and buffer only frame headers and vectors.
+class frame_writer {
+public:
+    explicit frame_writer(acl::shared_stream& connection)
+        : connection_(connection) {}
+
+    bool append(page_operation operation, unsigned protocol, unsigned database,
+        const std::string& key, const char* value, size_t length, uint64_t id = 0,
+        bool copy_value = false) {
+        if (frames_ == capacity && !flush()) return false;
+        const bool page = operation == page_operation::page_write ||
+            operation == page_operation::page_erase;
+        auto& header = headers_[frames_];
+        auto& number = numbers_[frames_++];
+        page_wire::put32(header, page_wire::magic_for(protocol));
+        page_wire::put32(header + 4, static_cast<uint32_t>(operation));
+        page_wire::put32(header + 8, database);
+        page_wire::put32(header + 12, static_cast<uint32_t>(key.size()));
+        page_wire::put32(header + 16,
+            static_cast<uint32_t>(length + (page ? sizeof(number) : 0)));
+        add(header, sizeof(header));
+        if (!key.empty()) add(key.data(), key.size());
+        if (page) {
+            page_wire::put64(number, id);
+            add(number, sizeof(number));
+        }
+        if (copy_value) {
+            auto& payload = payloads_[frames_ - 1];
+            assert(length <= sizeof(payload));
+            std::memcpy(payload, value, length);
+            value = payload;
+        }
+        if (length) add(value, length);
+        return true;
     }
-    if (page) {
-        page_wire::put64(number, id);
-        vectors[count].iov_base = number;
-        vectors[count++].iov_len = sizeof(number);
+
+    bool flush() {
+        if (!vectors_used_) return true;
+        if (connection_->writev(vectors_, vectors_used_) != static_cast<int>(bytes_))
+            return false;
+        vectors_used_ = frames_ = 0;
+        bytes_ = 0;
+        return true;
     }
-    if (length) {
-        vectors[count].iov_base = const_cast<char*>(value);
-        vectors[count++].iov_len = length;
+
+private:
+    void add(const char* data, size_t size) {
+        vectors_[vectors_used_++] = {const_cast<char*>(data), size};
+        bytes_ += size;
     }
-    const auto bytes = sizeof(header) + key.size() + length + (page ? 8 : 0);
-    return connection->writev(vectors, count) == static_cast<int>(bytes);
-}
+
+    static constexpr int capacity = 16;
+    acl::shared_stream& connection_;
+    char headers_[capacity][20], numbers_[capacity][8], payloads_[capacity][16];
+    iovec vectors_[capacity * 4];
+    int frames_ = 0, vectors_used_ = 0;
+    size_t bytes_ = 0;
+};
 
 bool valid_lengths(page_operation operation, size_t key, size_t value,
     unsigned protocol) {
@@ -47,9 +72,9 @@ bool valid_lengths(page_operation operation, size_t key, size_t value,
     }
     switch (operation) {
     case page_operation::exec_begin:
-        return (protocol == 3 || protocol == 4) && key == 0 && value == 16;
+        return (protocol >= 3 && protocol <= 5) && key == 0 && value == 16;
     case page_operation::exec_commit:
-        return (protocol == 3 || protocol == 4) && key == 0 && value == 0;
+        return (protocol >= 3 && protocol <= 5) && key == 0 && value == 0;
     case page_operation::family_move:
         return protocol == 4 && value >= 16 &&
             value <= 16 + 2 * page_transaction::max_value_bytes;
@@ -64,6 +89,9 @@ bool valid_lengths(page_operation operation, size_t key, size_t value,
     case page_operation::page_write:
         return value >= 8 && value <= page_transaction::max_value_bytes + 8;
     case page_operation::page_erase: return value == 8;
+    case page_operation::page_erase_group:
+        return protocol == 5 && value >= 16 && value % 8 == 0 &&
+            value / 8 <= page_batch::max_erase_ids;
     }
     return false;
 }
@@ -78,19 +106,18 @@ bool read_bytes(acl::shared_stream& connection, size_t size, std::string& out) {
     return true;
 }
 
-} // namespace
-
-bool page_stream::send(acl::shared_stream& connection,
-    const page_batch& batch, unsigned protocol) {
-    if (protocol < 2 || protocol > 4) return false;
+bool append_batch(frame_writer& writer, const page_batch& batch,
+    unsigned protocol) {
+    if (protocol < batch.required_protocol() || protocol > 5) return false;
+    if (protocol == 5 && !batch.size().compact) protocol = 4;
     char begin[16];
     page_wire::put32(begin, static_cast<uint32_t>(batch.size().roots));
     page_wire::put32(begin + 4, static_cast<uint32_t>(batch.size().pages));
     page_wire::put64(begin + 8, batch.size().bytes);
     const std::string empty;
     const auto database = batch.database();
-    if (!write_frame(connection, page_operation::begin, protocol, database,
-        empty, begin, sizeof(begin))) {
+    if (!writer.append(page_operation::begin, protocol, database,
+        empty, begin, sizeof(begin), 0, true)) {
         return false;
     }
     for (const auto& root : batch.roots()) {
@@ -100,22 +127,51 @@ bool page_stream::send(acl::shared_stream& connection,
                 page_operation::root_write) :
                 root.action == db::update_action::erase ?
                     page_operation::root_erase : page_operation::root_keep;
-        if (!write_frame(connection, operation, protocol, database, root.key,
+        if (!writer.append(operation, protocol, database, root.key,
             root.value.data(), root.action == db::update_action::write ?
                 root.value.size() : 0)) {
             return false;
         }
     }
-    for (const auto& page : batch.pages()) {
-        if (!write_frame(connection, page.action == db::update_action::write ?
-            page_operation::page_write : page_operation::page_erase, protocol,
-            database, page.owner, page.value.data(), page.value.size(),
-            page.id)) {
-            return false;
-        }
+    const auto& pages = batch.pages();
+    for (size_t at = 0; at < pages.size();) {
+        const auto& page = pages[at];
+        const auto count = batch.size().compact ?
+            page_batch::erase_run(pages, at) : 1;
+        if (count > 1) {
+            std::string ids(count * 8, '\0');
+            for (size_t i = 0; i < count; ++i)
+                page_wire::put64(&ids[i * 8], pages[at + i].id);
+            // The temporary ID buffer must stay alive through the write.
+            if (!writer.append(page_operation::page_erase_group,
+                protocol, database, page.owner, ids.data(), ids.size()) ||
+                !writer.flush())
+                return false;
+        } else if (!writer.append(
+            page.action == db::update_action::write ?
+                page_operation::page_write : page_operation::page_erase,
+            protocol, database, page.owner, page.value.data(),
+            page.value.size(), page.id)) return false;
+        at += count;
     }
-    return write_frame(connection, page_operation::commit, protocol,
+    return writer.append(page_operation::commit, protocol,
         database, empty, nullptr, 0);
+}
+
+} // namespace
+
+bool page_stream::send(acl::shared_stream& connection,
+    const page_batch& batch, unsigned protocol) {
+    frame_writer writer(connection);
+    return append_batch(writer, batch, protocol) && writer.flush();
+}
+
+bool page_stream::send_run(acl::shared_stream& connection,
+    const page_batch* const* batches, size_t count, unsigned protocol) {
+    frame_writer writer(connection);
+    for (size_t i = 0; i < count; ++i)
+        if (!append_batch(writer, *batches[i], protocol)) return false;
+    return writer.flush();
 }
 
 bool page_stream::read(acl::shared_stream& connection, page_frame& out) {
@@ -146,11 +202,26 @@ bool page_stream::read_payload(acl::shared_stream& connection,
         frame.protocol = protocol;
         frame.operation = operation;
         frame.database = database;
+        const bool page = operation == page_operation::page_write ||
+            operation == page_operation::page_erase;
+        char body[512];
+        const auto length = key + value;
+        if (length <= sizeof(body)) {
+            if (length && connection->read(body, length, true) !=
+                static_cast<int>(length)) return false;
+            const auto id_bytes = page ? 8 : 0;
+            if (page) {
+                frame.id = page_wire::get64(body + key);
+                if (!frame.id) return false;
+            }
+            frame.key.assign(body, key);
+            frame.value.assign(body + key + id_bytes, value - id_bytes);
+            out = std::move(frame);
+            return true;
+        }
         if (!read_bytes(connection, key, frame.key)) {
             return false;
         }
-        const bool page = operation == page_operation::page_write ||
-            operation == page_operation::page_erase;
         if (page) {
             char number[8];
             if (connection->read(number, sizeof(number), true) !=

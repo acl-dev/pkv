@@ -26,7 +26,11 @@ public:
         std::vector<exec_entry> entries);
     const std::vector<exec_entry>& entries() const { return entries_; }
     // Minimum stream version; page-only ordered input canonicalizes to v3.
-    unsigned protocol() const { return entries_.empty() ? 3 : 4; }
+    unsigned protocol() const {
+        return compact_ ? 5 : entries_.empty() ? 3 : 4;
+    }
+    size_t expanded_bytes() const { return expanded_bytes_; }
+    size_t actions() const { return actions_; }
     bool has_moves() const;
     bool touches(unsigned database) const;
     const std::vector<std::shared_ptr<const page_batch>>& batches() const {
@@ -45,6 +49,8 @@ private:
     friend class ordered_receiver;
     exec_batch() = default;
     size_t bytes_ = 56, records_ = 2;
+    size_t expanded_bytes_ = page_batch::group_storage_bytes, actions_ = 2;
+    bool compact_ = false;
     std::vector<std::shared_ptr<const page_batch>> batches_;
     std::vector<exec_entry> entries_;
 };

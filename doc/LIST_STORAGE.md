@@ -12,17 +12,68 @@ ZSet now uses its coordinated native member/score indexes.
 
 ## Layout and operations
 
-New roots use `PLR` version 2: 48 bytes containing the existing expiry, element
+Paged roots use `PLR` version 2: 48 bytes containing the existing expiry, element
 count and head/tail ids, followed by the highest allocated page id. Existing
 40-byte version-1 roots remain readable and acquire a counter by one page-chain
 walk before their first allocating mutation. Counter exhaustion fails without
 wrapping or publishing partial data. Empty Lists remove their root/pages.
+
+Compact roots use `PLR` version 3. The byte after the signature contains the
+member count in its low six bits, bit 6 for two-byte offsets, and bit 7 for an
+optional eight-byte expiry. Offsets are unsigned big endian and relative to the
+start of the member payload. The payload includes a one-byte length per member.
+New roots use one-byte offsets for payloads up to 256 bytes and two-byte offsets
+for larger payloads. A root holds up to 63 members, each at most 255 bytes.
+Writes can grow the payload beyond 1024 bytes up to 2048 bytes when the average
+encoded member size, including its length byte, is at most 40 bytes.
+Reading raw roots beyond the previous 32-member or 1024-byte limit requires a
+PKV build that supports the larger limits.
+
+Physical pages have independent versions. Readers accept `PLP1` fragmented
+pages and `PLP2` and `PLP3` pages containing complete members. All three share
+a 32-byte header.
+
+| Offset | Bytes | Field |
+| --- | --- | --- |
+| 0 | 4 | `PLP` and version byte |
+| 4 | 4 | Entry count, unsigned big endian |
+| 8 | 8 | Nonzero page ID, unsigned big endian |
+| 16 | 8 | Previous page ID, zero at the left boundary |
+| 24 | 8 | Next page ID, zero at the right boundary |
+
+PLP1 retains its 24-byte per-fragment total/offset/length/reserved header.
+PLP2 uses a four-byte unsigned big-endian length per entry. PLP3 uses a
+one-byte unsigned length per entry for members up to 255 bytes. The payload
+immediately follows the length, and length zero represents an empty member.
+Cross-page members use PLP1. The decoder checks every length,
+the count, links and exact end position before allocating decoded fragments.
+Bounded endpoint updates also check every member against the caller's limit.
+
+The expanded-size bound is `encoded_size + 20 * count <= 16384` for PLP2
+and `encoded_size + 23 * count <= 16384` for PLP3. Both preserve the PLP1
+packing limit of 681 empty entries per page. Explicit `encode_page` writes
+PLP1. `encode_packed_page` selects PLP3 for complete pages whose members all
+fit the one-byte length, PLP2 for other complete pages, and PLP1 for fragmented
+pages. An endpoint edit that adds a longer member to a PLP3 page uses the
+decoded edit path. Mixed page versions can coexist in a list.
+
+Upgrade persisted-data readers and replication consumers before enabling a
+writer that emits PLP3. The physical page version selects the decoder.
 
 Each physical page remains at most 16384 bytes, including headers. Small members
 share pages; individual large members are fragmented across as many pages as
 needed. An endpoint append loads one boundary page and emits changed/new pages,
 not an encoded copy of the List. Batched pushes keep the current page decoded
 until it fills, instead of re-encoding it for every small member.
+
+The endpoint fill target adapts to the incoming batch's expanded size. Its
+roughly 2 KiB minimum is rounded up to a whole number of incoming batches, so
+uniform small pushes do not split a member merely to reach that minimum. On a
+page boundary, a complete member is moved to a fresh page if four such members
+fit that target's expanded payload. Larger members retain the fragmentation
+path. This keeps small pages eligible for compact encoding without creating nearly empty
+pages for large members. Physical encoded and expanded page bounds stay at
+16384 bytes. Existing fragmented pages remain readable and writable.
 
 Pop consumes fragments from the chosen endpoint. It assembles only requested
 return values; discard/trim skips their value buffers. Range/index select the

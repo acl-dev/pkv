@@ -24,6 +24,7 @@ struct family_workspace::state {
     database_pool& pool;
     const size_t byte_limit, record_limit;
     size_t bytes = 0, records = 0, cache_bytes = 0, rank = 0;
+    size_t expanded_bytes = page_batch::group_storage_bytes, actions = 2;
     bool failed = false, finished = false;
     std::map<unsigned, shared_db> databases;
     // Owning batches outlive the borrowed delta pointers in owner families.

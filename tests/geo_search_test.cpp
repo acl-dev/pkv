@@ -184,7 +184,8 @@ template<class Backend> static void storage_errors() {
     dao::zadd_options add;
     dao::zadd_result result;
     const auto score = double(geo::encode(point(1, 2)));
-    require(data.add(database, "source", {{"a", score}}, add, result),
+    // Use a member outside the compact limit to exercise page-read errors.
+    require(data.add(database, "source", {{std::string(256, 'a'), score}}, add, result),
         "GEO rejection seed");
     const std::string target("target");
     geo::search_options options;

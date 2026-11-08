@@ -81,17 +81,17 @@ if(TARGET pkv_core)
             replica_retention family_plan family_workspace database_shutdown
             legacy_expiry
             legacy_transfer command_catalog
-            lcs
-            keyspace key_count key_sampling dense_index active_expiry
+            lcs map_bucket page_inspect compact_list compact_erase
+            keyspace key_count key_sampling key_crc32 dense_index active_expiry
             set_compare string_digest msetex
             client_state client_registry client_lifecycle client_kill_core
-            client_snapshot client_activity client_input
+            client_snapshot client_activity client_input list_values_workspace
             hgetdel password_policy response_writer acl_policy acl_file
             acl_audit configuration server_statistics expiry_snapshot
             hyperloglog hyperloglog_fault inline_string geo geo_search
             geo_radius_keys key_wait key_wait_heap key_wait_index
             list_ready zset_ready blocking_io connection_output pubsub
-            pubsub_handler)
+            pubsub_handler stream_store)
         add_executable(${fixture}_test ${fixture}_test.cpp)
         target_link_libraries(${fixture}_test PRIVATE pkv_core)
         if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -105,9 +105,17 @@ if(TARGET pkv_core)
     find_program(PKV_SEQUENCE_PYTHON NAMES python3)
     if(PKV_SEQUENCE_PYTHON)
         set(family_variant mdb)
+        set(compact_erase_backend mdb)
         if(HAS_TBB)
             set(family_variant tbb)
+            set(compact_erase_backend mdb_tbb)
         endif()
+        add_test(NAME compact_erase_capacity
+            COMMAND ${PKV_SEQUENCE_PYTHON}
+                ${CMAKE_CURRENT_SOURCE_DIR}/compact_erase_capacity_test.py
+                --pkv $<TARGET_FILE:pkv> --backend ${compact_erase_backend})
+        set_tests_properties(compact_erase_capacity PROPERTIES TIMEOUT 240
+            RUN_SERIAL TRUE ENVIRONMENT "UBSAN_OPTIONS=halt_on_error=1")
         add_test(NAME move_memory_crash
             COMMAND ${PKV_SEQUENCE_PYTHON}
                 ${CMAKE_CURRENT_SOURCE_DIR}/move_memory_crash_test.py
@@ -1137,6 +1145,14 @@ if(TARGET pkv_core)
                     set_property(TEST command_metadata APPEND PROPERTY
                         ENVIRONMENT PKV_TEST_BACKEND=wdb)
                 endif()
+            endif()
+            if(APPLE)
+                add_test(NAME listener_distribution
+                    COMMAND ${PKV_PYTHON_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/listener_distribution_test.py
+                    --pkv $<TARGET_FILE:pkv>)
+                set_tests_properties(listener_distribution
+                    PROPERTIES TIMEOUT 90)
             endif()
             add_test(NAME server_exit COMMAND ${PKV_PYTHON_EXECUTABLE}
                 ${CMAKE_CURRENT_SOURCE_DIR}/server_exit_test.py

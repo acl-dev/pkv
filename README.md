@@ -1,469 +1,199 @@
-# pkv
-Parallel KV service supports redis protocol.
+# PKV
 
-# Features
-- **Multiple store engines:** Supports rocksdb, wiredtiger, Intel tbb hashmap, stl hashmap, acl hash table;
-- **Multiple threads:** Use multiple CPU cores with multiple threads;
-- **Coroutine IO:** Use the coroutine lib from acl;
-- **Streamed parser:** Streamed parser which is IO independent; 
-- **Serialization:** Bounded typed pages for String/List/Hash/Set/ZSet, with
-  codec-independent legacy views. The default yyjson codec reads old records;
-  native expiry and key transfers share the typed migration path. See
-  [storage format](doc/STORAGE_FORMAT.md) and
-  [legacy expiry migration](doc/LEGACY_EXPIRY.md) and
-  [key transfers](doc/LEGACY_TRANSFERS.md).
+**基于多线程与协程的 Redis 协议 KV 服务，支持原生分页存储和可插拔存储引擎。**
 
-# Supporting redis commands
-- **Connection:** AUTH, HELLO (RESP2/RESP3), PING, ECHO, QUIT, RESET; CLIENT ID/GETNAME/SETNAME/SETINFO/HELP
-- **Database:** DBSIZE; [counting and recovery](doc/DBSIZE.md)
-- **Discovery:** COMMAND, COUNT, INFO, LIST, GETKEYS, GETKEYSANDFLAGS,
-  HELP and basic DOCS; see [metadata coverage](doc/COMMAND_METADATA.md)
-- **Key:** KEYS (binary-safe glob), TYPE, EXISTS, DEL, RENAME/RENAMENX, COPY (DB/REPLACE), EXPIRE/PEXPIRE, EXPIREAT/PEXPIREAT, TTL/PTTL, EXPIRETIME/PEXPIRETIME, PERSIST; expiry conditions NX/XX/GT/LT; stateless SCAN with MATCH/COUNT/TYPE on the `mdb` backend
-- **String:** LCS (LEN/IDX/MINMATCHLEN/WITHMATCHLEN), GET, DIGEST, DELEX, MGET,
-  MSET, MSETNX, MSETEX, SET with NX/XX/IFEQ/IFNE/IFDEQ/IFDNE, GET, KEEPTTL,
-  EX/PX/EXAT/PXAT; INCR/DECR/INCRBY/DECRBY, APPEND, STRLEN, GETRANGE/SUBSTR,
-  SETRANGE, GETDEL, GETEX, GETSET, SETNX, SETEX/PSETEX; binary keys and values
-  on the `mdb` backend
-- **Hash:** HSET, HGET, HDEL, HGETDEL, HMSET, HMGET, HGETALL, HSCAN (MATCH/COUNT/NOVALUES), HSETNX, HINCRBY, HLEN, HSTRLEN, HEXISTS, HKEYS, HVALS; binary fields/values, ordered nil results, per-key atomic modifications, and TTL retention on the tested `mdb` backend
-- **List:** LPUSH/RPUSH, LPUSHX/RPUSHX, LPOP/RPOP (optional count), LLEN, LRANGE, LINDEX, LSET, LTRIM, LINSERT, LREM, LPOS (RANK/COUNT/MAXLEN), LMOVE/RPOPLPUSH, LMPOP; atomic mutations, binary elements, TTL retention, and key removal when drained
-- **Set:** SADD, SREM, SCARD, SISMEMBER, SMISMEMBER, SMEMBERS, SSCAN (MATCH/COUNT), SMOVE, SPOP, SRANDMEMBER, SINTERCARD (LIMIT), SUNION/SINTER/SDIFF and their STORE variants; binary members, TTL retention and coherent multi-key snapshots
+[English](README.en.md) · [软件架构](doc/ARCHITECTURE.md) · [文档导航](doc/README.md) · [兼容性](doc/COMPATIBILITY.md) · [阶段进展](doc/ROADMAP_STATUS.md)
 
-- **Sorted Set:** ZADD (NX/XX/GT/LT/CH/INCR), ZINCRBY, ZREM, ZCARD, ZSCORE/ZMSCORE, ZRANK/ZREVRANK (WITHSCORE), ZRANGE/ZRANGESTORE (rank/BYSCORE/BYLEX, REV, LIMIT), legacy range aliases, ZCOUNT/ZLEXCOUNT, ZREMRANGEBYRANK/BYSCORE/BYLEX, ZPOPMIN/ZPOPMAX, ZMPOP (MIN/MAX, COUNT), ZRANDMEMBER (optional count and WITHSCORES), ZSCAN (MATCH/COUNT), ZUNION/ZINTER/ZDIFF and STORE variants, ZINTERCARD (LIMIT); see [remaining options and storage limits](doc/SORTED_SETS.md)
+PKV 使用 C++ 实现，通过 ACL 的线程与协程处理并发连接，以流式解析器接收请求，并提供 RESP2 / RESP3 响应。当前核心是 String、List、Hash、Set、ZSet 的原生有界页存储：命令通过统一的数据访问层操作根记录和私有页，底层可选择内存、RocksDB 或 WiredTiger。
 
-List, Hash, Set and ZSet use bounded native pages on `mdb`, `mdb_tbb` and
-single-instance `rdb`/`wdb`, with
-atomic JSON migration, page-aware TTL/COPY/RENAME and PKV2 replication. Other
-engines currently reject Hash/List/Set/ZSet requests until they implement native page
-transactions. ZSet uses coordinated member and score indexes. See
-[bounded List storage](doc/LIST_STORAGE.md) and
-[bounded Hash storage](doc/MAP_STORAGE.md) and
-[bounded Set storage](doc/SET_STORAGE.md) and
-[bounded ZSet storage](doc/ZSET_STORAGE.md).
+项目仍在完善 Redis 服务端兼容性。命令注册、局部回归通过或实时复制可用，均不代表完整 Redis 替代能力；部署前请阅读[能力边界](#能力边界)。
 
-SELECT uses connection-local logical databases (`databases = 16` by default),
-separate from physical `db_count` shards. Negotiated version 1 live replication
-carries DB identity; legacy subscribers retain DB 0 only. See
-[logical DB/COPY behavior and limits](doc/LOGICAL_DATABASES.md).
+## 架构一览
 
-The custom DB 0 replication stream now validates empty/binary-key frames and
-preserves same-key publication order across workers; [replication limits](doc/REPLICATION.md)
-still include initial synchronization, reliable replay and replica roles.
-PKV3 adds whole-EXEC framing with memory multi-DB coordination and a
-single-DB disk apply domain; see
-[EXEC replication](doc/EXEC_REPLICATION.md).
-PKV4 adds bounded ordered page/MOVE transport and memory receiver replay; see
-[ordered replication](doc/ORDERED_REPLICATION.md). Public
-[MOVE](doc/MOVE.md) now connects the native coordinator and prepared
-[source capture](doc/MOVE_SOURCE_CAPTURE.md); durable disk mixed groups,
-initial synchronization and PSYNC remain pending.
+![PKV 软件架构：协议接入、命令执行、分页存储和后台服务](doc/images/architecture.svg)
 
-macOS startup now initializes ACL event hooks before concurrent schedulers.
-See [diagnosis and validation](doc/FIBER_STARTUP.md) and the
-[public MOVE validation](doc/benchmarks/public-move-validation-2026-11-02.json).
+普通命令共享执行准入，并通过键锁协调数据访问；EXEC 等需要隔离的操作使用独占准入。命令语义、分页存储和具体引擎分层实现。详细的请求路径、源码入口和提交边界见[中文架构文档](doc/ARCHITECTURE.md)（[English](doc/ARCHITECTURE.en.md)）。
 
-Command presence does not imply complete Redis compatibility. See
-[compatibility status and roadmap](doc/COMPATIBILITY.md) for remaining work.
+## 当前特点
 
-See [scan semantics and implementation limits](doc/SCAN.md) before relying on
-COUNT as a performance bound or enabling another backend.
+| 方向 | 已实现的能力 | 进一步阅读 |
+| --- | --- | --- |
+| 并发与协议 | 多线程、ACL 协程 I/O、流式解析、pipeline、HELLO 协商 RESP2/RESP3 | [RESP3](doc/RESP3.md)、[命令分发](doc/COMMAND_DISPATCH.md) |
+| 原生分页 | 五种基础类型；String 小值内联、大值分块；集合使用有界节点和片段 | [存储布局](#存储布局)、[格式与旧数据](doc/STORAGE_FORMAT.md) |
+| 事务与批量 | MULTI/EXEC、WATCH；符合条件的单库原生 EXEC 通过工作区一次提交；原生批量读写 | [事务](doc/TRANSACTIONS.md)、[源端提交](doc/SOURCE_EXEC.md)、[批量保证](doc/ATOMIC_BATCH.md) |
+| 多数据库 | 连接级 SELECT、按需创建逻辑库、跨库 COPY 和原生 MOVE | [逻辑库](doc/LOGICAL_DATABASES.md)、[MOVE](doc/MOVE.md) |
+| 过期与键空间 | 毫秒级期限、条件过期、索引式主动过期、SCAN、DBSIZE、RANDOMKEY | [主动过期](doc/ACTIVE_EXPIRY.md)、[SCAN](doc/SCAN.md) |
+| 扩展数据操作 | Bitmap / BITFIELD、HyperLogLog、GEO、阻塞 List/ZSet、本地 Pub/Sub | [功能导航](doc/README.md) |
+| 认证与诊断 | AUTH、命名 ACL 用户与文件持久化、ACL LOG、CLIENT、INFO、部分 CONFIG | [权限](doc/ACL_PERMISSIONS.md)、[INFO](doc/INFO.md)、[配置](doc/CONFIGURATION.md) |
+| 实时复制 | 私有 PKV1–PKV4 流；页事务、整组 EXEC、有序页编辑及内存 MOVE 重放 | [复制边界](doc/ORDERED_REPLICATION.md) |
 
-The native `mdb`/`mdb_tbb` and single-instance `rdb`/`wdb` backends provide
-atomic multi-key MSET/MSETNX/DEL and coherent MGET snapshots. Cross-physical-store
-mutations remain restricted. See [batch guarantees](doc/ATOMIC_BATCH.md) and its
-cluster migration limits before changing an existing deployment.
+## 快速开始
 
-# Dependence
-- **c++11**
-- **CentOS7.6 or Ubuntu 18**
-- **Acl project:** https://github.com/acl-dev/acl
-- **Yyjson:** https://github.com/ibireme/yyjson
-- **fpconv:** bundled for score formatting under Boost Software License 1.0; see [origin and license](third_party/fpconv/ORIGIN.md)
-- **Rocksdb:** https://github.com/facebook/rocksdb
-- **Wiredtiger:** https://github.com/wiredtiger/wiredtiger
-- **Intel oneTBB:** https://github.com/oneapi-src/oneTBB
+### 1. 准备依赖并构建
 
-# Build
-## Build and install acl
-In the acl source path run below as root:
-```shell
- # make & make packinstall
-```
-Then the libs including libacl_all.a, libfiber_cpp.a and libfiber.a will be installed to `/usr/lib`, and the header files of acl will be installed in `/usr/include/acl-lib`.
+需要 CMake 3.10+、C/C++ 编译器（默认 C++17，可选 C++11）、[ACL](https://github.com/acl-dev/acl) 的 `acl_all` / `fiber_cpp` / `fiber`、[yyjson](https://github.com/ibireme/yyjson)、xxHash 0.8.0+、zlib 和线程库。开发头文件和库必须可被 CMake 找到。`redis-cli` 用于下方交互示例，Python 3 用于服务端集成测试。
 
-## Build and install yyjson, rocksdb, wiredtiger, oneTBB
-In the source path of every project run:
-```shell
-# mkdir build
-# cd build
-# cmake ..
-# make -j 4
-# make install
-```
+ACL 可在其源码目录执行 `make` 和 `make packinstall` 安装；系统目录安装可能需要管理员权限。其他依赖可使用已安装的开发包，或按上游构建说明安装到自定义前缀，并通过 `CMAKE_PREFIX_PATH` 指定。
 
-## Build pkv
+yyjson 和 xxHash 也可直接使用本地源码，不需要全局安装：
 
-Requires CMake 3.10+, C++17 (or C++11), ACL, yyjson and xxHash 0.8.0+.
-Memory backends are
-built by default. RocksDB, WiredTiger, oneTBB, and jemalloc are opt-in:
-
-```shell
-make
-# Optional backends, after installing their development libraries:
-make HAS_ROCKSDB=YES HAS_WT=YES HAS_TBB=YES HAS_JEMALLOC=YES
-# C++11:
-make BUILD_WITH_C11=YES
-```
-
-The binary is `build/pkv`. Build artifacts remain in the build directory.
-CMake respects `CMAKE_PREFIX_PATH` for dependency discovery. For a local yyjson
-checkout, compile it directly without installing it:
-
-```shell
+```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
   -DPKV_YYJSON_SOURCE_DIR=/path/to/yyjson \
   -DPKV_XXHASH_SOURCE_DIR=/path/to/xxHash
 cmake --build build -j 4
 ```
 
-For xxHash, install its development header/library or compile a local checkout:
-
-```shell
-cmake -S . -B build -DPKV_XXHASH_SOURCE_DIR=/path/to/xxHash
-```
-
-Source mode builds a private namespaced library; it does not modify that
-checkout or require a system installation. Both source directory options can
-be passed together. `XXHASH_INCLUDE_DIR` and `XXHASH_LIBRARY` select an installed
-library explicitly. xxHash is needed for Redis-compatible DIGEST and digest
-conditions; no upstream algorithm is copied or reformatted in PKV sources.
-Pass the same `-D` options through `make CMAKE_ARGS="..."` when using Make.
-For persistent per-machine options, create `Makefile.local`, which Git ignores:
+若依赖已安装，直接运行 `make`。本地路径也可写入 Git 忽略的 `Makefile.local`：
 
 ```make
 CMAKE_ARGS += -DPKV_YYJSON_SOURCE_DIR="/path/to/yyjson"
 CMAKE_ARGS += -DPKV_XXHASH_SOURCE_DIR="/path/to/xxHash"
 ```
 
-Plain `make` then uses those options, including after a new build directory is
-created. Command-line Make variables retain precedence over this local file.
-An explicitly enabled backend with missing headers or libraries fails during
-configuration with a dependency-specific error. Use a new build directory when
-switching from an older cached configuration if it still enables optional libraries.
+构建产物是 `build/pkv`，源码目录不生成可执行文件。xxHash 源码模式使用私有命名空间，不修改其源码目录。项目同时包含 LGPL-2.1 [许可证](LICENSE)和单独许可的 [fpconv](third_party/fpconv/ORIGIN.md)。
 
-# Test
-Run regression tests with `ctest --test-dir build --output-on-failure`.
-The full suite needs permission to start temporary loopback TCP listeners.
-See [test instructions](tests/README.md) for sanitizers and Redis comparison.
-
-Start the default memory build with `./build/pkv alone mdb.cf`.
-The sample configurations listen on port 19001. Configurations selecting an
-optional backend require that backend to be enabled at build time.
-
-- Run pkv with data being stored memory by oneTBB:
-```shell
-# ./build/pkv alone mdb_tbb.cf
-```
-
-- Run pkv with data being stored memory by hash table of acl:
-```shell
-# ./build/pkv alone mdb_htable.cf
-```
-
-- Run pkv with data being stored in rocksdb:
-```shell
-# ./build/pkv alone rdb.cf
-```
-
-- Run pkv with data being stoared in wiredtiger:
-```shell
-# ./build/pkv alone wdb.cf
-```
-
-- Run the redis-benchmark in redis to test the pkv's performance
-```shell
-# ./redis-benchmark -p 19001 -n 10000000 -P 1000 -t set -r 100000000
-```
-
-## Native memory storage
-
-`mdb` and `mdb_tbb` store Hash, List, Set and ZSet as bounded native pages, with atomic
-multi-key edits and page replication. The oneTBB backend uses short-lived reader
-accessors and preserves command locks for same-key/multi-key atomicity. It is
-not an entirely lock-free execution path. See [storage details](doc/TBB_STORAGE.md).
-Cross-path disk transactions and complete Redis compatibility remain under
-development; see [coverage](doc/COMPATIBILITY.md).
-
-The [native ZSet dual-index implementation](doc/ZSET_STORAGE.md) now backs the
-server's existing ZSet commands, including atomic legacy migration, scan/key
-operations and PKV2 replication.
-
-## RocksDB native page mode
-
-Build with `HAS_ROCKSDB=ON` to enable this backend. RocksDB stores
-List/Hash/Set/ZSet roots and owned pages in separate column
-families with one atomic WriteBatch per physical instance. Existing default-CF
-keys remain readable. Use the new single-instance example for this mode:
+已有与当前源码和 Clang 工具链匹配的 `.profdata` 时，可用独立目录构建 PGO 版本。
 
 ```sh
-./build/pkv alone rdb_native.cf
+make BUILD_DIR=build-pgo PKV_PGO_PROFILE=/path/to/pkv.profdata
 ```
 
-`rdb_native.cf` uses a fresh `./data/rdb-native` path. Existing four-shard
-`rdb.cf` paths are preserved; cross-physical-shard mutations are rejected before
-writing until distributed atomic recovery is implemented. WAL reopen/process-kill
-recovery is tested; normal writes retain the prior non-fsync default. See
-[RocksDB layout, recovery and limits](doc/ROCKSDB_STORAGE.md).
+### 2. 启动内存服务
+
+在仓库根目录运行：
+
+```sh
+./build/pkv alone mdb.cf
+```
 
+示例配置的客户端端口是 `19001`，使用内存后端，不会在重启后保留数据。另开终端连接：
 
-## WiredTiger native page mode
+```console
+$ redis-cli -p 19001
+127.0.0.1:19001> PING
+PONG
+127.0.0.1:19001> SET greeting "Hello, PKV" EX 60
+OK
+127.0.0.1:19001> GET greeting
+"Hello, PKV"
+127.0.0.1:19001> HSET user:1 name Alice language zh-CN
+(integer) 2
+127.0.0.1:19001> LPUSH jobs task:1 task:2
+(integer) 2
+127.0.0.1:19001> ZADD ranking 100 Alice 90 Bob
+(integer) 2
+```
 
-Build with `HAS_WT=ON` and run `./build/pkv alone wdb_native.cf` for a fresh
-single-path native database. Roots, bounded pages and SCAN entries commit in
-one snapshot transaction with synchronous logging. Binary/empty keys survive
-reopen; readable legacy `table:access` records are imported without modifying
-the old table. Independent-path mutations are rejected before writing. See
-[WiredTiger migration, recovery and limits](doc/WIREDTIGER_STORAGE.md).
+连接级数据库选择和事务示例（同一连接执行）：
 
+```text
+SELECT 1
+MULTI
+SET visits 0
+INCR visits
+GET visits
+EXEC
+```
 
-`HRANDFIELD` supports distinct/repeated field samples and `WITHVALUES` through
-native page ranks, without materializing a whole Hash for a small sample.
-See [Hash sampling and validation](doc/HASH_SAMPLING.md).
+EXEC 返回三个结果：`OK`、`1`、`"1"`。客户端版本不同，输出排版可能略有差异。
 
+### 3. 选择存储引擎
 
-`INCRBYFLOAT` and `HINCRBYFLOAT` preserve key TTL and publish final computed
-values to replication. Hash increments update bounded field pages and skip
-oversized numeric value fragments. See [floating increments](doc/FLOAT_INCREMENTS.md).
+可选引擎默认关闭，须先安装开发依赖，再显式启用：
 
+```sh
+make HAS_ROCKSDB=YES                 # RocksDB
+make HAS_WT=YES                      # WiredTiger
+make HAS_TBB=YES                     # oneTBB
+# 可组合启用；其他选项：HAS_JEMALLOC=YES、BUILD_WITH_C11=YES
+```
 
-Existing String commands now use [native String storage](doc/STRING_PAGES.md):
-small values stay inline; large values use bounded chunks. Ranges, APPEND and
-SETRANGE access their relevant pages; TYPE/TTL/COPY/RENAME and PKV2 understand
-page ownership. Legacy JSON values migrate on single-key access, while MGET
-remains read-only.
+| 后端 | 启动配置 | 原生五类型页事务 | 持久化与边界 |
+| --- | --- | --- | --- |
+| `mdb` | `mdb.cf` | 支持 | 默认构建；进程内存 |
+| `mdb_tbb` | `mdb_tbb.cf` | 支持 | 可选 oneTBB；保留命令键锁，并非全路径无锁 |
+| `rdb` | `rdb_native.cf` | 单物理实例支持 | 原子 WriteBatch；普通写默认不启用 fsync |
+| `wdb` | `wdb_native.cf` | 单物理实例支持 | 快照事务与同步日志 |
+| `mdb_htable` / `mdb_avl` | 同名 `.cf` | 不支持原生集合页事务 | 旧引擎路径；Hash/List/Set/ZSet 请求显式拒绝 |
 
-The [String DAO microbenchmark](doc/STRING_STORAGE_BENCHMARK.md) compares native
-chunks with the old JSON path; it is not a Redis throughput comparison.
+例如：`./build/pkv alone rdb_native.cf`。原生磁盘示例使用独立新目录；旧的 `rdb.cf` / `wdb.cf` 包含多个物理路径，不会自动合并或迁移。跨独立物理存储的原子变更仍受限制。详见 [RocksDB](doc/ROCKSDB_STORAGE.md)、[WiredTiger](doc/WIREDTIGER_STORAGE.md) 和 [oneTBB](doc/TBB_STORAGE.md)。
 
-GETBIT/SETBIT and BITCOUNT/BITPOS now use native String pages, including
-BYTE/BIT ranges and atomic updates in shared bytes. See [bitmaps](doc/BITMAPS.md).
+## 存储布局
 
-BITOP supports all eight operators using atomic page output, source aliases and
-read-only legacy inputs. See [BITOP design and validation](doc/BITOP.md).
+![PKV 存储布局：逻辑数据库、类型根记录和私有页](doc/images/storage.svg)
 
-BITFIELD and BITFIELD_RO support native signed/unsigned fields, overflow
-policies and atomic compound updates. See [field semantics](doc/BITFIELD.md).
+原生页属于逻辑键，不占用用户键名，也不出现在 SCAN 结果中。String 的小值最多内联 1024 字节；较大值使用 16 KiB 分块。List 使用双端页链，Hash/Set 使用有界 AVL 节点与片段，ZSet 在同一页族中维护成员索引和分数索引。页大小有界不代表整个命令、结果集或事务的内存恒定。
 
-MULTI/EXEC/DISCARD and WATCH/UNWATCH now provide in-process transaction
-isolation and optimistic concurrency. PKV3 replicates whole EXEC groups and
-applies single-database groups atomically. Eligible source EXEC groups now
-commit once through a native workspace. Cross-database/physical-store recovery
-and remaining legacy fallbacks are still open. See
-[source commits](doc/SOURCE_EXEC.md), [transactions](doc/TRANSACTIONS.md) and
-[EXEC replication](doc/EXEC_REPLICATION.md).
+旧 JSON 记录通过 codec 兼容层读取，在适用的类型访问或变更路径上原子迁移并保留绝对过期时间；MGET 保持只读。升级和降级须遵守[格式文档](doc/STORAGE_FORMAT.md)，没有自动降级工具。
 
-LCS reads two coherent native/legacy String snapshots and uses compact
-traceback storage. See [semantics and memory bounds](doc/LCS.md).
+## 配置要点
 
-KEYS now enumerates one coherent local keyspace, including staged EXEC writes.
-SCAN and WATCH share native metadata inspection without an unused payload view.
-See [keyspace behavior and limits](doc/KEYSPACE.md).
+修改所选 `.cf` 的 `service pkv { ... }` 配置块；以下为关键字段说明，并非完整配置：
 
-Primary services now perform indexed [active expiration](doc/ACTIVE_EXPIRY.md),
-with locked deadline rechecks, bounded work quanta and atomic native page
-reclamation. Startup/repair snapshots and memory costs are documented there.
-Atomic scheduling bounds avoid idle bucket locking; see
-[local expiry-index measurements and limits](doc/EXPIRY_PERFORMANCE.md).
+| 参数 | 含义 |
+| --- | --- |
+| `master_service` | ACL 客户端监听地址，示例 `127.0.0.1\|19001` |
+| `service` | PKV 服务地址标识，默认 `127.0.0.1:19001`；修改端口时与监听配置保持一致，RPC 端口由此加 10000 |
+| `fiber_threads` | ACL 工作线程数；以所选配置文件为准 |
+| `dbtype` / `dbpath` | 后端及存储路径；多路径不等同于一个原子提交域 |
+| `databases` | 逻辑库数量，默认 16；SELECT 按连接选择 |
+| `db_count` | 每个内存逻辑库的物理分片数，默认 256，与逻辑库数量独立 |
+| `active_expire` | 主动过期，默认启用；批次与间隔可配置 |
+| `requirepass` / `aclfile` | 前端默认用户密码或 ACL 用户文件 |
+| `replica_rpc_source` | 可选上游 RPC 地址，例如 `127.0.0.1:29001`；不是 Redis 客户端端口 |
+| `replica_read_only` | 配置实时接收端后默认拒绝客户端写入 |
+| `move_journal_path` | 默认 `auto`：原生磁盘池绑定 MOVE 决策日志；内存后端不创建日志 |
 
-SET also supports atomic IFEQ/IFNE value conditions, using page-sized comparison
-reads and reusing GET's old value. See
-[value comparisons and compatibility limits](doc/SET_COMPARISON.md).
+前端 ACL 与 RPC 启动密码策略分别处理，详见[认证](doc/AUTH.md)。已绑定的磁盘 MOVE 域必须保留根路径、逻辑库数量、标记与日志身份，不能随意关闭日志，见[启动恢复](doc/MOVE_STARTUP.md)。
 
+## 能力边界
 
-DIGEST, SET IFDEQ/IFDNE and DELEX now use streaming XXH3 and atomic conditional
-updates/deletions. See [semantics and dependency setup](doc/STRING_DIGEST.md).
+- **Redis 兼容仍在进行。** 当前命令族覆盖见[兼容性文档](doc/COMPATIBILITY.md)和 `COMMAND` / `COMMAND INFO`；不承诺完整选项、复杂度或性能等同于 Redis。脚本、Streams、Redis RDB/AOF 等仍未完成。
+- **EXEC 隔离与崩溃原子性有区别。** 满足条件的单逻辑库、单提交域原生事务一次提交；跨库、多物理存储及部分旧路径仍可能在崩溃后保留成功前缀。运行时命令错误不会回滚此前成功命令。
+- **复制是私有实时流。** 尚无全量同步、断线补齐、Redis PSYNC 或自动故障切换。已有数据不能仅靠订阅流初始化；磁盘接收端尚不支持含 MOVE 的混合组持久恢复。
+- **集群功能尚不完整。** 已有槽位路由与检查，但迁移、ASK 和自动故障切换未完成；集群模式限 DB 0。本地 Pub/Sub 不提供跨节点广播。
+- **持久化取决于引擎策略。** 单次磁盘 MOVE 有独立决策日志与启动重放；这不是整个 EXEC 的跨库恢复保证。进程中断测试不等同于断电安全验证。
 
+## 测试与性能资料
 
-MSETEX now assigns counted key/value pairs with shared expiry, whole-batch
-NX/XX conditions and per-key KEEPTTL. See
-[atomic batch semantics and limits](doc/MSETEX.md).
+```sh
+ctest --test-dir build --output-on-failure
+```
 
+完整服务测试需要 Python 3 及创建临时回环 TCP 监听的权限；可选后端测试取决于构建开关。独立协议测试、ASan/UBSan 和参考服务对比方法见[测试指南](tests/README.md)。本次文档不把历史测试数量当作当前全量验证结果。
 
-Connection metadata and RESET now support client setup, unique connection IDs,
-names and library attributes, with transaction/WATCH/DB reset behavior. See
-[supported CLIENT commands and session scope](doc/CLIENT_STATE.md).
+仓库保留了 [String 存储微基准](doc/STRING_STORAGE_BENCHMARK.md)、[EXEC 工作区开销](doc/SOURCE_EXEC_BENCHMARK.md)、[命令分发测量](doc/COMMAND_DISPATCH.md)和[过期索引测量](doc/EXPIRY_PERFORMANCE.md)。这些结果各有负载、平台与版本范围，不构成对官方 Redis 的整体性能优势结论。
 
-HGETDEL now retrieves and removes requested Hash fields in one native page
-transaction. See [atomic field retrieval, storage and limits](doc/HGETDEL.md).
+## 深入阅读与贡献
 
-HELLO now negotiates typed RESP3 replies, including maps, sets, doubles and
-per-command protocol changes in pipelines/EXEC. See [protocol scope](doc/RESP3.md).
+持续性能对照、当前负样本和内存优化范围见[性能进度](doc/PERFORMANCE_STATUS.md)；[已保留版本默认21项P1/P64对照](doc/benchmarks/performance-default-node-encode-reuse-2026-11-08.md)记录编码暂存缓冲复用修改；最新[已撤回LRANGE整帧候选默认21项对照](doc/benchmarks/performance-default-list-range-stream-2026-11-08.md)包含未采用候选的负样本和p99。六轮复核及内存范围见性能进度。
+新增 [oneTBB 分片内存及 P1/P64/P1024 专项](doc/benchmarks/performance-tbb-shard-memory-2026-11-08.md)：内存收益与吞吐回退并存，默认分片数暂未调整。 后续[扫描索引压缩实验](doc/benchmarks/performance-tbb-scan-index-2026-11-08.md)因吞吐负样本已撤回。
 
-Optional requirepass/masterauth now protects Redis commands and companion RPC
-subscriptions. See [default-user authentication and limits](doc/AUTH.md).
+先阅读[软件架构](doc/ARCHITECTURE.md)和[文档导航](doc/README.md)，再根据修改范围运行相关 CTest。提交变更时说明后端、构建模式、行为变化及验证范围；涉及存储格式、复制或恢复时，同时更新边界与迁移说明。
 
-Public connections now use a striped lifecycle registry, with retirement before
-ACL closes sockets and protection against stale descriptor reuse. See
-[registry scope](doc/CLIENT_REGISTRY.md). CLIENT KILL now supports cross-thread
-connection closure and filters; see [semantics](doc/CLIENT_KILL.md). CLIENT
-INFO/LIST now report connection state; see [scope](doc/CLIENT_INFO.md).
+最近的[小元素 List 填充实验](doc/benchmarks/performance-list-tiny-fill-2026-11-08.md)保留全部 720 项时序和内存负样本，两个候选均已撤回。
 
+已保留[紧凑 List 分流的回调借用修复](doc/benchmarks/performance-list-callback-borrow-2026-11-08.md)，默认 P64 四项 List 吞吐提高约 12%–16%；P1 负样本和内存范围见报告，整体目标仍未完成。
 
-KILL now captures unordered membership in linear time. Connection metadata can
-be copied safely across workers, including atomic HELLO name/protocol updates
-and protection against destroyed handler state. CLIENT INFO/LIST now use
-these views for connection diagnostics. See [snapshot scope and measurements](doc/CLIENT_SNAPSHOTS.md).
+[List读取客户端控制对照](doc/benchmarks/performance-list-client-control-2026-11-08.md)记录同版本波动、旧/新复核及当前RPUSH采样；默认21项全表仍见上文。
 
-
-CLIENT INFO/LIST now provide protocol-aware connection diagnostics, ID/type
-filters, live byte/command counts, WATCH/MULTI state and actual parser/output
-resource measurements. Allocation fields have documented PKV meanings. See
-[semantics, measurements and limits](doc/CLIENT_INFO.md).
+[2026-11-08 请求对象回收候选撤回：72项P64与完整证据](doc/benchmarks/performance-object-bulk-return-2026-11-08.md)
 
+[2026-11-08 List缓存候选撤回：108项P1/P64与内存观测](doc/benchmarks/performance-list-cache-append-2026-11-08.md)
 
-Named ACL users now authenticate through AUTH/HELLO and enforce command,
-category, subcommand, selector and key read/write permissions, including MULTI
-and EXEC rechecks. CLIENT diagnostics and KILL USER use actual user identities.
-Startup `aclfile`, ACL SAVE and ACL LOAD now persist users with staged
-replacement and atomic file saves. ACL LOG now reports bounded recent
-authentication and permission failures with RESP2/RESP3 output; frontend ACL
-changes do not replace the separate RPC startup password policy. See
-[runtime permission semantics](doc/ACL_PERMISSIONS.md),
-[file persistence and failure behavior](doc/ACL_PERSISTENCE.md), and
-[security event logging](doc/ACL_AUDIT.md).
-
-
-CONFIG GET now reads actual running values with multiple patterns and
-deduplicated RESP2/RESP3 results. CONFIG SET validates complete multi-parameter
-changes before applying frontend requirepass and audit capacity updates.
-Unsupported Redis RDB/AOF activation fails explicitly. See
-[configuration scope, atomicity and validation](doc/CONFIGURATION.md).
-
-INFO now reports runtime process, connection, command/error, network, memory,
-CPU and logical keyspace statistics. CONFIG RESETSTAT resets cumulative
-command/connection/network/error counters while retaining ACL denial totals.
-See [statistics sources, concurrency and limits](doc/INFO.md).
-
-Command dispatch now caches administrative admission categories and uses ASCII
-case folding for registry lookup. Ordinary KV commands skip control-command
-comparisons while retaining exact statistics. See
-[dispatch rules and matched MDB/oneTBB measurements](doc/COMMAND_DISPATCH.md).
-
-PFADD, PFCOUNT and PFMERGE now use native paged String transactions with Redis
-sparse/dense HLL interoperability, bounded sketch processing and cardinality
-cache semantics. See [HyperLogLog storage and command scope](doc/HYPERLOGLOG.md).
+[2026-11-08 List检查器候选撤回：216项P1/P64及分配证据](doc/benchmarks/performance-list-inspector-inline-2026-11-08.md)
 
-MDB and oneTBB GET now read valid inline String roots without constructing a
-page transaction, retaining key locking and expiry/type validation. See
-[inline String read scope and validation](doc/INLINE_STRING_READS.md).
+[2026-11-08 LRANGE结果复用候选撤回：162项对照与分配证据](doc/benchmarks/performance-list-result-reuse-2026-11-08.md)
 
-GEOADD, GEOPOS, GEOHASH and GEODIST now share the bounded native ZSet format,
-with Redis-compatible coordinates, geohashes and distance replies. See
-[GEO command scope, storage and validation](doc/GEO.md).
+[2026-11-08 LRANGE整帧候选撤回：1428项最终对照、混合短值与恢复记录](doc/benchmarks/performance-list-range-stream-2026-11-08.md)
 
-GEOSEARCH and GEOSEARCHSTORE now query bounded score-index ranges, with
-COUNT ANY early exit and bounded top-k retention. See [indexed GEO search](
-doc/GEO_SEARCH.md). Replicas now reject client writes by default, with
-[explicit writable-mode configuration](doc/REPLICA_READONLY.md).
+[2026-11-08 按页RESP分块原型：216项编码微测，尚未接入服务端](doc/benchmarks/performance-list-segment-codec-prototype-2026-11-08.md)
 
-The four GEORADIUS variants now share indexed GEO search and atomic bounded
-stores. The ten @geo command names match the reference inventory; repeated
-store options receive explicit effective-target admission checks. See
-[radius commands and key semantics](doc/GEO_RADIUS.md).
+[2026-11-08 分段LRANGE集成候选撤回：240项DAO、108项P1/P64与恢复证据](doc/benchmarks/performance-list-segment-integration-2026-11-08.md)
 
-BLPOP, BRPOP, BLMPOP, BLMOVE and BRPOPLPUSH now use native paged Lists,
-with CLIENT UNBLOCK, disconnect cancellation and FIFO wake handling. See
-[blocking list semantics and validation](doc/BLOCKING.md).
+[2026-11-08 Hash表示边界：96项内存、288项P1/P64与实际页面结构](doc/benchmarks/performance-hash-representation-boundary-2026-11-08.md)
 
-BZPOPMIN, BZPOPMAX and BZMPOP now share the blocking connection machinery,
-with type-filtered shared readiness and native ZSet indexes. Cancellation probes
-also preserve waiting clients after a key changes type. See
-[blocking ZSet semantics and validation](doc/BLOCKING_ZSET.md).
+[2026-11-08 紧凑Hash等长覆盖候选：144项DAO与180项P1/P64，待多线程和全命令验收](doc/benchmarks/performance-hash-owned-overwrite-2026-11-08.md)
 
-Waiting queues now cache per-type FIFO chains and release every node when
-subscription allocation fails. Same-key queue scaling and matched revision
-measurements are documented in [waiting queue scaling](doc/QUEUE_SCALING.md).
-
-
-The nine Pub/Sub command names now support binary-safe local delivery across
-worker threads, RESP2/RESP3 frames, channel ACLs, shared message fanout and
-bounded slow-client output. Shard routing, live client diagnostics and EXEC
-reply order are covered by differential tests. Cross-node publication remains
-unfinished; see [Pub/Sub semantics and scope](doc/PUBSUB.md).
-
-
-RANDOMKEY now samples the selected database's live root keys, including binary
-and empty names, without reading native payload pages. Memory backends use
-[dense root indexes](doc/DENSE_KEY_INDEX.md); disk/workspace paths stream keys. TIME returns the
-microsecond wall-clock snapshot, shared by all commands in one EXEC. See
-[semantics, costs and verification](doc/KEY_SAMPLING.md).
-
-
-Memory page commits now have a reversible preparation boundary, with an internal
-coordinator that prepares both databases before publishing either. This is
-[groundwork for atomic cross-database writes](doc/PREPARED_PAGE_COMMITS.md);
-the public [MOVE adapter](doc/MOVE.md) now uses it with ordered publication.
-
-
-MDB native commits now allocate scratch buffers on first use. Existing-root
-writes and deletions avoid unused rollback buffers while retaining atomic
-preparation and bounded pages. See [allocation contracts and measurements](
-doc/NATIVE_COMMIT_BUFFERS.md).
-
-
-An internal owner-scoped WAL barrier now synchronizes the selected RocksDB or
-WiredTiger storage instance without changing ordinary write options or logical
-values. Volatile/workspace and failed-initialization cases decline explicitly.
-See [durability contracts, recovery checks and MOVE limits](
-doc/DURABILITY_BARRIERS.md).
-
-
-An internal, checksummed single-decision MOVE journal now has native lock,
-IO-failure and process-kill recovery coverage. It stores DB IDs and a binary key,
-without serializing collection values. The public adapter now binds this
-journal for online native transfers. See
-[MOVE journal contracts and validation](doc/MOVE_RECOVERY.md).
-
-
-Internal native MOVE redo now transfers bounded private pages for RocksDB and
-WiredTiger, preserves root bytes and absolute expiry, and replays interrupted
-target-before-source application. A native cursor fault probe also led to a WT
-read/scan error-classification fix. See
-[contracts and scoped validation](doc/NATIVE_MOVE_REDO.md). Default-auto
-[bound startup recovery](doc/MOVE_STARTUP.md) now runs before client handling,
-expiry and RPC workers, with stable storage identity and fail-closed validation.
-The public [MOVE command](doc/MOVE.md) uses this recovery domain; disk
-multi-command replication recovery remains unfinished.
-
-
-An internal [retained native MOVE storage coordinator](doc/MOVE_STORAGE.md)
-now holds both key locks from validation through the source WAL fence,
-durable decision, bounded application and completion. Startup uses the same
-physical application phase. An owned key snapshot prevents callbacks changing
-a caller's string from redirecting the committed operation. Public MOVE
-connects server policy, paired logical effects and prepared ordered publication.
-
-
-Internal [memory page-family ownership](doc/MEMORY_MOVE_FAMILIES.md) now hands
-MDB/oneTBB page tables across DBs without copying their pages. Both engines
-prepare before publication, preserving rollback and bounded metadata. Local
-WATCH, expiry and readiness effects precede the required observer callback.
-The public command now publishes these transfers through the PKV4 stream.
-
-
-[Memory cross-DB replay](doc/CROSS_DB_REPLAY.md) now prepares all received native frames
-before publishing any. The private v3 receiver supports MDB/oneTBB groups;
-PKV4 adds public MOVE publication and memory ownership replay. Durable disk
-mixed groups remain unfinished. Single-DB replay retains its existing path.
-
-
-[Replica read retention](doc/REPLICA_READ_RETENTION.md) prevents expired client reads from
-erasing pages needed by delayed primary deltas. Logical reads still report
-missing data; authoritative replay and explicit writes keep their native paths.
-
-[Disabled replica-read guard fast path](doc/READ_GUARD_FAST_PATH.md) removes
-external guard calls from the disabled path while preserving actor-local
-replica read retention.
-
-[Atomic memory page-family plans](doc/ATOMIC_FAMILY_PLANS.md) prepare native
-family permutations and explicit page patches together. This internal
-prerequisite now underlies the MOVE-aware PKV4 receiver workspace.
+[2026-11-08 最新候选默认21项P1/P64及p99：378项对照，保留全部负样本](doc/benchmarks/performance-default-hash-owned-overwrite-2026-11-08.md)

@@ -2,6 +2,10 @@
 #include "dao/json/json_scan.h"
 #include "dao/json/json_string.h"
 #include "dao/paged_string.h"
+#include "dao/paged_hash.h"
+#include "dao/paged_list.h"
+#include "dao/paged_set.h"
+#include "dao/paged_zset.h"
 #include "db/page_workspace.h"
 #include "db/mdb/mdb.h"
 #include "coder/list_page.h"
@@ -153,6 +157,20 @@ static void coherent(shared_db database) {
             "KEYS observed torn keyspace");
     writer.join();
 }
+class metadata_probe : public dao::dao_base {
+public:
+    bool inspect(shared_db& db, const std::string& bytes,
+        record_header& header, bool& native, long long now) {
+        return decode_metadata(db, bytes, header, native, now);
+    }
+    bool owning(shared_db& db, const std::string& bytes, long long now) {
+        return decode(db, bytes, now);
+    }
+    bool has_view() const { return bool(view_); }
+    const record_header& header() const { return view_->header(); }
+    bool payload(value_record& out) { return materialize(out); }
+};
+
 static void metadata() {
     std::vector<std::pair<std::string, value_kind>> roots;
     std::string bytes;
@@ -187,16 +205,36 @@ static void metadata() {
         "metadata ZSet encode");
     roots.emplace_back(bytes, value_kind::zset);
     auto codec = default_record_codec();
+    auto database = db::create_mdb(2);
+    require(database->open(""), "metadata probe DB");
+    metadata_probe probe, ordinary;
+    record_header inspected;
+    bool native;
+    value_record legacy, actual;
+    legacy.header.kind = value_kind::hash;
+    legacy.header.expires_at_ms = 1;
+    legacy.hash_value = {{"field", "value"}};
+    std::string encoded;
+    require(codec->encode(legacy, encoded) == codec_status::ok &&
+        probe.inspect(database, encoded, inspected, native, 0) && !native &&
+        probe.has_view() && probe.payload(actual) &&
+        actual.hash_value == legacy.hash_value,
+        "metadata open lost owning legacy payload");
     for (const auto& root : roots) {
         record_header header;
         budget = 0;
         const auto status = codec->stored_header(root.first, header);
+        const bool opened = probe.inspect(database, root.first, inspected,
+            native, 0);
         std::unique_ptr<record_view> view;
         const auto owning = codec->decode_stored(root.first, view);
         budget = -1;
         require(status == codec_status::ok && header.kind == root.second &&
             owning == codec_status::out_of_memory && !view,
             "native header inspection allocated an owning view");
+        require(opened && native && !probe.has_view() &&
+            inspected.kind == root.second,
+            "DAO metadata inspection allocated/retained a native view");
         for (size_t i = 0; i < root.first.size(); ++i) {
             bytes = root.first; bytes[i] ^= 0xff;
             const auto metadata_status = codec->stored_header(bytes, header);
@@ -206,11 +244,75 @@ static void metadata() {
                     (header.kind == view->header().kind &&
                         header.expires_at_ms == view->header().expires_at_ms)),
                 "metadata/full-view validation mismatch");
+            const bool old_ok = ordinary.owning(database, bytes, 0);
+            const bool new_ok = probe.inspect(database, bytes, inspected,
+                native, 0);
+            require(old_ok == new_ok && ordinary.status() == probe.status()
+                && (!old_ok || (ordinary.header().kind == inspected.kind &&
+                    ordinary.header().expires_at_ms ==
+                        inspected.expires_at_ms)),
+                "DAO metadata error/expiry semantics changed");
         }
     }
 }
+static void metadata_expiry_and_type() {
+    auto database = db::create_mdb(2);
+    require(database->open(""), "expiry/type metadata DB");
+    std::vector<std::string> roots;
+    std::string bytes;
+    list_root list;
+    list.elements = list.head = list.tail = list.last_id = 1;
+    require(list_page_codec::encode_root(list, bytes) == list_page_status::ok,
+        "live List metadata"); roots.push_back(bytes);
+    zset_root sorted;
+    sorted.elements = sorted.members = 1;
+    sorted.scores = sorted.last_id = 2;
+    require(zset_page_codec::encode_root(sorted, bytes) == map_page_status::ok,
+        "live ZSet metadata"); roots.push_back(bytes);
+    map_root map;
+    map.elements = map.tree = map.last_id = 1;
+    for (auto kind : {map_kind::hash, map_kind::set}) {
+        map.kind = kind;
+        require(map_page_codec::encode_root(map, bytes) == map_page_status::ok,
+            "live Hash/Set metadata"); roots.push_back(bytes);
+    }
+    list.expires_at_ms = sorted.expires_at_ms = map.expires_at_ms = 0;
+    require(list_page_codec::encode_root(list, bytes) == list_page_status::ok,
+        "expired List metadata"); roots.push_back(bytes);
+    require(zset_page_codec::encode_root(sorted, bytes) == map_page_status::ok,
+        "expired ZSet metadata"); roots.push_back(bytes);
+    for (auto kind : {map_kind::hash, map_kind::set}) {
+        map.kind = kind;
+        require(map_page_codec::encode_root(map, bytes) == map_page_status::ok,
+            "expired Hash/Set metadata"); roots.push_back(bytes);
+    }
+    dao::paged_hash hashes;
+    dao::paged_list lists;
+    dao::paged_set sets;
+    dao::paged_zset sorted_sets;
+    for (size_t i = 0; i < roots.size(); ++i) {
+        require(database->set("root", roots[i]), "wrong-type metadata seed");
+        long long count = -1;
+        bool ok;
+        dao::dao_base* status;
+        switch (i % 4) {
+        case 0: ok = hashes.hlen(database, "root", count); status = &hashes;
+            break;
+        case 1: ok = lists.length(database, "root", count); status = &lists;
+            break;
+        case 2: ok = sets.size(database, "root", count); status = &sets; break;
+        default: ok = sorted_sets.size(database, "root", count);
+            status = &sorted_sets;
+        }
+        require(i < 4 ? (!ok && status->status() ==
+            dao::dao_base::read_status::wrong_type) : (ok && count == 0),
+            "metadata changed expiry-before-wrong-type precedence");
+    }
+}
+
 int main() {
-    acl::acl_cpp_init(); metadata(); allocation_and_errors();
+    acl::acl_cpp_init(); metadata(); metadata_expiry_and_type();
+    allocation_and_errors();
     for (bool tbb : {false, true}) {
 #ifndef HAS_TBB
         if (tbb) continue;

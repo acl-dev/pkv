@@ -14,6 +14,7 @@
 #include <malloc.h>
 #endif
 #ifdef HAS_JEMALLOC
+#define JEMALLOC_NO_DEMANGLE
 #include <jemalloc/jemalloc.h>
 #endif
 #ifndef __has_feature
@@ -57,9 +58,9 @@ void heap(process_sample& out) {
     out.allocator = "asan"; out.heap_known = true;
 #elif defined(HAS_JEMALLOC)
     uint64_t epoch = 1; size_t length = sizeof(epoch);
-    if (mallctl("epoch", &epoch, &length, &epoch, sizeof(epoch))) return;
+    if (je_mallctl("epoch", &epoch, &length, &epoch, sizeof(epoch))) return;
     size_t allocated = 0; length = sizeof(allocated);
-    if (mallctl("stats.allocated", &allocated, &length, nullptr, 0)) return;
+    if (je_mallctl("stats.allocated", &allocated, &length, nullptr, 0)) return;
     out.heap = allocated; out.allocator = "jemalloc"; out.heap_known = true;
 #elif defined(__APPLE__)
     malloc_statistics_t statistics{};

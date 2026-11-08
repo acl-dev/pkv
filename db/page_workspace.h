@@ -59,6 +59,7 @@ private:
     shared_db source_;
     const size_t byte_limit_, record_limit_;
     size_t bytes_ = 56, records_ = 2;
+    size_t expanded_bytes_ = page_batch::group_storage_bytes, actions_ = 2;
     bool finished_ = false;
     int64_t root_count_delta_ = 0;
     std::map<std::string, owner_state> owners_;

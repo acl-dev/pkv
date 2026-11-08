@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "paged_zset.h"
+#include "coder/compact_zset.h"
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <type_traits>
@@ -9,11 +11,20 @@ namespace dao {
 
 struct paged_zset::algebra_source {
     std::unique_ptr<zset_store> sorted;
+    std::unique_ptr<compact_zset::view> compact;
     std::unique_ptr<map_store> set;
     std::unique_ptr<record_view> legacy;
     uint64_t size = 0;
     bool visit(const zset_store::visitor& callback) {
         if (sorted) return sorted->visit(callback);
+        if (compact) {
+            for (unsigned i = 0; i < compact->count(); ++i) {
+                const auto item = compact->at(i);
+                if (!callback(item.first.str(), compact->score(item.second)))
+                    break;
+            }
+            return true;
+        }
         if (set) return set->visit([&](const std::string& member,
             const std::string&) { return callback(member, 1); }, false);
         if (legacy) return legacy->set_visit([&](const std::string& member) {
@@ -24,6 +35,10 @@ struct paged_zset::algebra_source {
     bool get(const std::string& member, zset_score& out) {
         out = zset_score();
         if (sorted) return sorted->get(member, out);
+        if (compact) {
+            out.found = compact->find(member, out.score);
+            return true;
+        }
         out.score = 1;
         if (set) {
             uint64_t bytes;
@@ -40,7 +55,22 @@ bool paged_zset::sources(shared_db& db, page_transaction& tx,
         if (out.count(key)) continue;
         auto source = std::unique_ptr<algebra_source>(new algebra_source);
         auto& entry = *tx.roots().find(key);
-        if (entry.found && decode(db, entry.value, now)) {
+        if (entry.found && compact_zset::matches(entry.value)) {
+            try {
+                source->compact.reset(new compact_zset::view(entry.value));
+                source->compact->validate_fast();
+                const auto deadline = source->compact->deadline();
+                if (deadline >= 0 && deadline <= now) source->compact.reset();
+                else source->size = source->compact->count();
+            } catch (const std::runtime_error&) {
+                read_status_ = read_status::invalid_record;
+                return false;
+            }
+        } else if (entry.found && entry.value.compare(0, 3, "PZR") == 0) {
+            source->sorted.reset(new zset_store(tx, key));
+            if (!source->sorted->open_snapshot(now)) return finish(*source->sorted);
+            source->size = source->sorted->metadata().elements;
+        } else if (entry.found && decode(db, entry.value, now)) {
             const auto kind = view_->header().kind;
             if (kind == value_kind::zset) {
                 source->sorted.reset(new zset_store(tx, key));
@@ -120,11 +150,17 @@ bool paged_zset::algebra(shared_db& db,
         struct input { algebra_source* source; double weight; };
         static_assert(std::is_trivially_copyable<input>::value,
             "qsort requires trivially copyable input");
-        std::vector<input> inputs;
+        std::array<input, 4> local_inputs;
+        std::vector<input> overflow;
+        auto* inputs = local_inputs.data();
+        if (keys.size() > local_inputs.size()) {
+            overflow.resize(keys.size());
+            inputs = overflow.data();
+        }
         for (size_t i = 0; i < keys.size(); ++i)
-            inputs.push_back({snapshots.at(keys[i]).get(), options.weights[i]});
+            inputs[i] = {snapshots.at(keys[i]).get(), options.weights[i]};
         if (operation != zset_operation::difference)
-            std::qsort(inputs.data(), inputs.size(), sizeof(input),
+            std::qsort(inputs, keys.size(), sizeof(input),
                 [](const void* a, const void* b) {
                 const auto first = static_cast<const input*>(a)->source->size;
                 const auto second = static_cast<const input*>(b)->source->size;
@@ -141,7 +177,8 @@ bool paged_zset::algebra(shared_db& db,
         std::map<std::string, double> values;
         bool valid = true;
         if (operation == zset_operation::unite) {
-            for (const auto& input : inputs) {
+            for (size_t i = 0; i < keys.size(); ++i) {
+                const auto& input = inputs[i];
                 if (!input.source->visit([&](const std::string& member,
                     double score) {
                     double weighted = score * input.weight;
@@ -152,13 +189,15 @@ bool paged_zset::algebra(shared_db& db,
                     return true;
                 })) return source_error(snapshots);
             }
-        } else if (inputs.front().source->size) {
-            if (!inputs.front().source->visit([&](const std::string& member,
+        } else if (inputs[0].source->size) {
+            if (!inputs[0].source->visit([&](const std::string& member,
                 double score) {
                 double total = operation == zset_operation::difference ?
-                    score : score * inputs.front().weight;
+                    score : score * inputs[0].weight;
                 if (std::isnan(total)) total = 0;
-                for (size_t i = 1; i < inputs.size(); ++i) {
+                for (size_t i = 1; i < keys.size(); ++i) {
+                    if (cardinality_only && inputs[i].source == inputs[0].source)
+                        continue;
                     zset_score other;
                     if (!inputs[i].source->get(member, other)) {
                         valid = false; return false;
@@ -182,6 +221,12 @@ bool paged_zset::algebra(shared_db& db,
         if (cardinality_only) return true;
         cardinality = static_cast<long long>(values.size());
         if (!destination) { out = ordered_zset(values); return true; }
+        if (db->supports_compact_zsets() && !values.empty() && values.size() <= compact_zset::max_members) {
+            std::vector<compact_zset::entry> items(values.begin(), values.end());
+            bool compact;
+            if (!store_compact(tx, *destination, std::move(items), compact)) return false;
+            if (compact) return true;
+        }
         zset_store target(tx, *destination);
         target.initialize();
         for (const auto& value : values) {

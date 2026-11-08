@@ -26,19 +26,22 @@ void redis_handler::completed(size_t metric, uint64_t start,
 void redis_handler::errors(const redis_coder& result, size_t before) {
     for (size_t i = before; i < result.get_objects().size(); ++i) {
         const auto& reply = *result.get_objects()[i];
-        if (reply.get_type() != REDIS_OBJ_ERROR) continue;
-        const auto& text = reply.get_buf();
-        char code[33]{};
-        size_t count = 0;
-        bool valid = true;
-        for (char ch : text) {
-            if (ch == ' ') break;
-            if (count == 32) { valid = false; break; }
-            if ((ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9') &&
-                ch != '_') valid = false;
-            code[count++] = ch;
-        }
-        statistics_->error(valid && count ? code : "ERR");
+        if (reply.get_type() == REDIS_OBJ_ERROR) record_error(reply);
     }
+}
+
+void redis_handler::record_error(const redis_object& reply) {
+    const auto& text = reply.get_buf();
+    char code[33]{};
+    size_t count = 0;
+    bool valid = true;
+    for (char ch : text) {
+        if (ch == ' ') break;
+        if (count == 32) { valid = false; break; }
+        if ((ch < 'A' || ch > 'Z') && (ch < '0' || ch > '9') &&
+            ch != '_') valid = false;
+        code[count++] = ch;
+    }
+    statistics_->error(valid && count ? code : "ERR");
 }
 } // namespace pkv

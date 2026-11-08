@@ -8,6 +8,7 @@
 #include "redis_string.h"
 #include "redis_hash.h"
 #include "redis_list.h"
+#include "redis_stream.h"
 #include "redis_set.h"
 #include "redis_scan.h"
 #include "redis_zset.h"
@@ -92,6 +93,14 @@ redis_service::redis_service() {
     add("RPOP", list_handler, 2, 3);
     add("LLEN", list_handler, 2, 2);
     add("LRANGE", list_handler, 4, 4);
+    const auto stream_handler = [](redis_handler& handler, const char* command,
+        const redis_object& request, redis_coder& response) {
+        return redis_stream(handler, request).exec(command, response);
+    };
+    add("XADD", stream_handler, 5, 0);
+    add("XLEN", stream_handler, 2, 2);
+    add("XRANGE", stream_handler, 4, 0);
+    add("XREVRANGE", stream_handler, 4, 0);
     add("LINDEX", list_handler, 3, 3);
     add("LSET", list_handler, 4, 4);
     add("LTRIM", list_handler, 4, 4);
@@ -148,8 +157,14 @@ redis_service::redis_service() {
     add("ZRANGESTORE", zset_handler, 5, 0);
     add("ZRANK", zset_handler, 3, 4);
     add("ZREVRANK", zset_handler, 3, 4);
-    add("ZPOPMIN", zset_handler, 2, 0);
-    add("ZPOPMAX", zset_handler, 2, 0);
+    add("ZPOPMIN", [](redis_handler& handler, const char*,
+        const redis_object& obj, redis_coder& result) {
+        return redis_zset(handler, obj).pop(false, result);
+    }, 2, 0);
+    add("ZPOPMAX", [](redis_handler& handler, const char*,
+        const redis_object& obj, redis_coder& result) {
+        return redis_zset(handler, obj).pop(true, result);
+    }, 2, 0);
     add("ZMPOP", zset_handler, 4, 0);
     add("BZPOPMIN", zset_handler, 3, 0, redis_command_kind::blocking);
     add("BZPOPMAX", zset_handler, 3, 0, redis_command_kind::blocking);
@@ -211,6 +226,18 @@ redis_service::redis_service() {
 
 void redis_service::add(const char* name, redis_handler_t handler, size_t min,
     size_t max, redis_command_kind kind) {
+    using direct_handler = decltype(&redis_service::string_handler);
+    const auto* direct = handler.target<direct_handler>();
+    if (direct && *direct == string_handler) {
+        auto bound = redis_string::bind(name);
+        if (bound) handler = std::move(bound);
+    } else if (direct && *direct == hash_handler) {
+        auto bound = redis_hash::bind(name);
+        if (bound) handler = std::move(bound);
+    } else if (direct && *direct == list_handler) {
+        auto bound = redis_list::bind(name);
+        if (bound) handler = std::move(bound);
+    }
     const auto* entry = command_catalog(name);
     const auto writes = entry && std::strstr(entry->categories, "@write");
     commands_.emplace(name, redis_command_spec{

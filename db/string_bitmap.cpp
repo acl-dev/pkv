@@ -10,14 +10,30 @@ bool string_store::getbit(uint64_t offset, long long& bit) {
         return fail(status::invalid_argument);
     const auto byte = offset / 8;
     if (!exists_ || byte >= root_.length) return true;
-    std::string bytes;
     unsigned char value;
     if (!root_.pages) value = root_.inline_value[static_cast<size_t>(byte)];
     else {
-        if (!read_page(byte / string_page_codec::page_bytes, bytes))
-            return false;
-        value = bytes[static_cast<size_t>(
-            byte % string_page_codec::page_bytes)];
+        const auto index = byte / string_page_codec::page_bytes;
+        struct read_byte {
+            size_t page_size, offset;
+            unsigned char value = 0;
+            bool valid = false;
+            read_byte(size_t size, size_t pos) : page_size(size), offset(pos) {}
+        } selected(string_page_codec::page_size(root_, index),
+            static_cast<size_t>(byte % string_page_codec::page_bytes));
+        const auto inspect = [](void* raw, const std::string& bytes) {
+            auto& selected = *static_cast<read_byte*>(raw);
+            if (bytes.size() != selected.page_size) return;
+            selected.value = static_cast<unsigned char>(bytes[selected.offset]);
+            selected.valid = true;
+        };
+        std::string scratch;
+        const auto status = transaction_.inspect_bound(entry_, index + 1,
+            scratch, inspect, &selected);
+        if (status != db::lookup_status::found || !selected.valid)
+            return fail(status == db::lookup_status::error ?
+                string_store::status::storage : string_store::status::invalid);
+        value = selected.value;
     }
     bit = (value >> (7 - offset % 8)) & 1;
     return true;
@@ -50,36 +66,68 @@ bool string_store::setbit(uint64_t offset, bool bit, long long& previous) {
 bool string_store::scan_bits(uint64_t first, uint64_t last, int bit,
     long long& out) {
     out = bit < 0 ? 0 : -1;
+    const auto first_byte = first / 8;
     const auto last_byte = last / 8;
-    for (auto offset = first / 8; offset <= last_byte;) {
+    std::string scratch;
+    for (auto offset = first_byte; offset <= last_byte;) {
         const auto page_end = (offset / string_page_codec::page_bytes + 1) *
             string_page_codec::page_bytes - 1;
         const auto end = std::min(last_byte, page_end);
-        std::string bytes;
-        if (!range(static_cast<long long>(offset),
-            static_cast<long long>(end), bytes)) return false;
-        unsigned first_mask = offset == first / 8 ? 255U >> (first % 8) : 255;
-        unsigned last_mask = end == last_byte ? 255U << (7 - last % 8) : 255;
-        if (bit == 0) {
-            bytes.front() = static_cast<char>(
-                static_cast<unsigned char>(bytes.front()) | ~first_mask);
-            bytes.back() = static_cast<char>(
-                static_cast<unsigned char>(bytes.back()) | ~last_mask);
-        } else {
-            bytes.front() = static_cast<char>(
-                static_cast<unsigned char>(bytes.front()) & first_mask);
-            bytes.back() = static_cast<char>(
-                static_cast<unsigned char>(bytes.back()) & last_mask);
-        }
-        if (bit < 0) out += static_cast<long long>(
-            bitmap_popcount(bytes.data(), bytes.size()));
-        else {
-            const auto found = bitmap_position(bytes.data(), bytes.size(), bit);
-            if (found >= 0) {
-                out = static_cast<long long>(offset * 8) + found;
+        const auto size = static_cast<size_t>(end - offset + 1);
+        unsigned first_mask = offset == first_byte ? 255U >> (first % 8) : 255;
+        unsigned last_mask = end == last_byte ? (255U << (7 - last % 8)) & 255 : 255;
+        if (size == 1) { first_mask &= last_mask; last_mask = 255; }
+
+        auto scan = [&](const char* bytes) {
+            auto consume = [&](const char* data, size_t count, uint64_t base) {
+                if (bit < 0) {
+                    out += static_cast<long long>(bitmap_popcount(data, count));
+                    return false;
+                }
+                const auto found = bitmap_position(data, count, bit);
+                if (found < 0) return false;
+                out = static_cast<long long>(base * 8) + found;
                 return true;
+            };
+            auto masked = [&](char byte, unsigned mask, uint64_t position) {
+                const auto value = static_cast<unsigned char>(byte);
+                const auto adjusted = static_cast<char>(
+                    bit == 0 ? value | ~mask : value & mask);
+                return consume(&adjusted, 1, position);
+            };
+            size_t start = 0, stop = size;
+            if (first_mask != 255) {
+                if (masked(bytes[0], first_mask, offset)) return;
+                ++start;
             }
+            if (last_mask != 255) --stop;
+            if (start < stop && consume(bytes + start, stop - start, offset + start))
+                return;
+            if (last_mask != 255) masked(bytes[stop], last_mask, end);
+        };
+        if (!root_.pages) {
+            scan(root_.inline_value.data() + static_cast<size_t>(offset));
+        } else {
+            const auto index = offset / string_page_codec::page_bytes;
+            struct scan_page {
+                decltype(scan)& run;
+                size_t length, offset;
+                bool valid;
+            } chunk{scan, string_page_codec::page_size(root_, index),
+                static_cast<size_t>(offset % string_page_codec::page_bytes), false};
+            const auto inspect = [](void* raw, const std::string& bytes) {
+                auto& page = *static_cast<scan_page*>(raw);
+                if (bytes.size() != page.length) return;
+                page.run(bytes.data() + page.offset);
+                page.valid = true;
+            };
+            const auto result = transaction_.inspect_bound(entry_, index + 1,
+                scratch, inspect, &chunk);
+            if (result != db::lookup_status::found || !chunk.valid)
+                return fail(result == db::lookup_status::error ?
+                    status::storage : status::invalid);
         }
+        if (bit >= 0 && out >= 0) return true;
         offset = end + 1;
     }
     return true;

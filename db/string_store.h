@@ -34,6 +34,9 @@ public:
     bool write_field(uint64_t offset, const std::string& value);
     bool read(std::string& out);
     bool range(long long start, long long end, std::string& out);
+    // Inspect one complete chunk synchronously under the logical key lock.
+    bool inspect_chunk(uint64_t offset, size_t size, std::string& scratch,
+        db::page_inspector visit, void* context);
     bool getbit(uint64_t offset, long long& bit);
     bool setbit(uint64_t offset, bool bit, long long& previous);
     bool bitcount(const bitmap_range& range, long long& count);

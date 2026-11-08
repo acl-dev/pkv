@@ -208,19 +208,24 @@ static long allocation_count(unsigned kind) {
     shared_db database = std::make_shared<failing_db>();
     require(database->open(""), "allocation count DB");
     seed(database, kind);
+    auto token = watch(database, kind);
     dao::json_key keys;
     budget = LONG_MAX;
     const bool ok = keys.set_expiry(database, name(kind), deadline, 0);
     const auto used = LONG_MAX - budget;
     budget = -1;
-    require(ok && used > 0 && used < 3000, "allocation count range");
+    require(ok && used > 0 && used < 3000 &&
+        !token->valid(unix_time_ms()), "allocation count range");
     return used;
 }
 static void allocation_failures() {
     for (unsigned kind = 0; kind < 5; ++kind) {
         const auto count = allocation_count(kind);
         unsigned completed = 0, rejected = 0;
-        for (long fault = 0; fault <= count; ++fault) {
+        // Recycled buffers can change the allocation count between runs.
+        // Cover the measured range and continue until publication succeeds.
+        for (long fault = 0; fault < 3000 && (fault <= count || !completed);
+            ++fault) {
             auto source = std::make_shared<failing_db>();
             require(source->open(""), "fault DB open");
             shared_db database = source;

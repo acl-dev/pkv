@@ -62,7 +62,8 @@ bool slave_client::closed() {
 
 void slave_client::release(kv_message* message) {
     std::lock_guard<acl::fiber_mutex> guard(queue_lock_);
-    budget_.release_encoded(message->wire_bytes(), message->wire_records());
+    budget_.release_encoded(message->wire_bytes(), message->wire_records(),
+        message->expanded_bytes(), message->expanded_records());
     message->unrefer();
 }
 
@@ -83,7 +84,8 @@ void slave_client::run() {
             if (!conn_->gets(line, true, 64)) {
                 break;
             }
-            const unsigned version = line == "PKV-REPL 4" ? 4 :
+            const unsigned version = line == "PKV-REPL 5" ? 5 :
+                line == "PKV-REPL 4" ? 4 :
                 line == "PKV-REPL 3" ? 3 :
                 line == "PKV-REPL 2" ? 2 :
                 line == "PKV-REPL 1" ? 1 : 0;
@@ -225,6 +227,10 @@ void slave_client::push(kv_message* message) {
         message->unrefer();
         close_locked();
     } else if (message->get_oper() == message_oper_pages &&
+        requested_version_ >= 2 &&
+        requested_version_ < message->get_protocol()) {
+        message->unrefer(); close_locked();
+    } else if (message->get_oper() == message_oper_pages &&
         requested_version_ < 2) {
         const bool accepted = legacy_pages(*message);
         message->unrefer();
@@ -233,7 +239,8 @@ void slave_client::push(kv_message* message) {
             close_locked();
         }
     } else if (!budget_.reserve_encoded(message->wire_bytes(),
-        message->wire_records())) {
+        message->wire_records(), message->expanded_bytes(),
+        message->expanded_records())) {
         logger_error("Replica output queue limit exceeded: bytes=%zu, "
             "messages=%zu", budget_.bytes(), budget_.messages());
         message->unrefer();
@@ -241,7 +248,8 @@ void slave_client::push(kv_message* message) {
     } else {
         if (!box_.push(message)) {
             budget_.release_encoded(message->wire_bytes(),
-                message->wire_records());
+                message->wire_records(), message->expanded_bytes(),
+                message->expanded_records());
             message->unrefer(); close_locked();
         }
     }

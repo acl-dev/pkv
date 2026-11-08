@@ -298,6 +298,114 @@ static void test_corrupt_clone() {
             values({{"old", -1}}), "inconsistent clone changed destination");
 }
 
+static void test_batched_range() {
+    auto database = memory();
+    const std::string key = "batched";
+    values expected;
+    for (unsigned i=0;i<512;++i) {
+        auto member=std::to_string(i);
+        if (i%17==0) member.append(100, '\0');
+        expected.emplace(std::move(member),i%37==0 ? -0.0 : i%23);
+    }
+    seed(database,key,expected);
+    for (bool reverse : {false,true}) {
+        zset_query query;
+        query.start=2; query.end=166; query.reverse=reverse;
+        std::vector<zset_member> reference;
+        select_zset(expected,query,reference);
+        require(operation(database,key,[&](zset_store& store) {
+            std::vector<zset_member> actual;
+            if (!store.range(query,actual) || !same(reference,actual)) return false;
+            for (size_t i=0;i<actual.size();++i)
+                if (std::signbit(actual[i].score)!=std::signbit(reference[i].score))
+                    return false;
+            return true;
+        }),"batched range, fragments, ties and signed zero");
+    }
+    std::string member;
+    require(database->transact_page(key,[&](page_transaction& tx) {
+        zset_root root;
+        std::string bytes;
+        map_node node;
+        if (zset_page_codec::decode_root(tx.roots().find(key)->value,root)!=map_page_status::ok ||
+            tx.lookup(key,root.members,bytes)!=db::lookup_status::found ||
+            map_page_codec::decode_node(bytes,node)!=map_page_status::ok ||
+            node.key.head) return false;
+        member=node.key.inline_value;
+        return zset_page_codec::encode_value(-900,node.value.inline_value) &&
+            map_page_codec::encode_node(node,bytes)==map_page_status::ok &&
+            tx.put(key,root.members,std::move(bytes));
+    })==db::batch_status::ok,"batched range corrupt member fixture");
+    const auto ordered=ordered_zset(expected);
+    const auto it=std::find_if(ordered.begin(),ordered.end(),[&](const zset_member& item) {
+        return item.member==member;
+    });
+    require(it!=ordered.end(),"corrupt member belongs to set");
+    for (const long long width : {4, 8, 32}) {
+        zset_query query;
+        query.start = std::min<long long>(it - ordered.begin(),
+            static_cast<long long>(ordered.size()) - width);
+        query.end = query.start + width - 1;
+        require(!operation(database, key, [&](zset_store& store) {
+            std::vector<zset_member> out = {{"sentinel", 7}};
+            require(!store.range(query, out) && out.empty() &&
+                store.error() == zset_store::status::invalid,
+                "batch rejects inconsistent score");
+            return true;
+        }), "batch corruption abort");
+    }
+}
+
+static void test_score_range_order() {
+    auto database = memory();
+    const std::string key = "misordered";
+    values expected;
+    for (unsigned i = 0; i < 128; ++i)
+        expected.emplace(std::to_string(i), i);
+    seed(database, key, expected);
+    double score = 0;
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        zset_root root;
+        std::string bytes, left_bytes;
+        map_node node, left;
+        if (zset_page_codec::decode_root(tx.roots().find(key)->value, root) !=
+                map_page_status::ok ||
+            tx.lookup(key, root.scores, bytes) != db::lookup_status::found ||
+            map_page_codec::decode_node(bytes, node) != map_page_status::ok ||
+            !node.left || node.key.head ||
+            tx.lookup(key, node.left, left_bytes) != db::lookup_status::found ||
+            map_page_codec::decode_node(left_bytes, left) != map_page_status::ok ||
+            left.key.head ||
+            !zset_page_codec::decode_score_prefix(left.key.inline_value, score))
+            return false;
+        // Both keys still match the member index, but belong to opposite
+        // sides of the root's search bound.
+        std::swap(node.key, left.key);
+        return map_page_codec::encode_node(node, bytes) == map_page_status::ok &&
+            map_page_codec::encode_node(left, left_bytes) == map_page_status::ok &&
+            tx.put(key, node.id, std::move(bytes)) &&
+            tx.put(key, left.id, std::move(left_bytes));
+    }) == db::batch_status::ok, "swap score keys without changing tree counts");
+    for (bool reverse : {false, true}) {
+        zset_query query;
+        query.start = std::min<long long>(static_cast<long long>(score), 120);
+        query.end = query.start + 7;
+        query.reverse = reverse;
+        if (reverse) {
+            const auto first = 127 - query.end;
+            query.end = 127 - query.start;
+            query.start = first;
+        }
+        require(!operation(database, key, [&](zset_store& store) {
+            std::vector<zset_member> out;
+            require(!store.range(query, out) && out.empty() &&
+                store.error() == zset_store::status::invalid,
+                "range accepted a score key outside its ancestor bound");
+            return true;
+        }), "misordered range corruption abort");
+    }
+}
+
 static void test_extreme_ranges() {
     auto database = memory();
     const values expected = {{"", -INFINITY}, {"a", 0}, {"b", INFINITY}};
@@ -346,11 +454,13 @@ static void test_extreme_ranges() {
 int main() {
     acl::acl_cpp_init();
     test_ranges(); test_clone(); test_clone_faults(); test_locality();
-    test_corrupt_clone(); test_extreme_ranges();
+    test_corrupt_clone(); test_extreme_ranges(); test_batched_range();
+    test_score_range_order();
 #if defined(HAS_TBB)
     use_tbb = true;
     test_ranges(); test_clone(); test_clone_faults();
-    test_corrupt_clone(); test_extreme_ranges();
+    test_corrupt_clone(); test_extreme_ranges(); test_batched_range();
+    test_score_range_order();
 #endif
     std::cout << "Native ZSet range seeks and independent transfers passed\n";
 }

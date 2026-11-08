@@ -7,9 +7,62 @@ Old JSON ZSets migrate atomically on first ZSet DAO access. Generic TYPE, TTL,
 COPY/RENAME and ZSCAN understand the new roots, and PKV2 replicates root/page
 transactions. Engines without page transactions reject these commands explicitly.
 
+## Compact roots
+
+Plain `make` enables compact writes on MDB memory backends.
+Use `make PKV_COMPACT_ZSET=NO` to disable creation of new compact roots.
+Both builds can read data written in the compact format.
+
+Eligible ZADD and ZINCRBY writes store up to 128 members without child pages.
+Roots with at most 63 members and at most 2048 payload bytes retain PZR v3;
+larger compact roots use PZR v5, with at most 12288 payload bytes. The codec
+accepts members up to 256 bytes; the direct ZADD compact fast path requires
+members shorter than 256 bytes. The payload includes member bytes and encoded
+scores, so 128 members of 64 bytes each fit even with full double scores.
+Conditional ZADD, increments, member and range deletion,
+and pop commands can update this root without promotion. The root stores
+member order and score order separately and can store a millisecond deadline.
+ZRANGESTORE and sorted-set algebra STORE commands write compact results when
+they fit. An overwritten destination loses its previous deadline.
+ZSCAN reads a compact root directly and completes the scan with cursor zero.
+Larger writes and operations that need the tree interface promote the root
+atomically. Live replication represents compact writes and the root
+preconditions of MOVE as JSON v1 for older receivers. Raw v5 roots require a
+reader supporting v5; this build continues to read v3 with its original
+63-member/2048-byte limits. Older v3 readers with a 1024-byte payload limit
+cannot read larger v3 roots. Mixed-version replication must be validated
+separately from raw-root compatibility.
+
+Both compact versions start with the four-byte signature/version followed by
+flags: bit 6 selects two-byte offsets and bit 7 indicates an eight-byte deadline.
+V3 stores the count in the low six flag bits; v5 requires those bits to be zero
+and stores a nonzero count (at most 128) in the following byte. Offsets use one
+byte for payloads up to 256 bytes and two bytes otherwise. The deadline, if
+present, precedes the member-offset and score-rank tables. Deletion writes v3
+again when both legacy limits are met. The largest permitted v5 root including
+deadline and tables is 12686 bytes, below the 16 KiB physical-record limit.
+
+V5 validation may reuse one owned root per worker thread. Reuse requires a full
+byte comparison, including deadline and rank tables; no page address or hash
+establishes validity. The buffer grows to the root's actual size and retains at
+most twice the maximum root size. After four consecutive misses, 64 validations
+use the full validator without cache lookup or retention before probing again.
+The live-root single-member ZADD fast path does not retain roots it changes;
+unchanged writes may retain already validated bytes. Allocation failure disables this optional acceleration
+for that attempt. Expiration is checked against the current clock separately.
+
 ## Layout
 
-The PZR v1 root is 64 bytes, using big-endian unsigned fields:
+PZR v2 uses 13 bytes for persistent keys and 21 bytes for expiring keys.
+The first four bytes hold the signature and version. Byte 4 indicates
+whether a deadline follows the counters. The element count, member root ID,
+score root ID, and last allocated page ID follow as four big-endian 16-bit
+values. An expiring root appends an eight-byte big-endian Unix millisecond
+deadline.
+
+New roots use v2 while the last page ID fits in 16 bits. Larger roots use
+the 64-byte PZR v1 layout below. The decoder accepts both tree root versions.
+Replication peers must understand v2 before receiving v2 tree roots.
 
 | Offset | Bytes | Meaning |
 |---:|---:|---|
@@ -33,6 +86,9 @@ and member bytes, storing an eight-byte score. The score tree orders by lexical
 `encoded score || member bytes`, with an empty value. Equal scores therefore
 sort by binary member bytes. Members may contain empty/arbitrary binary strings;
 large members are independently fragmented in both indexes.
+When a score changes and its ordered key fits in a single fragment, the
+replacement can reuse the retired score-node and fragment IDs in the same
+transaction. Repeated updates can then retain the existing page ID bound.
 
 Sortable scores use an IEEE-754 double transform: invert all bits for negative
 numbers and flip the sign bit for nonnegative numbers, then write big-endian.
@@ -170,7 +226,7 @@ remain guarded. Expired native roots rebuilt by a new ZADD reset the old page
 family before allocating IDs, preventing unreachable old member fragments.
 
 Generic COPY/RENAME clone both indexes and preserve TTL; PERSIST/expiry modify
-only the 64-byte root. ZSCAN uses stable member buckets and emits decimal scores,
+only the root. ZSCAN uses stable member buckets and emits decimal scores,
 including signed zero. PKV2 transports bounded ZSet roots/pages atomically. V1
 peers disconnect on native page events rather than receiving incomplete values;
 legacy DB-0 peers continue skipping nonzero DB events. Initial sync/replay is

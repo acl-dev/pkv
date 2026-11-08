@@ -24,6 +24,7 @@ bool family_workspace::charge(size_t bytes, size_t records) const {
 void family_workspace::discard() {
     state_->owners.clear(); state_->batches.clear(); state_->databases.clear();
     state_->bytes = state_->records = state_->cache_bytes = 0;
+    state_->expanded_bytes = state_->actions = 0;
     state_->finished = true;
 }
 db::batch_status family_workspace::database(unsigned id, shared_db& out) {

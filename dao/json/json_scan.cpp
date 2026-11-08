@@ -2,6 +2,10 @@
 #include "json_scan.h"
 #include "dao/map_status.h"
 #include "db/zset_store.h"
+#include "coder/compact_zset.h"
+#include "coder/compact_set.h"
+#include "coder/compact_hash.h"
+#include "common/redis_double.h"
 
 namespace pkv {
 namespace dao {
@@ -13,6 +17,7 @@ std::string type_name(value_kind kind) {
     case value_kind::list: return "list";
     case value_kind::set: return "set";
     case value_kind::zset: return "zset";
+    case value_kind::stream: return "stream";
     }
     return "none";
 }
@@ -72,10 +77,76 @@ bool json_scan::collection_paged(const scan_options& options, scan_page& out) {
     if (!database_) {
         read_status_ = read_status::invalid_record; return false;
     }
-    const auto result = database_->transact_pages({key_},
+    const auto result = database_->transact_page(key_,
         [&](page_transaction& tx) {
         auto& root = *tx.roots().find(key_);
         if (!root.found) return true;
+        if (kind_ == value_kind::zset && compact_zset::matches(root.value)) {
+            try {
+                const compact_zset::view packed(root.value);
+                packed.validate_fast();
+                const auto deadline = packed.deadline();
+                if (deadline >= 0 && deadline <= unix_time_ms()) {
+                    root.action = db::update_action::erase;
+                    return true;
+                }
+                // Small sorted sets complete the scan in one reply.
+                out.values.reserve(packed.count() * 2);
+                for (unsigned i = 0; i < packed.count(); ++i) {
+                    const auto item = packed.ordered_at(i);
+                    auto member = item.first.str();
+                    if (!scan_accept(member, options)) continue;
+                    out.values.push_back(std::move(member));
+                    out.values.push_back(format_redis_double(packed.score(item.second)));
+                }
+                return true;
+            } catch (const std::runtime_error&) {
+                read_status_ = read_status::invalid_record;
+                return false;
+            }
+        }
+        if (kind_ == value_kind::set && compact_set::matches(root.value)) {
+            try {
+                const compact_set::view packed(root.value);
+                const auto deadline = packed.deadline();
+                if (deadline >= 0 && deadline <= unix_time_ms()) {
+                    root.action = db::update_action::erase;
+                    return true;
+                }
+                out.values.reserve(packed.count());
+                for (unsigned i = 0; i < packed.count(); ++i) {
+                    auto member = packed.at(i).str();
+                    if (scan_accept(member, options))
+                        out.values.push_back(std::move(member));
+                }
+                return true;
+            } catch (const std::runtime_error&) {
+                read_status_ = read_status::invalid_record;
+                return false;
+            }
+        }
+        if (kind_ == value_kind::hash && compact_hash::matches(root.value)) {
+            try {
+                const compact_hash::view packed(root.value);
+                const auto deadline = packed.deadline();
+                if (deadline >= 0 && deadline <= unix_time_ms()) {
+                    root.action = db::update_action::erase;
+                    return true;
+                }
+                out.values.reserve(packed.count() * (options.no_values ? 1 : 2));
+                for (unsigned i = 0; i < packed.count(); ++i) {
+                    const auto field = packed.at(i);
+                    auto name = field.first.str();
+                    if (!scan_accept(name, options)) continue;
+                    out.values.push_back(std::move(name));
+                    if (!options.no_values) out.values.push_back(field.second.str());
+                }
+                return true;
+            } catch (const std::runtime_error&) {
+                read_status_ = read_status::invalid_record;
+                return false;
+            }
+        }
         if (!decode(database_, root.value)) {
             if (read_status_ != read_status::missing) return false;
             root.action = db::update_action::erase;

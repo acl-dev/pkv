@@ -24,14 +24,21 @@ class PageReplica(Replica):
         operation, database, key, value = roots[0]
         if operation == 8:
             return 3, key, b''
-        assert operation in (7, 12) and value[:4] == b'PSR\1'
-        flags, expiry, length, count = struct.unpack('!IQQQ', value[4:32])
-        if flags == 1:
-            payload = value[32:]
-            assert not pages and count == 0
+        assert operation in (7, 12) and value[:3] == b'PSR'
+        if value[3] == 2:
+            expiring, length = struct.unpack_from('!BH', value, 4)
+            assert expiring in (0, 1) and not pages
+            expiry = struct.unpack_from('!Q', value, 7)[0] if expiring else 2**64 - 1
+            payload = value[15 if expiring else 7:]
         else:
-            assert len(pages) == count
-            payload = b''.join(item[3][8:] for item in pages)
+            assert value[3] == 1
+            flags, expiry, length, count = struct.unpack('!IQQQ', value[4:32])
+            if flags == 1:
+                payload = value[32:]
+                assert not pages and count == 0
+            else:
+                assert len(pages) == count
+                payload = b''.join(item[3][8:] for item in pages)
         assert len(payload) == length
         return 1, key, json.dumps({'D': payload.decode(), 'P': expiry}).encode()
 

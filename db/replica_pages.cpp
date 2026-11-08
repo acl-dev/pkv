@@ -2,6 +2,7 @@
 #include "db.h"
 #include "page_transaction.h"
 #include "db_watcher.h"
+#include "common/execution_gate.h"
 #include <map>
 
 namespace pkv {
@@ -129,12 +130,21 @@ db::batch_status db::replica_apply_pages(
         const page_update update(roots, pages);
         if (!valid_roots(roots) || !valid_pages(update))
             return batch_status::aborted;
+        auto stage = [&](page_transaction& tx) {
+            return stage_update(tx, update);
+        };
+        if (roots.size() == 1) {
+            execution_guard admission;
+            if (!dbsupports_pages()) return batch_status::unsupported;
+            // The batch owns the key for the lifetime of the apply.
+            return transact_page_keys(&roots.front().key, 1, std::ref(stage),
+                false, &update, 1);
+        }
         std::vector<std::string> keys;
         keys.reserve(roots.size());
         for (const auto& root : roots) keys.push_back(root.key);
-        return transact_pages_impl(std::move(keys), [&](page_transaction& tx) {
-            return stage_update(tx, update);
-        }, false, &update, 1);
+        return transact_pages_impl(std::move(keys), std::ref(stage), false,
+            &update, 1);
     } catch (const std::bad_alloc&) { return batch_status::error; }
 }
 

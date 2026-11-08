@@ -16,7 +16,7 @@
 
 namespace pkv {
 
-enum class value_kind { string, hash, list, set, zset };
+enum class value_kind { string, hash, list, set, zset, stream };
 struct record_header {
     value_kind kind = value_kind::string;
     long long expires_at_ms = -1;
@@ -62,6 +62,7 @@ public:
             if (!zset_values(record.zset_value) || record.zset_value.empty()) return false;
             for (const auto& member : record.zset_value) if (std::isnan(member.second)) return false;
             return true;
+        case value_kind::stream: return false;
         }
         return false;
     }
@@ -265,6 +266,10 @@ public:
     // legacy payload codec. Decoding metadata never reads/materializes pages.
     codec_status decode_stored(const std::string& bytes,
         std::unique_ptr<record_view>& out) const;
+    // Read storage metadata; retain a payload view only for legacy codecs.
+    // native classifies signatures, not validity; always check the status.
+    codec_status open_stored(const std::string& bytes, record_header& header,
+        std::unique_ptr<record_view>& legacy, bool& native) const;
     // Inspect storage metadata without allocating a native payload view.
     // Legacy codecs retain their existing owning-view decode path.
     codec_status stored_header(const std::string& bytes,

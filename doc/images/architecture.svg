@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800" role="img" aria-labelledby="title desc">
+<title id="title">PKV · 软件架构 / Software architecture</title><desc id="desc">RESP frontend → command semantics → native page transactions → pluggable engines</desc>
+<rect width="1200" height="800" rx="20" fill="#f8fafc"/>
+<g font-family="Arial, PingFang SC, Microsoft YaHei, sans-serif">
+<text x="40" y="48" font-size="27" font-weight="700" fill="#0f172a">PKV · 软件架构 / Software architecture</text>
+<text x="40" y="79" font-size="16" fill="#475569">RESP frontend → command semantics → native page transactions → pluggable engines</text>
+<path d="M405.0,188.0 L405.0,218.0" fill="none" stroke="#64748b" stroke-width="2"/>
+<polygon points="405.0,218.0 409.0,210.0 401.0,210.0" fill="#64748b"/>
+<path d="M405.0,318.0 L405.0,348.0" fill="none" stroke="#64748b" stroke-width="2"/>
+<polygon points="405.0,348.0 409.0,340.0 401.0,340.0" fill="#64748b"/>
+<path d="M405.0,448.0 L405.0,478.0" fill="none" stroke="#64748b" stroke-width="2"/>
+<polygon points="405.0,478.0 409.0,470.0 401.0,470.0" fill="#64748b"/>
+<path d="M405.0,578.0 L405.0,608.0" fill="none" stroke="#64748b" stroke-width="2"/>
+<polygon points="405.0,608.0 409.0,600.0 401.0,600.0" fill="#64748b"/>
+<path d="M770.0,510.0 L810.0,457.0" fill="none" stroke="#64748b" stroke-width="2"/>
+<polygon points="810.0,457.0 801.9879881513721,460.9758855790183 808.3735013540379,465.79514082631334" fill="#64748b"/>
+<rect x="40" y="110" width="730" height="78" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
+<text x="60" y="141" font-size="19" font-weight="700" fill="#0f172a">Redis 客户端 / Redis clients</text>
+<text x="60" y="169" font-size="16" fill="#334155">redis-cli · client libraries · pipelines · RESP2 / RESP3</text>
+<rect x="40" y="218" width="730" height="100" rx="12" fill="#dbeafe" stroke="#cbd5e1"/>
+<text x="60" y="249" font-size="19" font-weight="700" fill="#0f172a">接入与协议 / Runtime &amp; protocol</text>
+<text x="60" y="277" font-size="16" fill="#334155">ACL worker threads + fibers · streaming parser · connection registry</text>
+<text x="60" y="301" font-size="16" fill="#334155">main.cpp · master_service.cpp · coder/redis_*</text>
+<rect x="40" y="348" width="730" height="100" rx="12" fill="#e0e7ff" stroke="#cbd5e1"/>
+<text x="60" y="379" font-size="19" font-weight="700" fill="#0f172a">命令执行 / Command execution</text>
+<text x="60" y="407" font-size="16" fill="#334155">AUTH / ACL · command registry · routing · MULTI / EXEC / WATCH</text>
+<text x="60" y="431" font-size="16" fill="#334155">action/ · common/execution_gate.*</text>
+<rect x="40" y="478" width="730" height="100" rx="12" fill="#dcfce7" stroke="#cbd5e1"/>
+<text x="60" y="509" font-size="19" font-weight="700" fill="#0f172a">数据访问 / Data access</text>
+<text x="60" y="537" font-size="16" fill="#334155">database_pool → typed DAOs → roots + owned pages → atomic commit</text>
+<text x="60" y="561" font-size="16" fill="#334155">dao/paged_* · db/*_store · db/page_transaction.*</text>
+<rect x="40" y="608" width="730" height="92" rx="12" fill="#fef3c7" stroke="#cbd5e1"/>
+<text x="60" y="639" font-size="19" font-weight="700" fill="#0f172a">存储后端 / Storage engines</text>
+<text x="60" y="667" font-size="16" fill="#334155">MDB · oneTBB (optional) · RocksDB (optional) · WiredTiger (optional)</text>
+<rect x="810" y="218" width="350" height="125" rx="12" fill="#f1f5f9" stroke="#cbd5e1"/>
+<text x="830" y="249" font-size="19" font-weight="700" fill="#0f172a">后台服务 / Background</text>
+<text x="830" y="277" font-size="16" fill="#334155">Indexed active expiry</text>
+<text x="830" y="301" font-size="16" fill="#334155">Blocking wait queues · local Pub/Sub</text>
+<text x="830" y="325" font-size="16" fill="#334155">WATCH · statistics · client control</text>
+<rect x="810" y="390" width="350" height="135" rx="12" fill="#fce7f3" stroke="#cbd5e1"/>
+<text x="830" y="421" font-size="19" font-weight="700" fill="#0f172a">提交观察 / Commit observers</text>
+<text x="830" y="449" font-size="16" fill="#334155">Bounded publication queues</text>
+<text x="830" y="473" font-size="16" fill="#334155">rpc/ → PKV1 / 2 / 3 / 4</text>
+<text x="830" y="497" font-size="16" fill="#334155">slave/ → validated replica apply</text>
+<rect x="810" y="570" width="350" height="130" rx="12" fill="#fff7ed" stroke="#cbd5e1"/>
+<text x="830" y="601" font-size="19" font-weight="700" fill="#0f172a">MOVE 恢复 / MOVE recovery</text>
+<text x="830" y="629" font-size="16" fill="#334155">Memory: page-family ownership</text>
+<text x="830" y="653" font-size="16" fill="#334155">Disk: decision journal + WAL fence</text>
+<text x="830" y="677" font-size="16" fill="#334155">Recovery before client handling</text>
+<text x="40" y="757" font-size="15" fill="#475569">图为原生存储主路径；后端能力有差异。 / Native path shown; backend capabilities differ.</text>
+<text x="40" y="780" font-size="15" fill="#475569">PKV replication is a private live stream; initial sync and reconnect replay remain pending.</text>
+</g></svg>

@@ -23,10 +23,8 @@ double tau(double x) {
     } while (result != previous);
     return result / 3;
 }
-} // namespace
-uint64_t count(const registers& values) {
-    std::array<size_t, 64> histogram{};
-    for (auto value : values) ++histogram[value];
+using register_histogram = std::array<size_t, 64>;
+uint64_t estimate_count(const register_histogram& histogram) {
     const double size = registers_size;
     double harmonic = size * tau((size - histogram[51]) / size);
     for (size_t i = 50; i > 0; --i)
@@ -36,6 +34,35 @@ uint64_t count(const registers& values) {
     if (!std::isfinite(estimate) || estimate >= std::ldexp(1.0, 63))
         return uint64_t(1) << 63;
     return static_cast<uint64_t>(std::llround(estimate));
+}
+} // namespace
+
+uint64_t count(const registers& values) {
+    register_histogram histogram{};
+    for (auto value : values) ++histogram[value];
+    return estimate_count(histogram);
+}
+
+bool count_encoded(const std::string& value, uint64_t& result) {
+    if (!header(value, value.size())) return false;
+    register_histogram histogram{};
+    if (!value[4]) {
+        for (size_t i = 0; i < registers_size; ++i)
+            ++histogram[get(value, i)];
+    } else {
+        size_t remaining = registers_size;
+        for (size_t offset = header_size; offset < value.size();) {
+            run part;
+            if (!decode_run(value, offset, part) || part.length > remaining)
+                return false;
+            histogram[part.value] += part.length;
+            remaining -= part.length;
+            offset += part.bytes;
+        }
+        if (remaining) return false;
+    }
+    result = estimate_count(histogram);
+    return true;
 }
 } // namespace hll
 } // namespace pkv

@@ -7,7 +7,7 @@ namespace pkv {
 kv_message::kv_message(std::shared_ptr<const page_batch> pages)
 : oper_(message_oper_pages)
 , database_(pages ? pages->database() : 0)
-, protocol_(2)
+, protocol_(pages ? pages->required_protocol() : 2)
 , pages_(std::move(pages))
 , refers_(1)
 {}
@@ -26,6 +26,15 @@ size_t kv_message::wire_bytes() const {
 size_t kv_message::wire_records() const {
     if (exec_) return exec_->records();
     return pages_ ? pages_->size().records : 1;
+}
+
+size_t kv_message::expanded_bytes() const {
+    if (exec_) return exec_->expanded_bytes();
+    return pages_ ? pages_->size().expanded_bytes : wire_bytes();
+}
+size_t kv_message::expanded_records() const {
+    if (exec_) return exec_->actions();
+    return pages_ ? pages_->size().actions : wire_records();
 }
 
 } // namespace pkv

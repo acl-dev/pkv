@@ -17,25 +17,30 @@ bool paged_hash::hincrbyfloat(shared_db& db, const std::string& key,
         read_status_ = read_status::nonfinite_increment; return false;
     }
     std::string result;
-    const bool ok = run(db, key, [&](map_store& store) {
-        std::string bytes;
-        bool found, exceeded, added;
-        if (!store.get_bounded(name, redis_decimal_limit - 1, bytes, found,
-            exceeded)) return false;
+    auto increment_error = read_status::ok;
+    const auto transform = [&](const std::string* bytes, bool exceeded,
+        std::string& out) {
         long double old = 0;
-        if (found && (exceeded || !parse_redis_decimal(bytes, old))) {
-            read_status_ = read_status::invalid_hash_float; return false;
+        if (bytes && (exceeded || !parse_redis_decimal(*bytes, old))) {
+            increment_error = read_status::invalid_hash_float;
+            return false;
         }
         const auto sum = old + increment;
         if (!std::isfinite(sum)) {
-            read_status_ = read_status::nonfinite_result; return false;
+            increment_error = read_status::nonfinite_result;
+            return false;
         }
-        if (!format_redis_decimal(sum, result)) {
-            read_status_ = read_status::storage_error; return false;
+        if (!format_redis_decimal(sum, out)) {
+            increment_error = read_status::storage_error;
+            return false;
         }
-        return store.put(name, result, false, added);
-    });
+        result = out;
+        return true;
+    };
+    const bool ok = transform_field(db, key, name, redis_decimal_limit - 1,
+        std::cref(transform));
     if (ok) value.swap(result);
+    else if (increment_error != read_status::ok) read_status_ = increment_error;
     return ok;
 }
 

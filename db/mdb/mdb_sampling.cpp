@@ -15,8 +15,8 @@ db::scan_status mdb::dbkey_at_rank(uint64_t rank, std::string& out,
 }
 db::scan_status mdb::dbvisit_keys(const key_visitor& visit) {
     for (const auto& store : stores_)
-        for (const auto* node : store->keys)
-            if (!visit(node->first)) return scan_status::ok;
+        for (size_t i = 0; i < store->keys.size(); ++i)
+            if (!visit(store->keys[i]->first)) return scan_status::ok;
     return scan_status::ok;
 }
 } // namespace pkv

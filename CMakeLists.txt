@@ -10,7 +10,9 @@ option(HAS_ROCKSDB "Enable the RocksDB backend" OFF)
 option(HAS_WT "Enable the WiredTiger backend" OFF)
 option(HAS_TBB "Enable the oneTBB backend" OFF)
 option(HAS_JEMALLOC "Link jemalloc" OFF)
+option(PKV_COMPACT_ZSET "Enable compact sorted-set writes on memory backends" ON)
 option(PKV_TEST_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
+set(PKV_PGO_PROFILE "" CACHE FILEPATH "Optional Clang instrumentation profile")
 set(PKV_YYJSON_SOURCE_DIR "" CACHE PATH "Optional yyjson checkout containing src/yyjson.c and src/yyjson.h")
 
 if(BUILD_WITH_C11)
@@ -88,6 +90,27 @@ list(REMOVE_ITEM src_files "${CMAKE_CURRENT_SOURCE_DIR}/./main.cpp" "${CMAKE_CUR
 add_library(pkv_fpconv STATIC third_party/fpconv/fpconv_dtoa.c)
 add_library(pkv_core STATIC ${src_files})
 add_executable(pkv main.cpp)
+if(PKV_PGO_PROFILE)
+    if(NOT CMAKE_C_COMPILER_ID MATCHES "Clang" OR
+       NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "PKV_PGO_PROFILE requires Clang for C and C++")
+    endif()
+    get_filename_component(PKV_PGO_PROFILE_PATH "${PKV_PGO_PROFILE}" ABSOLUTE
+        BASE_DIR "${CMAKE_SOURCE_DIR}")
+    if(NOT EXISTS "${PKV_PGO_PROFILE_PATH}" OR IS_DIRECTORY "${PKV_PGO_PROFILE_PATH}")
+        message(FATAL_ERROR "PGO profile is not a file: ${PKV_PGO_PROFILE_PATH}")
+    endif()
+    foreach(target pkv pkv_core pkv_fpconv pkv_yyjson pkv_xxhash)
+        if(TARGET ${target})
+            target_compile_options(${target} PRIVATE
+                "-fprofile-instr-use=${PKV_PGO_PROFILE_PATH}"
+                -Wno-error=profile-instr-unprofiled)
+            get_target_property(pgo_sources ${target} SOURCES)
+            set_property(SOURCE ${pgo_sources} APPEND PROPERTY OBJECT_DEPENDS
+                "${PKV_PGO_PROFILE_PATH}")
+        endif()
+    endforeach()
+endif()
 target_link_libraries(pkv PRIVATE pkv_core)
 target_include_directories(pkv_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${PKV_INCLUDE_DIRS})
 # Keep the ACL/fiber static archives in dependency order.
@@ -103,6 +126,9 @@ foreach(feature HAS_ROCKSDB HAS_WT HAS_TBB HAS_JEMALLOC)
 endforeach()
 if(TARGET pkv_xxhash)
     target_compile_definitions(pkv_core PRIVATE PKV_XXHASH_NAMESPACED)
+endif()
+if(PKV_COMPACT_ZSET)
+    target_compile_definitions(pkv_core PRIVATE PKV_COMPACT_ZSET)
 endif()
 target_compile_definitions(pkv_core PUBLIC _REENTRANT _POSIX_PTHREAD_SEMANTICS)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
@@ -124,6 +150,37 @@ if(PKV_TEST_SANITIZERS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
         target_compile_options(pkv_yyjson PRIVATE -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer)
     endif()
 endif()
+# Build this loopback benchmark explicitly; the normal service does not link it.
+if(APPLE AND NOT BUILD_WITH_C11)
+    set(pkv_packed_probe_sources
+        doc/benchmarks/zset-score-layout-prototype/resp_probe.cpp
+        doc/benchmarks/zset-score-layout-prototype/resp_alloc_probe.cpp
+        doc/benchmarks/zset-score-layout-prototype/resp_page_adoption.cpp
+        db/db.cpp)
+    add_executable(pkv_packed_resp_probe EXCLUDE_FROM_ALL ${pkv_packed_probe_sources})
+    target_compile_definitions(pkv_packed_resp_probe PRIVATE PKV_PACKED_RESP_ADOPTION)
+    target_link_libraries(pkv_packed_resp_probe PRIVATE pkv_core)
+    option(PKV_PACKED_RESP_JEMALLOC "Build an additional jemalloc benchmark probe" OFF)
+    if(PKV_PACKED_RESP_JEMALLOC)
+        if(HAS_JEMALLOC)
+            message(FATAL_ERROR "Build the probe comparison with HAS_JEMALLOC=NO")
+        endif()
+        find_path(PKV_PROBE_JEMALLOC_INCLUDE_DIR jemalloc/jemalloc.h)
+        find_library(PKV_PROBE_JEMALLOC_LIBRARY jemalloc)
+        if(NOT PKV_PROBE_JEMALLOC_INCLUDE_DIR OR NOT PKV_PROBE_JEMALLOC_LIBRARY)
+            message(FATAL_ERROR "Set CMAKE_PREFIX_PATH to the jemalloc installation for the probe")
+        endif()
+        add_executable(pkv_packed_resp_jemalloc_probe EXCLUDE_FROM_ALL
+            ${pkv_packed_probe_sources})
+        target_compile_definitions(pkv_packed_resp_jemalloc_probe PRIVATE
+            PKV_PACKED_RESP_ADOPTION PKV_PROBE_JEMALLOC)
+        target_include_directories(pkv_packed_resp_jemalloc_probe PRIVATE
+            ${PKV_PROBE_JEMALLOC_INCLUDE_DIR})
+        target_link_libraries(pkv_packed_resp_jemalloc_probe PRIVATE
+            ${PKV_PROBE_JEMALLOC_LIBRARY} pkv_core)
+    endif()
+endif()
+
 # Respect build type and CMAKE_RUNTIME_OUTPUT_DIRECTORY; keep artifacts out of
 # the source checkout by default.
 include(CTest)

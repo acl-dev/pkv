@@ -6,7 +6,10 @@ db::batch_status page_workspace::stage(
     std::shared_ptr<const page_batch> batch) {
     if (!batch || bytes_ > byte_limit_ || records_ > record_limit_ ||
         batch->size().bytes > byte_limit_ - bytes_ ||
-        batch->size().records > record_limit_ - records_)
+        batch->size().records > record_limit_ - records_ ||
+        batch->size().expanded_bytes >
+            page_batch::max_expanded_bytes - expanded_bytes_ ||
+        batch->size().actions > page_batch::max_expanded_records - actions_)
         return batch_status::error;
     // Prepare all allocating operations first. Existing pointers/generations
     // stay untouched until every index node and history slot is available.
@@ -47,6 +50,8 @@ db::batch_status page_workspace::stage(
     }
     publish_indexes(*batch, positions);
     bytes_ += batch->size().bytes; records_ += batch->size().records;
+    expanded_bytes_ += batch->size().expanded_bytes;
+    actions_ += batch->size().actions;
     batches_.push_back({std::move(batch),
         key_wait_registry::waiting_types()});
     return batch_status::ok;

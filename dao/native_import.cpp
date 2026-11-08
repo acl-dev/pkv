@@ -224,6 +224,7 @@ bool import_native(record_view& view, page_transaction& transaction,
         zset_store store(transaction, key);
         return finish_import(view, store, import_zset, error);
     }
+    case value_kind::stream: break;
     }
     error = dao_base::read_status::invalid_record;
     return false;

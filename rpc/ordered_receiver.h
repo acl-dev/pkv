@@ -14,6 +14,8 @@ private:
     page_receiver pages_;
     size_t expected_entries_ = 0, expected_bytes_ = 0, expected_records_ = 0;
     size_t bytes_ = 0, records_ = 0;
+    size_t expanded_bytes_ = page_batch::group_storage_bytes, actions_ = 2;
+    unsigned protocol_ = 0;
     bool active_ = false, failed_ = false;
     bool begin(const page_frame& frame);
     bool nested_begin(const page_frame& frame) const;

@@ -20,13 +20,15 @@ db::batch_status mdb_tbb::dbvisit_pages(const std::string& owner,
     const page_visitor& visit) {
     const auto found = find(owner);
     if (!found) return batch_status::ok;
-    for (const auto& page : found->pages) {
-        if (!page.first || page.second.size() >
-            page_transaction::max_value_bytes)
-            return batch_status::error;
-        if (!visit(page.first, page.second)) return batch_status::aborted;
-    }
-    return batch_status::ok;
+    auto result = batch_status::ok;
+    found->pages.visit([&](uint64_t id, const std::string& bytes) {
+        if (!id || bytes.size() > page_transaction::max_value_bytes)
+            result = batch_status::error;
+        else if (!visit(id, bytes))
+            result = batch_status::aborted;
+        return result == batch_status::ok;
+    });
+    return result;
 }
 } // namespace pkv
 #endif

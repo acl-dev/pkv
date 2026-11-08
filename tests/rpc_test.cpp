@@ -2,6 +2,7 @@
 #include "rpc/rpc_sender.h"
 #include "rpc/rpc_reader.h"
 #include "rpc/rpc_message.h"
+#include "rpc/page_wire.h"
 #include "slave/slave_client.h"
 #include "slave/slave_watcher.h"
 #include "db/db_watcher.h"
@@ -175,7 +176,7 @@ static void test_rejected_frames() {
 
 static void test_versioned_frames(const std::string& binary) {
     using namespace pkv;
-    {
+    for (unsigned version : {1U, 2U, 3U, 4U}) {
         streams pair;
         kv_message ready("", "", message_oper_ready);
         kv_message zero("same", "zero", message_oper_set);
@@ -186,7 +187,7 @@ static void test_versioned_frames(const std::string& binary) {
             &deleted};
         require(!rpc_sender::send(pair.writer, &one),
             "legacy sender accepted a nonzero DB");
-        require(rpc_sender::send_versioned(pair.writer, frames),
+        require(rpc_sender::send_versioned(pair.writer, frames, version),
             "versioned send failed");
         auto primary = db::create_mdb(2);
         require(primary->open(""), "replica DB 0 open failed");
@@ -217,11 +218,12 @@ static void test_versioned_frames(const std::string& binary) {
             binary,
                 "versioned apply crossed database boundaries");
         require(receiver.apply(std::make_shared<kv_message>("same", "",
-            message_oper_del, 1)), "replayed delete failed");
+            message_oper_del, 1, version)), "replayed delete failed");
         require(!receiver.apply(std::make_shared<kv_message>("same", "invalid",
-            message_oper_set, 16)), "out-of-range replica DB accepted");
+            message_oper_set, 16, version)),
+            "out-of-range replica DB accepted");
         require(!receiver.apply(std::make_shared<kv_message>("", "",
-            message_oper_ready)), "duplicate READY accepted");
+            message_oper_ready, 0, version)), "duplicate READY accepted");
     }
     {
         streams pair;
@@ -245,7 +247,8 @@ static void test_versioned_frames(const std::string& binary) {
             rpc_message_hdr{htonl(rpc_version_one), htonl(4), htonl(1), 0, 0},
             rpc_message_hdr{htonl(rpc_version_one), htonl(4), 0, htonl(1), 0},
             rpc_message_hdr{htonl(rpc_version_one), htonl(5), 0, 0, 0},
-            rpc_message_hdr{htonl(rpc_version_one + 3), htonl(1), 0, 0, 0},
+            rpc_message_hdr{htonl(page_wire::compact_magic + 1), htonl(1),
+                0, 0, 0},
             rpc_message_hdr{htonl(rpc_version_one), htonl(1), 0,
                 htonl(MESSAGE_KEY_MAX + 1), 0},
             rpc_message_hdr{htonl(rpc_version_one), htonl(1), 0, 0,

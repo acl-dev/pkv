@@ -6,13 +6,18 @@ namespace pkv {
 bool page_sequence::append(std::shared_ptr<const page_batch> batch) {
     if (!batch || (!batches_.empty() && database_ != batch->database()) ||
         batch->size().bytes > page_batch::max_bytes - bytes_ ||
-        batch->size().records > page_batch::max_records - records_)
+        batch->size().records > page_batch::max_records - records_ ||
+        batch->size().expanded_bytes >
+            page_batch::max_expanded_bytes - expanded_bytes_ ||
+        batch->size().actions > page_batch::max_expanded_records - actions_)
         return false;
     try { batches_.push_back(batch); }
     catch (const std::bad_alloc&) { return false; }
     database_ = batch->database();
     bytes_ += batch->size().bytes;
     records_ += batch->size().records;
+    expanded_bytes_ += batch->size().expanded_bytes;
+    actions_ += batch->size().actions;
     return true;
 }
 
@@ -27,7 +32,7 @@ db::batch_status page_sequence::apply(db& destination) const {
 }
 void page_sequence::clear() {
     std::vector<std::shared_ptr<const page_batch>>().swap(batches_);
-    bytes_ = records_ = 0; database_ = 0;
+    bytes_ = records_ = expanded_bytes_ = actions_ = 0; database_ = 0;
 }
 
 } // namespace pkv

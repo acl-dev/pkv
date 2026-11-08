@@ -59,23 +59,24 @@ static void handshake(streams& pair, unsigned version) {
         packet.message->get_protocol() == version, "negotiated READY");
 }
 
-static bool write_pages(shared_db source) {
-    return source->transact_pages({"list"}, [](page_transaction& view) {
+static bool write_pages(shared_db source, size_t size = 1000, char fill = 'x') {
+    return source->transact_pages({"list"}, [&](page_transaction& view) {
         auto& root = *view.roots().find("list");
         root.value = "root0";
         root.action = db::update_action::write;
-        return view.put("list", 1, std::string(1000, 'x'));
+        return view.put("list", 1, std::string(size, fill));
     }) == db::batch_status::ok;
 }
 
-static void verify_page(shared_db destination) {
+static void verify_page(shared_db destination, size_t size = 1000,
+    char fill = 'x') {
     std::string root;
     require(destination->get("list", root) && root == "root0",
         "live root missing");
-    require(destination->transact_pages({"list"}, [](page_transaction& view) {
+    require(destination->transact_pages({"list"}, [&](page_transaction& view) {
         std::string value;
         require(view.lookup("list", 1, value) == db::lookup_status::found &&
-            value == std::string(1000, 'x'), "live physical page missing");
+            value == std::string(size, fill), "live physical page missing");
         return true;
     }) == db::batch_status::ok, "live page read");
 }
@@ -89,7 +90,10 @@ static void run_path(unsigned limit) {
     const bool fail = limit >= 1 && limit <= 4;
     const bool db_seven = limit == 5;
     const bool marker = limit == 6;
-    const size_t capacity = marker ? group_bytes + 128 : group_bytes;
+    const bool replace = limit == 7;
+    const size_t page_bytes = replace ? 1500 : 1000;
+    const size_t expected_bytes = group_bytes + page_bytes - 1000;
+    const size_t capacity = marker ? expected_bytes + 128 : expected_bytes;
     const size_t records = marker ? group_records + 4 : group_records;
     const size_t byte_limit = limit == 1 || limit == 2 ? group_bytes - 1 :
         capacity;
@@ -100,6 +104,12 @@ static void run_path(unsigned limit) {
     db_watchers observers(db_seven ? 7 : 0);
     observers.add_watcher(&publisher);
     auto source = memory(&observers);
+    if (replace) {
+        require(write_pages(source, 2100, 'a') && write_pages(source, 1800, 'b'),
+            "unobserved page replacement failed");
+        verify_page(source, 1800, 'b');
+        require(!publisher.pending_messages(), "queued pages without subscribers");
+    }
     auto destination = memory();
     auto pool = std::make_shared<database_pool>(destination, 16,
         [](size_t) { return memory(); });
@@ -124,13 +134,13 @@ static void run_path(unsigned limit) {
         wait_drained(*one);
         require(receiver.apply(std::make_shared<kv_message>("", "",
             message_oper_ready, 0, 2)), "receiver READY");
-        require(write_pages(source), "observed native page commit rejected");
-        verify_page(source);
+        require(write_pages(source, page_bytes), "observed native page commit rejected");
+        verify_page(source, page_bytes);
         if (publish_limit) {
             require(client->closed() && old->closed() && one->closed(),
                 "publisher overflow retained subscribers");
         } else {
-            require(publisher.pending_bytes() == group_bytes &&
+            require(publisher.pending_bytes() == expected_bytes &&
                 publisher.pending_messages() == group_records,
                 "publisher did not charge all transaction frames");
         }
@@ -151,7 +161,7 @@ static void run_path(unsigned limit) {
                         "live prefix changed destination");
                 }
             }
-            verify_page(selected);
+            verify_page(selected, page_bytes);
             if (db_seven) {
                 std::string root;
                 require(!destination->get("list", root), "DB seven leaked");
@@ -257,7 +267,7 @@ static void test_shutdown_reader() {
 int main() {
     acl::acl_cpp_init();
     acl::fiber::acl_io_hook();
-    for (unsigned limit = 0; limit <= 6; ++limit) {
+    for (unsigned limit = 0; limit <= 7; ++limit) {
         run_path(limit);
     }
     test_inflight_group();

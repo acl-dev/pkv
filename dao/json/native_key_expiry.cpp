@@ -32,24 +32,27 @@ bool json_key::update_expiry(shared_db& db, const std::string& key,
     const bool ok = db->update_root(key,
         [&](bool found, std::string& bytes, bool& preserve_pages) {
         if (!found) return db::update_action::keep;
-        if (!decode(db, bytes)) {
+        record_header header;
+        bool native_root;
+        if (!decode_metadata(db, bytes, header, native_root)) {
             valid = read_status_ == read_status::missing;
             return valid ? db::update_action::erase : db::update_action::keep;
         }
-        if (!expiry_matches(view_->header().expires_at_ms, deadline,
+        if (!expiry_matches(header.expires_at_ms, deadline,
             conditions, persist)) return db::update_action::keep;
         if (!persist && deadline <= unix_time_ms()) {
             changed = true; return db::update_action::erase;
         }
-        if (native && !view_->paged_payload()) {
+        const bool paged = native_root || view_->paged_payload();
+        if (native && !paged) {
             migrate = true; return db::update_action::keep;
         }
-        if (!encode_expiry(db, bytes, deadline, preserve_pages)) {
+        if (!encode_expiry(db, bytes, deadline, paged, preserve_pages)) {
             valid = false; return db::update_action::keep;
         }
         changed = true;
         return db::update_action::write;
-    });
+    }, &deadline);
     if (!ok) read_status_ = read_status::storage_error;
     if (!ok || !valid) return false;
     if (!migrate) return changed;
@@ -72,22 +75,25 @@ bool json_key::migrate_expiry(shared_db& db, const std::string& key,
         if (!root.found) return true;
         // Recheck under the new lock: another actor may replace the key
         // between the metadata probe and this transaction.
-        if (!decode(db, root.value)) {
+        record_header header;
+        bool native_root;
+        if (!decode_metadata(db, root.value, header, native_root)) {
             if (read_status_ != read_status::missing) return false;
             root.action = db::update_action::erase; return true;
         }
-        if (!expiry_matches(view_->header().expires_at_ms, deadline,
+        if (!expiry_matches(header.expires_at_ms, deadline,
             conditions, persist)) return true;
         if (!persist && deadline <= unix_time_ms()) {
             root.action = db::update_action::erase;
             changed = true; return true;
         }
-        if (!view_->paged_payload()) {
+        if (!native_root && !view_->paged_payload()) {
             if (!import_native(*view_, tx, key, read_status_) ||
-                !decode(db, root.value)) return false;
+                !decode_metadata(db, root.value, header, native_root)) return false;
         }
         bool preserve = false;
-        if (!encode_expiry(db, root.value, deadline, preserve)) return false;
+        const bool paged = native_root || view_->paged_payload();
+        if (!encode_expiry(db, root.value, deadline, paged, preserve)) return false;
         root.action = db::update_action::write;
         root.maintenance_only = false;
         changed = true;

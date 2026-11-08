@@ -91,9 +91,12 @@ static void fallbacks(shared_db database) {
         out.empty() && data.get(database, "legacy", out) && out == "old" &&
         database->read_inline_string("legacy", out) == status::found,
         "legacy import fallback");
-    for (auto bytes : {std::string("garbage"), std::string("PSR\2", 4),
-        encoded("broken").substr(0, 34), encoded("flags")}) {
-        if (bytes.size() == 37) bytes[4] = 2;
+    auto truncated = encoded("broken");
+    truncated.pop_back();
+    auto unknown_flags = encoded("flags");
+    unknown_flags[4] = 2;
+    for (const auto& bytes : {std::string("garbage"), std::string("PSR\177", 4),
+        truncated, unknown_flags}) {
         require(database->set("bad", bytes) &&
             database->read_inline_string("bad", out) == status::fallback &&
             out.empty() && !data.get(database, "bad", out) && out.empty() &&
