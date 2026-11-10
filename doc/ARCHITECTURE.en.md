@@ -58,7 +58,7 @@ Physical pages are at most 16 KiB. This bounds storage units, not the total work
 
 ### Legacy compatibility
 
-`record_codec` and owning `record_view` isolate DAOs from yyjson. Stored-format dispatch recognizes native signatures before passing legacy JSON to the codec. Applicable single-key typed accesses and mutations import records into bounded pages atomically while retaining absolute expiry; MGET does not write for migration. Format maintenance differs from user mutation for WATCH. Corrupt or unknown versions must not be mistaken for safely deletable expired data. See [formats and downgrade policy](STORAGE_FORMAT.md) and [legacy expiry migration](LEGACY_EXPIRY.md).
+The `record_codec` and owning `record_view` identify native roots. The default codec rejects legacy JSON and unknown formats. See [storage formats](STORAGE_FORMAT.md) for the historical migration notes.
 
 ## 4. Atomic commits, EXEC and durability
 

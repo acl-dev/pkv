@@ -73,27 +73,29 @@ void slave_client::drain() {
     }
 }
 
+bool slave_client::read_version() {
+    acl::string line;
+    if (!conn_->gets(line, true, 64)) return false;
+    const unsigned version = line == "PKV-REPL 5" ? 5 :
+        line == "PKV-REPL 4" ? 4 : line == "PKV-REPL 3" ? 3 :
+        line == "PKV-REPL 2" ? 2 : line == "PKV-REPL 1" ? 1 : 0;
+    return version && upgrade(version);
+}
+
+bool slave_client::negotiate() {
+    conn_->set_rw_timeout(5);
+    const bool ready = read_version();
+    conn_->set_rw_timeout(-1);
+    return ready;
+}
+
 void slave_client::run() {
     auto self = shared_from_this();
     fiber_mailbox<bool> reader_done;
     bool finished = true;
     // Start one fiber to handle message from peer client.
     go[this, self, &reader_done, &finished] {
-        while (true) {
-            acl::string line;
-            if (!conn_->gets(line, true, 64)) {
-                break;
-            }
-            const unsigned version = line == "PKV-REPL 5" ? 5 :
-                line == "PKV-REPL 4" ? 4 :
-                line == "PKV-REPL 3" ? 3 :
-                line == "PKV-REPL 2" ? 2 :
-                line == "PKV-REPL 1" ? 1 : 0;
-            if (!version || !upgrade(version)) {
-                break;
-            }
-        }
-
+        while (read_version()) {}
         close_queue();
         reader_done.push(&finished);
     };
@@ -232,12 +234,9 @@ void slave_client::push(kv_message* message) {
         message->unrefer(); close_locked();
     } else if (message->get_oper() == message_oper_pages &&
         requested_version_ < 2) {
-        const bool accepted = legacy_pages(*message);
         message->unrefer();
-        if (!accepted) {
-            logger_error("Replica peer cannot receive page transaction");
-            close_locked();
-        }
+        logger_error("Replica peer cannot receive native page transaction");
+        close_locked();
     } else if (!budget_.reserve_encoded(message->wire_bytes(),
         message->wire_records(), message->expanded_bytes(),
         message->expanded_records())) {

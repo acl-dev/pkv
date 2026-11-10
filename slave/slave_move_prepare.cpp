@@ -11,23 +11,14 @@ bool slave_watcher::prepare_move(const family_move& move,
     if (!exec_active_ && !clients_count_.load()) return true;
     if (eof_ || exec_preparing_) return false;
     try {
-        family_move translated;
-        const bool compact = is_compact_root(move.source_root) ||
-            is_compact_root(move.target_root);
-        if (compact) {
-            translated = move;
-            if (!translate_compact_root(translated.source_root) ||
-                !translate_compact_root(translated.target_root)) return false;
-        }
-        const auto& wire_move = compact ? translated : move;
         size_t bytes;
-        if (!move_intent::measure(wire_move, bytes)) return false;
-        const auto charge = 64 + 2 * wire_move.key.size() + wire_move.source_root.size() +
-            wire_move.target_root.size();
+        if (!move_intent::measure(move, bytes)) return false;
+        const auto charge = 64 + 2 * move.key.size() + move.source_root.size() +
+            move.target_root.size();
         const bool first = exec_pages_.empty() && exec_entries_.empty();
         const auto wire = bytes + ((!exec_active_ || first) ? 56 : 0);
         const size_t records = (!exec_active_ || first) ? 3 : 1;
-        const auto expanded = move_intent::expanded_bytes(wire_move) +
+        const auto expanded = move_intent::expanded_bytes(move) +
             ((!exec_active_ || first) ? page_batch::group_storage_bytes : 0);
         const size_t actions = (!exec_active_ || first) ? 5 : 3;
         if (exec_active_ && (expanded > page_batch::max_expanded_bytes -
@@ -38,7 +29,7 @@ bool slave_watcher::prepare_move(const family_move& move,
             charge > page_batch::max_bytes - exec_staged_bytes_ ||
             3 > page_batch::max_records - exec_staged_records_)) return false;
         std::unique_ptr<prepared_move> prepared(new prepared_move(*this,
-            exec_entry(wire_move)));
+            exec_entry(move)));
         prepared->grouped_ = exec_active_;
         prepared->generation_ = exec_generation_; prepared->epoch_ = epoch_;
         prepared->bytes_ = wire; prepared->records_ = records;

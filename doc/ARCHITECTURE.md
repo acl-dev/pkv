@@ -58,7 +58,7 @@
 
 ### 旧格式兼容
 
-`record_codec` / owning `record_view` 将 DAO 与 yyjson 隔离。原生签名先由存储格式分派识别，旧 JSON 再交给 codec。适用的单键类型访问或变更在事务内导入有界页并保留绝对过期；MGET 不为迁移而写入。格式迁移和用户写入有不同的 WATCH 语义。损坏或未知版本不应被当成可安全删除的过期记录。见[格式与降级政策](STORAGE_FORMAT.md)、[旧过期迁移](LEGACY_EXPIRY.md)。
+`record_codec` 和拥有数据的 `record_view` 识别原生根记录。当前默认 codec 拒绝旧 JSON 或未知格式，历史迁移说明见[存储格式](STORAGE_FORMAT.md)。
 
 ## 4. 原子提交、EXEC 与持久化
 

@@ -59,8 +59,6 @@ protected:
     bool on_del(const std::string& key, bool ok) override;
 
 private:
-    static bool is_compact_root(const std::string& bytes);
-    static bool translate_compact_root(std::string& bytes);
     friend class replica_scope;
     std::atomic<bool> collecting_{false};
     bool exec_active_ = false, exec_capture_ = false, exec_failed_ = false;

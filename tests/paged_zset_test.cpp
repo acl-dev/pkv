@@ -5,7 +5,7 @@
 #include "dao/json/json_zset.h"
 #include "dao/json/json_key.h"
 #include "dao/json/json_scan.h"
-#include "coder/json_record_codec.h"
+#include "fixture_record_codec.h"
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -410,7 +410,7 @@ static void test_migration_and_keys() {
     record.header.expires_at_ms = deadline;
     record.zset_value = {{"", -0.0}, {"infinite", INFINITY},
         {std::string(1024 * 1024, 'x'), -INFINITY}};
-    json_record_codec codec;
+    fixture_record_codec codec;
     std::string before, after;
     require(codec.encode(record, before) == codec_status::ok &&
         database->set("zset", before), "legacy fixture");

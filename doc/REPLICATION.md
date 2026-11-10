@@ -3,29 +3,26 @@
 pkv has a custom live RPC update stream, not Redis PSYNC/REPLCONF replication.
 Version 1 adds negotiated framing and logical database identity. Version 2
 adds atomic transactions of bounded physical pages. It can propagate
-new changes across DB 0 and nonzero DBs, while legacy subscribers retain their
-DB 0-only stream. It does not provide an initial snapshot or reconnect replay.
+new changes across DB 0 and nonzero DBs. It does not provide an initial snapshot or reconnect replay.
 
 ## Negotiation and framing
 
-A connection starts in legacy mode. A new subscriber sends exactly
-`PKV-REPL 1\r\n`. The server enqueues a READY marker through that subscriber's
-same data queue. The writer flushes older legacy frames, sends READY using version
-1, then sends subsequent frames in version 1. Nonzero DB messages are admitted
-only after the request has been accepted, behind the queued READY. A subscriber
-must wait for READY before treating DB N updates as available. This barrier orders
-that connection's output; it is not an initial-sync or commit-offset boundary.
-Unknown requests close the connection, and request lines are capped at 64 bytes.
-A duplicate valid request does not enqueue another READY. `PKV-REPL 2\r\n`
-selects PKV2 framing and atomic page events; changing versions on an existing
-subscription closes it. The same READY barrier and DB filtering rules apply.
-See [Page replication](PAGE_REPLICATION.md) for PKV2 fields and fallback.
+The receiver requests `PKV-REPL 5\r\n`. The publisher enqueues READY and
+registers the subscriber before sending READY or subsequent records. An
+unnegotiated connection is never added to the publication queue. The
+greeting is bounded to 64 bytes and uses a five-second read timeout.
+Duplicate requests for the same version retain the existing READY barrier.
+Changing versions on an established connection closes it.
 
-The legacy header remains five native-endian unsigned 32-bit fields: operation,
-key length, value length, flag and command, totaling 20 bytes. Only SET/GET/DEL
-operations 1/2/3 and zero reserved fields are accepted. Its payload represents
-DB 0 only. Legacy clients never receive DB N frames. A new receiver can consume
-legacy DB 0 frames from an old upstream that does not acknowledge the greeting.
+Roots and pages are published in their native binary representation,
+including compact records. Page and EXEC groups are applied only when
+complete. Unsupported roots, including old JSON records, close the stream
+before the corresponding group is applied. A peer without page support
+is disconnected when a page transaction cannot be represented. READY
+orders the live stream without providing a snapshot or replay offset.
+
+See [page replication](PAGE_REPLICATION.md) for frame bounds and
+[PKV5](COMPACT_ERASE_REPLICATION.md) for grouped erasures.
 
 The version 1 header is also 20 bytes, with five network-order 32-bit fields:
 

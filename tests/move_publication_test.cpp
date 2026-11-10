@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "native_string_fixture.h"
 #include "move_memory_support.h"
 #include "slave/slave_watcher.h"
 #include "slave/replica_scope.h"
@@ -340,7 +341,7 @@ static void live_source(bool tbb, bool cancel) {
         negotiate(older, 3); settled(*client); settled(*old);
         {
             replica_scope scope(&source.publisher);
-            require(source.from->set("prefix", "one"), "source prefix");
+            require(source.from->set("prefix", native_string_fixture("one")), "source prefix");
             if (cancel) {
                 std::unique_ptr<family_publication> prepared;
                 require(source.from->prepare_move_observers(*source.to,
@@ -356,7 +357,7 @@ static void live_source(bool tbb, bool cancel) {
                     db::batch_status::ok && moved, "source reverse MOVE");
                 edit_page(source.from, 3, 93);
             }
-            require(source.from->set("suffix", "two") &&
+            require(source.from->set("suffix", native_string_fixture("two")) &&
                 !client->pending_messages() && !old->pending_messages(),
                 "source forwarded an uncommitted prefix");
         }
@@ -399,8 +400,8 @@ static void live_source(bool tbb, bool cancel) {
             !image(source.to, family_key).found,
             "observed MOVE copied unchanged pages or left target data");
         std::string marker;
-        require(zero->get("prefix", marker) && marker == "one" &&
-            zero->get("suffix", marker) && marker == "two",
+        require(zero->get("prefix", marker) && marker == native_string_fixture("one") &&
+            zero->get("suffix", marker) && marker == native_string_fixture("two"),
             "source scalar order lost");
         if (cancel) {
             require(!old->closed(), "cancelled MOVE needlessly required v4");

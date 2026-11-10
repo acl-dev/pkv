@@ -1429,8 +1429,6 @@ if(TARGET pkv_core AND PKV_BUILD_BENCHMARKS)
     endif()
     add_executable(client_snapshot_bench client_snapshot_bench.cpp)
     target_link_libraries(client_snapshot_bench PRIVATE pkv_core)
-    add_executable(codec_bench codec_bench.cpp)
-    target_link_libraries(codec_bench PRIVATE pkv_core)
     add_executable(string_storage_bench string_storage_bench.cpp)
     target_link_libraries(string_storage_bench PRIVATE pkv_core)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
@@ -1447,3 +1445,22 @@ if(TARGET pkv_core AND PKV_BUILD_BENCHMARKS AND HAS_TBB)
             -Wno-invalid-source-encoding)
     endif()
 endif()
+
+
+# Exercise injected whole-value codecs in these fixtures without linking them
+# into the server or the tests for the default native-only codec.
+foreach(fixture active_expiry bitfield bitop bitmap float_increment geo
+    hgetdel hyperloglog
+    inline_string keyspace lcs legacy_expiry legacy_transfer msetex paged_hash
+    paged_key paged_list paged_set paged_string paged_zset replica_retention
+    move_key page_workspace set_compare source_exec storage string_digest
+    watch zset_range)
+    if(TARGET ${fixture}_test)
+        target_sources(${fixture}_test PRIVATE fixture_record_codec.cpp)
+    endif()
+endforeach()
+foreach(fixture memory_backend_bench string_storage_bench)
+    if(TARGET ${fixture})
+        target_sources(${fixture} PRIVATE fixture_record_codec.cpp)
+    endif()
+endforeach()

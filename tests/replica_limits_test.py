@@ -1,59 +1,18 @@
 #!/usr/bin/env python3
 """Replica queue limits; independent of Redis replication semantics."""
 import argparse
-import json
 import socket
-import struct
 import threading
 import time
 from integration_test import Client, server
-from replication_test import Replica, VersionedReplica
-from page_live_test import receive, receive_group
-
-
-class PageReplica(Replica):
-    def __init__(self, port):
-        super().__init__(port)
-        self.socket.sendall(b'PKV-REPL 2\r\n')
-        assert receive(self.socket) == (4, 0, b'', b'')
-
-    def read(self, timeout=3):
-        self.socket.settimeout(timeout)
-        roots, pages = receive_group(self.socket)
-        assert len(roots) == 1
-        operation, database, key, value = roots[0]
-        if operation == 8:
-            return 3, key, b''
-        assert operation in (7, 12) and value[:3] == b'PSR'
-        if value[3] == 2:
-            expiring, length = struct.unpack_from('!BH', value, 4)
-            assert expiring in (0, 1) and not pages
-            expiry = struct.unpack_from('!Q', value, 7)[0] if expiring else 2**64 - 1
-            payload = value[15 if expiring else 7:]
-        else:
-            assert value[3] == 1
-            flags, expiry, length, count = struct.unpack('!IQQQ', value[4:32])
-            if flags == 1:
-                payload = value[32:]
-                assert not pages and count == 0
-            else:
-                assert len(pages) == count
-                payload = b''.join(item[3][8:] for item in pages)
-        assert len(payload) == length
-        return 1, key, json.dumps({'D': payload.decode(), 'P': expiry}).encode()
+from replication_test import NativeReplica, VersionedReplica
 
 
 def subscribe(client, port):
-    peer = PageReplica(port)
-    for attempt in range(100):
-        assert client.call('SET', 'limits:ready', str(attempt)) == b'OK'
-        try:
-            if peer.read(.03)[1] == b'limits:ready':
-                return peer
-        except (TimeoutError, socket.timeout):
-            pass
-    peer.close()
-    raise AssertionError('subscriber did not register')
+    peer = NativeReplica(port)
+    assert client.call('SET', 'limits:ready', 'start') == b'OK'
+    assert peer.until(b'limits:ready')[2] == b'start'
+    return peer
 
 
 def expect_closed(peer):
@@ -93,7 +52,7 @@ def test_single_record(binary, stage):
                 assert client.call('SET', 'limits:after', 'fresh') == b'OK'
                 operation, key, encoded = fresh.until(b'limits:after')
                 assert operation == 1 and key == b'limits:after'
-                assert json.loads(encoded)['D'] == 'fresh'
+                assert encoded == b'fresh'
             finally:
                 fresh.close()
         finally:
@@ -119,48 +78,19 @@ def test_upgrade(binary):
     return 2
 
 
-def test_inline_legacy_budget(binary):
-    with server(binary, replica_limits={
-        'replica_output_buffer_limit': 2048
-    }) as port:
+def test_binary_budget(binary):
+    with server(binary, replica_limits={'replica_output_buffer_limit': 2048}) as port:
         client = Client(port)
-        legacy = Replica(port)
-        current = PageReplica(port)
+        peer = subscribe(client, port)
         try:
-            for attempt in range(100):
-                assert client.call('SET', 'inline:ready', str(attempt)) == b'OK'
-                try:
-                    legacy.until(b'inline:ready')
-                    current.until(b'inline:ready')
-                    break
-                except TimeoutError:
-                    pass
-            else:
-                raise AssertionError('legacy inline subscriber not ready')
             value = b'\0' * 512
-            assert client.call('SET', 'inline:expanded', value) == b'OK'
-            expect_closed(legacy)
-            record = current.until(b'inline:expanded')
-            assert json.loads(record[2])['D'].encode() == value
-            assert client.call('GET', 'inline:expanded') == value
+            assert client.call('SET', 'inline:binary', value) == b'OK'
+            assert peer.until(b'inline:binary') == (1, b'inline:binary', value)
+            assert client.call('GET', 'inline:binary') == value
         finally:
-            legacy.close(); current.close()
-        assert client.call('HSET', 'inline:hash', 'field', 'value') == 1
-        unsupported = Replica(port)
-        try:
-            for attempt in range(100):
-                assert client.call('SET', 'inline:ready', str(attempt)) == b'OK'
-                try:
-                    unsupported.until(b'inline:ready')
-                    break
-                except TimeoutError:
-                    pass
-            assert client.call('PEXPIRE', 'inline:hash', 60000) == 1
-            expect_closed(unsupported)
-            assert client.call('HGET', 'inline:hash', 'field') == b'value'
-        finally:
-            unsupported.close(); client.close()
-    return 8
+            peer.close()
+            client.close()
+    return 3
 
 
 def test_slow_peer(binary):
@@ -169,8 +99,8 @@ def test_slow_peer(binary):
         'replica_pending_messages': 4096
     }) as port:
         client = Client(port)
-        fast = PageReplica(port)
-        slow = PageReplica(port)
+        fast = NativeReplica(port)
+        slow = NativeReplica(port)
         slow.socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1024)
         errors = []
         progress = [0]
@@ -178,15 +108,7 @@ def test_slow_peer(binary):
         count = 1500
         try:
             assert client.call('SET', 'limits:begin', 'start') == b'OK'
-            # Register the slow peer, then stop consuming it completely.
-            for attempt in range(100):
-                assert client.call('SET', 'limits:slow', str(attempt)) == b'OK'
-                try:
-                    if slow.read(.03)[1] == b'limits:slow': break
-                except (TimeoutError, socket.timeout):
-                    pass
-            else:
-                raise AssertionError('slow subscriber did not register')
+            # Stop consuming the already registered slow peer.
             assert client.call('SET', 'limits:barrier', 'start') == b'OK'
             fast.until(b'limits:barrier')
 
@@ -195,8 +117,7 @@ def test_slow_peer(binary):
                     for expected in range(count):
                         operation, key, encoded = fast.read(10)
                         assert operation == 1 and key == b'limits:stream'
-                        value = json.loads(encoded)['D']
-                        assert value.startswith('%04d:' % expected)
+                        assert encoded.startswith(('%04d:' % expected).encode())
                         with ready:
                             progress[0] = expected + 1
                             ready.notify_all()
@@ -237,6 +158,6 @@ if __name__ == '__main__':
     checks = test_single_record(args.pkv, 'output')
     checks += test_single_record(args.pkv, 'publish')
     checks += test_upgrade(args.pkv)
-    checks += test_inline_legacy_budget(args.pkv)
+    checks += test_binary_budget(args.pkv)
     checks += test_slow_peer(args.pkv)
     print('pkv: %d replica queue limit checks passed' % checks)

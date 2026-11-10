@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "native_string_fixture.h"
 #include "db/db.h"
 #include "db/db_watcher.h"
 #include "db/page_transaction.h"
@@ -62,7 +63,7 @@ static void handshake(streams& pair, unsigned version) {
 static bool write_pages(shared_db source, size_t size = 1000, char fill = 'x') {
     return source->transact_pages({"list"}, [&](page_transaction& view) {
         auto& root = *view.roots().find("list");
-        root.value = "root0";
+        root.value = native_string_fixture("root0");
         root.action = db::update_action::write;
         return view.put("list", 1, std::string(size, fill));
     }) == db::batch_status::ok;
@@ -71,7 +72,7 @@ static bool write_pages(shared_db source, size_t size = 1000, char fill = 'x') {
 static void verify_page(shared_db destination, size_t size = 1000,
     char fill = 'x') {
     std::string root;
-    require(destination->get("list", root) && root == "root0",
+    require(destination->get("list", root) && root == native_string_fixture("root0"),
         "live root missing");
     require(destination->transact_pages({"list"}, [&](page_transaction& view) {
         std::string value;
@@ -81,8 +82,8 @@ static void verify_page(shared_db destination, size_t size = 1000,
     }) == db::batch_status::ok, "live page read");
 }
 
-// 56 control bytes + (20 + 4 + 5) root + (20 + 4 + 8 + 1000) page.
-static const size_t group_bytes = 1117;
+// 56 control bytes + (20 + 4 + 12) root + (20 + 4 + 8 + 1000) page.
+static const size_t group_bytes = 1124;
 static const size_t group_records = 4;
 
 static void run_path(unsigned limit) {
@@ -145,7 +146,7 @@ static void run_path(unsigned limit) {
                 "publisher did not charge all transaction frames");
         }
         if (marker) {
-            require(source->set("marker", "after"), "post-group marker");
+            require(source->set("marker", native_string_fixture("after")), "post-group marker");
         }
         publisher.stop();
         std::thread forwarder([&] { publisher.run(); });
@@ -172,7 +173,7 @@ static void run_path(unsigned limit) {
                     !packet.page && receiver.apply_packet(std::move(packet)),
                     "normal record interleaved into page group");
                 std::string value;
-                require(selected->get("marker", value) && value == "after",
+                require(selected->get("marker", value) && value == native_string_fixture("after"),
                     "post-group normal update missing");
             }
         } else {

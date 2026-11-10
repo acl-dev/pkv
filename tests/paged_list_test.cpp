@@ -9,7 +9,7 @@
 #include "dao/json/json_list.h"
 #include "dao/json/json_key.h"
 #include "dao/json/json_string.h"
-#include "coder/json_record_codec.h"
+#include "fixture_record_codec.h"
 #include "db/mdb/mdb.h"
 #include <cstdlib>
 #include <iostream>
@@ -114,7 +114,7 @@ static void test_model() {
 
 static void test_migration() {
     shared_db database = memory();
-    json_record_codec codec;
+    fixture_record_codec codec;
     value_record old;
     old.header.kind = value_kind::list;
     old.header.expires_at_ms = deadline;

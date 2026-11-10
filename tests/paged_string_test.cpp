@@ -3,7 +3,7 @@
 #include "dao/json/json_string.h"
 #include "dao/json/json_key.h"
 #include "dao/paged_hash.h"
-#include "coder/json_record_codec.h"
+#include "fixture_record_codec.h"
 #include "db/mdb/mdb.h"
 #include <cstdlib>
 #include <iostream>

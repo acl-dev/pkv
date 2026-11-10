@@ -1,8 +1,7 @@
 # Protocol regression tests
 
 Run independently of the full server. Requires a C++ compiler, CMake, ACL headers
-and `libacl_all`, zlib, and platform system libraries. Storage engines and yyjson
-are not required.
+and `libacl_all`, zlib, and platform system libraries.
 
 ```sh
 cmake -S tests -B /tmp/pkv-protocol-tests -DPKV_TEST_SANITIZERS=ON
@@ -28,17 +27,16 @@ RESP3 are not covered by this suite.
 
 ## Full memory server and storage tests
 
-From the repository root, with ACL installed and an existing yyjson checkout:
+From the repository root, with ACL and xxHash installed:
 
 ```sh
 cmake -S . -B /tmp/pkv-memory-tests -DCMAKE_BUILD_TYPE=Debug \
-  -DPKV_YYJSON_SOURCE_DIR=/path/to/yyjson -DPKV_TEST_SANITIZERS=ON
+  -DPKV_TEST_SANITIZERS=ON
 cmake --build /tmp/pkv-memory-tests -j 4
 ctest --test-dir /tmp/pkv-memory-tests --output-on-failure
 ```
 
-Use an installed yyjson by omitting `PKV_YYJSON_SOURCE_DIR`. Optional engine flags
-remain off unless explicitly enabled. The full suite adds storage fixture tests
+Optional engine flags remain off unless explicitly enabled. The full suite adds storage fixture tests
 and Python 3 socket tests for the real two-thread memory server. Socket tests use
 random loopback client/RPC ports, temporary configs and data, and clean up their
 own processes. They require local TCP listener permissions. Disable them with

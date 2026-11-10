@@ -4,7 +4,7 @@
 #include "dao/json/json_zset.h"
 #include "dao/json/json_key.h"
 #include "dao/json/json_scan.h"
-#include "coder/json_record_codec.h"
+#include "fixture_record_codec.h"
 #include "coder/compact_set.h"
 #include "common/redis_scan.h"
 #include "db/mdb/mdb.h"
@@ -654,7 +654,7 @@ static void test_sampling_and_locality() {
 
 static void test_migration_scan_copy() {
     shared_db database = memory(), destination = memory();
-    json_record_codec codec(1);
+    fixture_record_codec codec;
     value_record record;
     record.header.kind = value_kind::set;
     record.header.expires_at_ms = deadline;
@@ -1254,7 +1254,7 @@ static void test_mixed_page_reads() {
 
 static void test_failed_migration_and_ttl() {
     shared_db database = memory();
-    json_record_codec codec(1);
+    fixture_record_codec codec;
     value_record old, wrong;
     old.header.kind = value_kind::set;
     old.header.expires_at_ms = deadline;

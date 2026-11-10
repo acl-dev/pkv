@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Live PKV2 receiver/negotiation; not Redis replication parity."""
 import argparse
-import json
 import socket
 import struct
 import time
@@ -17,8 +16,33 @@ def frame(operation, database=0, key=b'', value=b'', version=2):
         key + value
 
 
-def encoded(value):
-    return json.dumps({'T': 'S', 'E': -1, 'D': value}).encode()
+def encoded(value, deadline=None):
+    if isinstance(value, str):
+        value = value.encode()
+    return b'PSR\2' + struct.pack('!BH', deadline is not None, len(value)) + (
+        b'' if deadline is None else struct.pack('!Q', deadline)) + value
+
+
+def decode_string(value, pages):
+    assert value[:3] == b'PSR'
+    if value[3] == 2:
+        expiring, length = struct.unpack_from('!BH', value, 4)
+        assert expiring in (0, 1) and not pages
+        expiry = struct.unpack_from('!Q', value, 7)[0] if expiring else None
+        payload = value[15 if expiring else 7:]
+    else:
+        assert value[3] == 1
+        flags, expiry, length, count = struct.unpack('!IQQQ', value[4:32])
+        if flags == 1:
+            payload = value[32:]
+            assert not pages and count == 0
+        else:
+            assert len(pages) == count
+            payload = b''.join(item[3][8:] for item in pages)
+        if expiry == 2**64 - 1:
+            expiry = None
+    assert len(payload) == length
+    return payload, expiry
 
 
 def transaction(database, roots, pages):
@@ -100,8 +124,8 @@ def receive(peer):
     return operation, database, exact(key_size), exact(value_size)
 
 
-def receive_group(peer):
-    operation, database, key, value = receive(peer)
+def receive_group(peer, first=None):
+    operation, database, key, value = first or receive(peer)
     assert operation == 5 and not key and len(value) == 16
     root_count, page_count, total = struct.unpack('!IIQ', value)
     roots, pages = [], []
@@ -257,16 +281,12 @@ def test_subscriber(port):
         pairs = [item for score in range(16) for item in (score, f'm{score:05d}')]
         assert client.call('ZADD', 'subscriber:compact-zset', *pairs) == 16
         roots, pages = receive_group(peer)
-        assert roots[0][:3] == (12, 7, b'subscriber:compact-zset')
-        if roots[0][3].startswith(b'{'):
-            assert not pages
-            assert json.loads(roots[0][3]) == {
-                'V': 1, 'T': 'Z', 'E': -1, 'P': -1,
-                'D': [[f'm{score:05d}', str(score)] for score in range(16)],
-            }
-        else:
+        assert roots[0][0] in (7, 12) and roots[0][1:3] == (7, b'subscriber:compact-zset'), roots
+        if pages:
             assert any(item[3][8:12] == b'PMN\x0d' and len(item[3]) == 30
                        for item in pages)
+        else:
+            assert roots[0][3].startswith(b'PZR\3')
         peer.sendall(b'PKV-REPL 1\r\n')
         closed(peer)
     finally:

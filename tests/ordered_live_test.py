@@ -2,13 +2,13 @@
 """PKV4 negotiated transport and complete mixed-group memory replay over TCP."""
 import argparse
 import contextlib
-import json
 import os
 import socket
 import struct
 import time
 
 from integration_test import Client, server
+from page_live_test import encoded as native_string
 from exec_live_test import Peer, exact
 
 MAGIC = 0x504b5634
@@ -207,8 +207,7 @@ def fallback(binary, backend):
                         continue  # A v3-only publisher rejects that request.
                     peer.sendall(HEADER.pack(0x504b5633, 4, 0, 0, 0))
                     key = b'old-peer'
-                    value = json.dumps({'T': 'S', 'E': -1,
-                                        'D': 'compatible'}).encode()
+                    value = native_string('compatible')
                     peer.sendall(HEADER.pack(0x504b5633, 1, 0, len(key),
                                              len(value)) + key + value)
                     client = Client(port)

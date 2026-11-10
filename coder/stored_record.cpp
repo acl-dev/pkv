@@ -9,9 +9,14 @@
 #include "zset_page.h"
 #include "string_page.h"
 #include "db/stream_store.h"
+#include "common/execution_gate.h"
 #include <new>
 
 namespace pkv {
+
+long long unix_time_ms() {
+    return execution_time_ms();
+}
 namespace {
 
 class paged_record_view : public record_view {

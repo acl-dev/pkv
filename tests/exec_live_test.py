@@ -2,7 +2,6 @@
 """Negotiated whole-EXEC publication and atomic memory replica groups."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-import json
 import os
 import socket
 import struct
@@ -10,6 +9,7 @@ import threading
 import time
 
 from integration_test import Client, ErrorReply, server
+from page_live_test import encoded as native_string
 
 MAGIC = 0x504b5633
 HEADER = struct.Struct('!IIIII')
@@ -30,8 +30,11 @@ def frame(operation, database=0, key=b'', value=b''):
 
 
 def root_batch(key, value, database=0):
-    encoded = json.dumps({'T': 'S', 'E': -1, 'D': value}).encode()
-    root = frame(12, database, key, encoded)
+    return raw_root_batch(key, native_string(value), database)
+
+
+def raw_root_batch(key, value, database=0):
+    root = frame(12, database, key, value)
     return [frame(5, database, value=struct.pack('!IIQ', 1, 0,
                                                56 + len(root))),
             root, frame(11, database)]
@@ -312,6 +315,14 @@ def rejected_groups(binary, backend=None):
                 assert peer.recv(1) == b''
                 assert client.call('MGET', 'buffer-a', 'buffer-b',
                                    'intrusion') == [None, None, None]
+                peer.close()
+                peer = greeting(listener)
+                invalid_root = b'{"T":"S","E":-1,"D":"old"}'
+                old_group = envelope([root_batch(b'native-prefix', 'new'),
+                                      raw_root_batch(b'legacy-root', invalid_root)])
+                peer.sendall(b''.join(old_group))
+                assert peer.recv(1) == b''
+                assert client.call('EXISTS', 'native-prefix', 'legacy-root') == 0
                 peer.close()
                 peer = greeting(listener)
                 # Cross-DB data remains buffered until the outer commit.

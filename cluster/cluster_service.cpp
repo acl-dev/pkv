@@ -43,6 +43,12 @@ void cluster_service::run() {
             shared_client client(new slave_client(conn,
                 var_cfg_replica_output_buffer_limit,
                 var_cfg_replica_pending_messages));
+            // Queue READY before publication can observe this subscriber.
+            if (!client->negotiate()) {
+                client->disconnect();
+                conn->close();
+                return;
+            }
             watcher_.add_client(client);
             client->run();
             auto& c = client->get_conn();

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Bounded pkv legacy replication stream tests, not Redis replication parity."""
+"""Verify native PKV stream ordering, replay and format rejection."""
 import argparse
 from concurrent.futures import ThreadPoolExecutor
-import json
 import socket
 import struct
 import threading
 import time
 from integration_test import Client, server
+from page_live_test import decode_string, encoded, receive, receive_group
 
 HEADER = struct.Struct('=IIIII')
 
@@ -63,41 +63,47 @@ class Replica:
         raise AssertionError('replication marker not reached')
 
 
+class NativeReplica(Replica):
+    def __init__(self, port):
+        super().__init__(port)
+        self.socket.sendall(b'PKV-REPL 2\r\n')
+        assert receive(self.socket) == (4, 0, b'', b'')
+
+    def read(self, timeout=3):
+        self.socket.settimeout(timeout)
+        first = receive(self.socket)
+        pages = []
+        if first[0] == 5:
+            roots, pages = receive_group(self.socket, first)
+            assert len(roots) == 1
+            first = roots[0]
+        operation, self.database, key, value = first
+        self.expiry = None
+        if operation in (3, 8):
+            return 3, key, b''
+        assert operation in (1, 7, 12)
+        payload, self.expiry = decode_string(value, pages)
+        return 1, key, payload
+
+
 def run(port):
     client = Client(port)
-    first, second = Replica(port), Replica(port)
+    first, second = NativeReplica(port), NativeReplica(port)
     peers = [first, second]
     checks = 0
     try:
-        # A second subscriber must register while the first is idle. Retry a
-        # probe to account for asynchronous accept; preserve partial frames.
-        ready = set()
-        for attempt in range(100):
-            assert client.call('SET', 'rpc:ready', str(attempt)) == b'OK'
-            for index, peer in enumerate(peers):
-                if index in ready:
-                    continue
-                try:
-                    assert peer.read(.03)[1] == b'rpc:ready'
-                    ready.add(index)
-                except TimeoutError:
-                    pass
-            if len(ready) == 2:
-                break
-        assert len(ready) == 2, 'idle subscriber blocked accepting another replica'
-        checks += 1
+        # READY follows registration for both subscribers.
         assert client.call('SET', 'rpc:marker', 'start') == b'OK'
         for peer in peers:
-            assert json.loads(peer.until(b'rpc:marker')[2])['D'] == 'start'
+            assert peer.until(b'rpc:marker')[2] == b'start'
             checks += 1
         value = b'value\0with\r\nbytes'
         for key in (b'', bytes(range(256)), b'rpc:ordinary'):
             assert client.call('SET', key, value, 'PXAT', 4102444800123) == b'OK'
             for peer in peers:
                 operation, actual_key, encoded = peer.read()
-                record = json.loads(encoded)
-                assert operation == 1 and actual_key == key and record['D'].encode() == value
-                assert record['P'] == 4102444800123
+                assert operation == 1 and actual_key == key and encoded == value
+                assert peer.expiry == 4102444800123
                 checks += 1
             assert client.call('GET', key) == value
             assert client.call('EXISTS', key) == 1
@@ -105,20 +111,20 @@ def run(port):
             for peer in peers:
                 assert peer.read() == (3, key, b'')
                 checks += 1
-        # Nonzero DBs remain intentionally local until a versioned/negotiated
-        # multi-DB protocol exists. Their same-name writes must not leak into DB 0.
         assert client.call('SELECT', 7) == b'OK'
-        assert client.call('SET', 'rpc:marker', 'local-only') == b'OK'
+        assert client.call('SET', 'rpc:marker', 'db-seven') == b'OK'
         assert client.call('SELECT', 0) == b'OK'
-        assert client.call('SET', 'rpc:marker-two', 'db-zero') == b'OK'
+        assert client.call('SET', 'rpc:marker', 'db-zero') == b'OK'
         for peer in peers:
-            operation, key, encoded = peer.read()
-            assert operation == 1 and key == b'rpc:marker-two' and json.loads(encoded)['D'] == 'db-zero'
-            checks += 1
+            assert peer.read() == (1, b'rpc:marker', b'db-seven')
+            assert peer.database == 7
+            assert peer.read() == (1, b'rpc:marker', b'db-zero')
+            assert peer.database == 0
+            checks += 4
         first.close(reset=True)
         peers = [second]
         assert client.call('SET', 'rpc:counter', 0) == b'OK'
-        assert json.loads(second.read()[2])['D'] == '0'
+        assert second.read()[2] == b'0'
         start = threading.Barrier(5)
 
         def writer(number):
@@ -143,7 +149,7 @@ def run(port):
         checks += 1
         for expected in range(1, 401):
             operation, key, encoded = second.read()
-            assert operation == 1 and key == b'rpc:counter' and json.loads(encoded)['D'] == str(expected), (expected, key, encoded)
+            assert operation == 1 and key == b'rpc:counter' and encoded == str(expected).encode(), (expected, key, encoded)
             checks += 1
         assert client.call('GET', 'rpc:counter') == b'400'
         assert client.call('PING') == b'PONG'
@@ -201,128 +207,21 @@ class VersionedReplica(Replica):
         raise AssertionError('READY not received')
 
 
-def run_versioned(port):
+def reject_old_subscriber(port):
     client = Client(port)
-    upgraded = VersionedReplica(port)
-    legacy = Replica(port)
-    checks = 0
+    peer = VersionedReplica(port)
     try:
-        upgraded.upgrade()
-        checks += 1
-        # Ensure the legacy client was accepted too, and drain old queued data.
-        for attempt in range(100):
-            assert client.call('SET', 'v1:barrier', str(attempt)) == b'OK'
-            try:
-                legacy.until(b'v1:barrier')
-                break
-            except TimeoutError:
-                continue
-        else: raise AssertionError('legacy subscription not ready')
-        assert client.call('SET', 'v1:begin', 'marker') == b'OK'
-        legacy.until(b'v1:begin')
-        while upgraded.read()[2] != b'v1:begin': pass
-        checks += 1
-        for database in (0, 1, 7, 15):
-            assert client.call('SELECT', database) == b'OK'
-            value = 'database:%d' % database
-            assert client.call('SET', b'v1:same\0', value, 'PXAT', 4102444800123) == b'OK'
-            dbid, operation, key, encoded = upgraded.read()
-            assert (dbid, operation, key) == (database, 1, b'v1:same\0')
-            assert json.loads(encoded)['D'] == value and json.loads(encoded)['P'] == 4102444800123
-            if database == 0: assert legacy.read()[1] == b'v1:same\0'
-            checks += 1
-        assert client.call('SELECT', 0) == b'OK'
-        assert client.call('COPY', b'v1:same\0', b'v1:same\0', 'DB', 1, 'REPLACE') == 1
-        dbid, operation, key, encoded = upgraded.read()
-        assert dbid == operation == 1 and key == b'v1:same\0' and json.loads(encoded)['D'] == 'database:0'
-        checks += 1
-        assert client.call('SELECT', 7) == b'OK'
-        assert client.call('RENAME', b'v1:same\0', 'v1:renamed') == b'OK'
-        frames = [upgraded.read(), upgraded.read()]
-        assert {(dbid, op, key) for dbid, op, key, value in frames} == {(7, 1, b'v1:renamed'), (7, 3, b'v1:same\0')}
-        checks += 1
-        assert client.call('SELECT', 0) == b'OK'
-        assert client.call('SET', 'v1:end', 'marker') == b'OK'
-        assert legacy.read()[1] == b'v1:end', 'nonzero DB leaked to legacy subscriber'
-        assert upgraded.read()[2] == b'v1:end'
-        checks += 1
-        invalid = Replica(port)
-        try:
-            invalid.socket.sendall(b'PKV-REPL 6\r\n')
-            invalid.socket.settimeout(3)
-            assert invalid.socket.recv(1) == b''
-        finally: invalid.close()
-        checks += 1
-        # Native List pages cannot be flattened into a v1 whole-value frame.
-        # Nonzero DB page events disconnect v1, leaving DB-0-only peers alive.
-        assert client.call('SELECT', 7) == b'OK'
-        assert client.call('RPUSH', 'v1:paged', 'v') == 1
-        upgraded.socket.settimeout(3)
-        assert upgraded.socket.recv(1) == b''
-        assert client.call('LRANGE', 'v1:paged', 0, -1) == [b'v']
-        assert client.call('SELECT', 0) == b'OK'
-        assert client.call('SET', 'v1:after-pages', 'alive') == b'OK'
-        assert legacy.read()[1] == b'v1:after-pages'
-        checks += 4
-        hash_peer = VersionedReplica(port)
-        try:
-            hash_peer.upgrade()
-            assert client.call('SELECT', 1) == b'OK'
-            assert client.call('HSET', 'v1:paged-hash', 'field', 'value') == 1
-            hash_peer.socket.settimeout(3)
-            assert hash_peer.socket.recv(1) == b''
-            assert client.call('HGET', 'v1:paged-hash', 'field') == b'value'
-            assert client.call('SELECT', 0) == b'OK'
-            assert client.call('SET', 'v1:after-hash', 'alive') == b'OK'
-            assert legacy.read()[1] == b'v1:after-hash'
-        finally:
-            hash_peer.close()
-        checks += 5
-        set_peer = VersionedReplica(port)
-        try:
-            set_peer.upgrade()
-            assert client.call('SELECT', 1) == b'OK'
-            assert client.call('SADD', 'v1:paged-set', 'member') == 1
-            set_peer.socket.settimeout(3)
-            assert set_peer.socket.recv(1) == b''
-            assert client.call('SISMEMBER', 'v1:paged-set', 'member') == 1
-            assert client.call('SELECT', 0) == b'OK'
-            assert client.call('SET', 'v1:after-set', 'alive') == b'OK'
-            assert legacy.read()[1] == b'v1:after-set'
-        finally:
-            set_peer.close()
-        checks += 5
-        zset_peer = VersionedReplica(port)
-        try:
-            zset_peer.upgrade()
-            assert client.call('SELECT', 1) == b'OK'
-            assert client.call('ZADD', 'v1:paged-zset', 1, 'member') == 1
-            zset_peer.socket.settimeout(3)
-            assert zset_peer.socket.recv(1) == b''
-            assert client.call('ZSCORE', 'v1:paged-zset', 'member') == b'1'
-            assert client.call('SELECT', 0) == b'OK'
-            assert client.call('SET', 'v1:after-zset', 'alive') == b'OK'
-            assert legacy.read()[1] == b'v1:after-zset'
-        finally:
-            zset_peer.close()
-        checks += 5
-        string_peer = VersionedReplica(port)
-        try:
-            string_peer.upgrade()
-            assert client.call('SELECT', 1) == b'OK'
-            assert client.call('SET', 'v1:paged-string', b'x' * 2000) == b'OK'
-            string_peer.socket.settimeout(3)
-            assert string_peer.socket.recv(1) == b''
-            assert client.call('GET', 'v1:paged-string') == b'x' * 2000
-            assert client.call('SELECT', 0) == b'OK'
-            assert client.call('SET', 'v1:after-string', 'alive') == b'OK'
-            assert legacy.read()[1] == b'v1:after-string'
-        finally:
-            string_peer.close()
-        checks += 5
+        peer.upgrade()
+        assert client.call('SET', 'rpc:native-only', b'value') == b'OK'
+        assert peer.socket.recv(1) == b''
+        with socket.create_connection(('127.0.0.1', port + 10000), timeout=3) as invalid:
+            invalid.sendall(b'PKV-REPL 6\r\n')
+            assert invalid.recv(1) == b''
+        assert client.call('GET', 'rpc:native-only') == b'value'
     finally:
-        client.close(); upgraded.close(); legacy.close()
-    return checks
+        peer.close()
+        client.close()
+    return 5
 
 
 def list_apply_cases(source, target):
@@ -545,6 +444,27 @@ def string_apply_cases(source, target):
     return 29
 
 
+def stream_apply_cases(source, target):
+    key, field, payload = b'apply:stream\0', b'f\0', bytes(range(256)) * 130
+    deadline = 4102444800123
+    assert source.call('SELECT', 7) == b'OK'
+    assert source.call('MULTI') == b'OK'
+    assert source.call('XADD', key, '1-0', field, payload) == b'QUEUED'
+    assert source.call('PEXPIREAT', key, deadline) == b'QUEUED'
+    assert source.call('SET', 'apply:stream-ready', 'committed') == b'QUEUED'
+    assert source.call('EXEC') == [b'1-0', 1, b'OK']
+    assert target.call('SELECT', 7) == b'OK'
+    for _ in range(200):
+        if target.call('GET', 'apply:stream-ready') == b'committed':
+            break
+        time.sleep(.01)
+    else:
+        raise AssertionError('Stream transaction did not reach replica')
+    assert target.call('XRANGE', key, '-', '+') == [[b'1-0', [field, payload]]]
+    assert target.call('PEXPIRETIME', key) == deadline
+    return 9
+
+
 def run_apply(binary, source_port):
     checks = 0
     with server(binary, replica_rpc_source='127.0.0.1:%d' % (source_port + 10000)) as target_port:
@@ -597,11 +517,12 @@ def run_apply(binary, source_port):
             checks += hash_apply_cases(source, target)
             checks += set_apply_cases(source, target)
             checks += zset_apply_cases(source, target)
+            checks += stream_apply_cases(source, target)
         finally: source.close(); target.close()
     return checks
 
 
-def run_reconnect_and_legacy(binary):
+def run_reconnect_and_rejection(binary):
     listener = socket.socket()
     listener.bind(('127.0.0.1', 0))
     listener.listen(3)
@@ -631,8 +552,8 @@ def run_reconnect_and_legacy(binary):
         checks += 1
     def frame(database, payload):
         key = b'reconnect:key'
-        encoded = json.dumps({'T': 'S', 'E': -1, 'D': payload}).encode()
-        return struct.pack('!IIIII', 0x504b5631, 1, database, len(key), len(encoded)) + key + encoded
+        root = encoded(payload)
+        return struct.pack('!IIIII', 0x504b5631, 1, database, len(key), len(root)) + key + root
     try:
         with server(binary, replica_rpc_source=address) as target_port:
             client = Client(target_port)
@@ -652,13 +573,14 @@ def run_reconnect_and_legacy(binary):
                 value(client, b'acknowledged')
                 peer.close(); peers.remove(peer)
                 peer = accept(); peers.append(peer)
-                # An old upstream does not acknowledge the greeting, but keeps
-                # sending native DB 0 frames. The new reader must retain that path.
+                # Reject a JSON root before applying it.
                 key = b'reconnect:key'
-                encoded = json.dumps({'T': 'S', 'E': -1, 'D': 'legacy'}).encode()
-                peer.sendall(HEADER.pack(1, len(key), len(encoded), 0, 0) + key + encoded)
+                old = b'{"T":"S","E":-1,"D":"legacy"}'
+                peer.sendall(HEADER.pack(1, len(key), len(old), 0, 0) + key + old)
+                assert peer.recv(1) == b''
                 assert client.call('SELECT', 0) == b'OK'
-                value(client, b'legacy')
+                assert client.call('EXISTS', key) == 0
+                checks += 3
                 assert client.call('SELECT', 1) == b'OK'
                 value(client, b'acknowledged')
             finally:
@@ -673,7 +595,7 @@ if __name__ == '__main__':
     parser.add_argument('--pkv', required=True)
     args = parser.parse_args()
     with server(args.pkv) as port:
-        print('pkv: %d legacy replication stream assertions passed' % run(port))
-        print('pkv: %d versioned negotiation assertions passed' % run_versioned(port))
+        print('pkv: %d native replication stream assertions passed' % run(port))
+        print('pkv: %d obsolete subscriber rejection assertions passed' % reject_old_subscriber(port))
         print('pkv: %d two-process multi-DB apply assertions passed' % run_apply(args.pkv, port))
-    print('pkv: %d reconnect/legacy upstream assertions passed' % run_reconnect_and_legacy(args.pkv))
+    print('pkv: %d reconnect/legacy rejection assertions passed' % run_reconnect_and_rejection(args.pkv))

@@ -1,5 +1,10 @@
 # Logical records and storage codecs
 
+The current server writes and reads native binary roots and pages. Its default
+codec rejects legacy JSON records, including their expiry metadata. The
+remaining JSON format descriptions below are historical and apply to earlier
+releases. The test-only injected codec is a separate fixture format.
+
 Commands and DAOs operate on `value_record`, `record_header`, and the owning
 `record_view` interface in `coder/record_codec.h`. They do not expose yyjson types.
 The existing `json_string`, `json_hash`, and `json_key` names are retained for

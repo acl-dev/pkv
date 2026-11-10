@@ -3,7 +3,6 @@
 //
 
 #include "stdafx.h"
-#include "dao/json/json_string.h"
 #include "coder/redis_ocache.h"
 #include "coder/redis_coder.h"
 
@@ -195,30 +194,6 @@ void redis_build_bench(size_t max) {
     double speed = (max * 1000) / (cost > 0 ? cost : 0.00001);
     printf(">>>Redis builder, count=%zd, cost=%.2f, speed=%.2f\r\n", max, cost, speed);
 
-    printf("\r\n");
-    printf(">>>Begin building yyjson benchmark\r\n");
-
-    gettimeofday(&begin, NULL);
-
-    dao::json_string dao;
-    for (i = 0; i < max; i++) {
-        std::string buff;
-        dao.set_string("hello world");
-        if (!dao.to_string(buff)) {
-            printf("to_string error\r\n");
-            break;
-        }
-        if (i == 0) {
-            printf("%s\r\n", buff.c_str());
-        }
-        dao.reset();
-    }
-
-    gettimeofday(&end, NULL);
-    cost = acl::stamp_sub(end, begin);
-    speed = (max * 1000) / (cost > 0 ? cost : 0.00001);
-    printf(">>>yyjson builder, count=%zd, cost=%.2f, speed=%.2f\r\n", max, cost, speed);
-    printf("\r\n");
 }
 
 void redis_parse_bench(const char* filepath, size_t max) {

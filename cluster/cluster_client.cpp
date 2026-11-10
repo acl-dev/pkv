@@ -6,10 +6,43 @@
 #include "rpc/rpc_reader.h"
 #include "rpc/password_handshake.h"
 #include "db/database_pool.h"
+#include "coder/record_codec.h"
 #include "cluster_client.h"
 #include <utility>
 
 namespace pkv {
+
+namespace {
+bool native_value(const std::string& value) {
+    record_header header;
+    return default_record_codec()->stored_header(value, header) == codec_status::ok;
+}
+
+bool native_batch(const page_batch& batch) {
+    for (const auto& root : batch.roots()) {
+        if (root.action == db::update_action::write && !native_value(root.value))
+            return false;
+    }
+    return true;
+}
+
+bool native_group(const exec_batch& group) {
+    for (const auto& batch : group.batches()) {
+        if (!native_batch(*batch)) return false;
+    }
+    for (const auto& entry : group.entries()) {
+        if (entry.pages()) {
+            if (!native_batch(*entry.pages())) return false;
+        } else {
+            const auto& move = *entry.move();
+            if (!native_value(move.source_root) ||
+                (move.target_found && !native_value(move.target_root)))
+                return false;
+        }
+    }
+    return true;
+}
+} // namespace
 
 cluster_client::cluster_client(std::string addr, shared_db database,
     std::shared_ptr<database_pool> databases, std::string password)
@@ -105,6 +138,10 @@ bool cluster_client::apply_packet(rpc_packet packet) {
             executions_.accept(std::move(packet.frame), group);
         if (status == exec_receiver::result::error) return false;
         if (status != exec_receiver::result::complete) return true;
+        if (!native_group(*group)) {
+            logger_error("Replica group contains an unsupported root");
+            return false;
+        }
         unsigned database;
         if (!group->database(database)) {
             if (var_cfg_cluster_mode || !databases_ ||
@@ -122,6 +159,10 @@ bool cluster_client::apply_packet(rpc_packet packet) {
         return false;
     }
     if (status != page_receiver::result::complete) return true;
+    if (!native_batch(*batch)) {
+        logger_error("Replica page batch contains an unsupported root");
+        return false;
+    }
     const auto selected = select(batch->database());
     return selected && batch->apply(*selected) == db::batch_status::ok;
 }
@@ -153,6 +194,10 @@ bool cluster_client::apply(const shared_message& message) {
     }
     switch (message->get_oper()) {
     case message_oper_set:
+        if (!native_value(message->get_value())) {
+            logger_error("Replica SET contains an unsupported root");
+            return false;
+        }
         return selected->replica_set(message->get_key(), message->get_value());
     case message_oper_del:
         return selected->replica_erase(message->get_key());

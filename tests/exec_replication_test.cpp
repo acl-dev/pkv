@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "native_string_fixture.h"
 #include "rpc/exec_stream.h"
 #include "rpc/rpc_reader.h"
 #include "rpc/rpc_sender.h"
@@ -82,8 +83,8 @@ static std::shared_ptr<const page_batch> pages(unsigned database,
         {{key, 1, "bounded-page", action::write}});
 }
 static std::shared_ptr<const exec_batch> group(unsigned right_db = 0) {
-    auto value = exec_batch::capture({pages(0, "left"),
-        pages(right_db, std::string("right\0key", 9))});
+    auto value = exec_batch::capture({pages(0, "left", native_string_fixture("root")),
+        pages(right_db, std::string("right\0key", 9), native_string_fixture("root"))});
     require(value != nullptr, "EXEC capture"); return value;
 }
 static std::vector<page_frame> frames(const exec_batch& value) {
@@ -106,8 +107,8 @@ static void absent(shared_db database) {
 }
 static void complete(shared_db database) {
     std::string value;
-    require(database->get("left", value) && value == "root" &&
-        database->get(std::string("right\0key", 9), value) && value == "root",
+    require(database->get("left", value) && value == native_string_fixture("root") &&
+        database->get(std::string("right\0key", 9), value) && value == native_string_fixture("root"),
         "EXEC metadata missing");
 }
 static void decode_and_apply() {

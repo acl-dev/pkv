@@ -16,6 +16,7 @@ public:
         size_t byte_limit = 64 * 1024 * 1024, size_t message_limit = 65536);
     ~slave_client();
 
+    bool negotiate();
     void run();
 
     void push(kv_message* message);
@@ -38,6 +39,7 @@ private:
     unsigned requested_version_ = 0;
     unsigned wire_version_ = 0;
 
+    bool read_version();
     bool upgrade(unsigned version);
 
     void close_locked();
@@ -45,7 +47,6 @@ private:
     void close_queue();
     void drain();
     bool flush(std::vector<kv_message*>& messages);
-    bool legacy_pages(const kv_message& message);
 };
 
 using shared_client = std::shared_ptr<slave_client>;

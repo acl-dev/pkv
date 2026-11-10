@@ -25,21 +25,20 @@ Ordinary commands share execution admission and coordinate data access through k
 | Expiry and keyspace | Millisecond deadlines, conditional expiry, indexed active expiry, SCAN, DBSIZE and RANDOMKEY | [Active expiry](doc/ACTIVE_EXPIRY.md), [SCAN](doc/SCAN.md) |
 | Additional operations | Bitmaps / BITFIELD, HyperLogLog, GEO, blocking Lists/ZSets and local Pub/Sub | [Feature navigation](doc/README.md) |
 | Security and diagnostics | AUTH, named ACL users with file persistence, ACL LOG, CLIENT, INFO and partial CONFIG | [Permissions](doc/ACL_PERMISSIONS.md), [INFO](doc/INFO.md), [configuration](doc/CONFIGURATION.md) |
-| Live replication | Private PKV1–PKV4 streams; page transactions, whole EXEC groups, ordered edits and memory MOVE replay | [Replication boundaries](doc/ORDERED_REPLICATION.md) |
+| Live replication | Private PKV2–PKV5 streams; page transactions, whole EXEC groups, ordered edits and memory MOVE replay | [Replication boundaries](doc/ORDERED_REPLICATION.md) |
 
 ## Quick start
 
 ### 1. Install dependencies and build
 
-Requirements: CMake 3.10+, a C/C++ compiler (C++17 by default, optional C++11), [ACL](https://github.com/acl-dev/acl) libraries `acl_all` / `fiber_cpp` / `fiber`, [yyjson](https://github.com/ibireme/yyjson), xxHash 0.8.0+, zlib and system threads. CMake must find the development headers and libraries. The examples use `redis-cli`; server integration tests use Python 3.
+Requirements: CMake 3.10+, a C/C++ compiler (C++17 by default, optional C++11), [ACL](https://github.com/acl-dev/acl) libraries `acl_all` / `fiber_cpp` / `fiber`, xxHash 0.8.0+, zlib and system threads. CMake must find the development headers and libraries. The examples use `redis-cli`; server integration tests use Python 3.
 
 ACL can be installed with `make` followed by `make packinstall` in its source checkout; installing to system directories may require administrator access. Install the other development packages or follow their upstream build instructions for a custom prefix, supplied through `CMAKE_PREFIX_PATH`.
 
-yyjson and xxHash can also be compiled directly from local source checkouts without global installation:
+xxHash can also be compiled directly from a local source checkout without global installation:
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-  -DPKV_YYJSON_SOURCE_DIR=/path/to/yyjson \
   -DPKV_XXHASH_SOURCE_DIR=/path/to/xxHash
 cmake --build build -j 4
 ```
@@ -47,9 +46,10 @@ cmake --build build -j 4
 With dependencies installed, run `make`. Machine-specific paths can be stored in the Git-ignored `Makefile.local`:
 
 ```make
-CMAKE_ARGS += -DPKV_YYJSON_SOURCE_DIR="/path/to/yyjson"
 CMAKE_ARGS += -DPKV_XXHASH_SOURCE_DIR="/path/to/xxHash"
 ```
+
+Storage and replication use native binary records. Use a new database or one containing native records. Legacy JSON records and compatibility conversion are no longer supported.
 
 The executable is `build/pkv`; build artifacts stay outside the source directories. xxHash source mode uses a private namespace and leaves its checkout untouched. See the project's LGPL-2.1 [license](LICENSE) and the separately licensed [fpconv component](third_party/fpconv/ORIGIN.md).
 

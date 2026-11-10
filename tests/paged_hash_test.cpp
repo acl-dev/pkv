@@ -5,7 +5,7 @@
 #include "dao/json/json_key.h"
 #include "dao/json/json_scan.h"
 #include "dao/paged_list.h"
-#include "coder/json_record_codec.h"
+#include "fixture_record_codec.h"
 #include "db/mdb/mdb.h"
 #ifdef HAS_TBB
 #include "db/mdb/mdb_tbb.h"
@@ -234,7 +234,7 @@ static void test_metadata_and_locality() {
 static void test_migration_and_bad_records() {
     shared_db database = memory();
     dao::paged_hash hash;
-    json_record_codec codec;
+    fixture_record_codec codec;
     value_record old;
     old.header.kind = value_kind::hash; old.header.expires_at_ms = deadline;
     for (unsigned i = 0; i < 100; ++i)
@@ -400,7 +400,7 @@ static void test_sample_migration_rollback() {
     old.header.expires_at_ms = deadline;
     old.hash_value = {{"", ""}, {"large", std::string(40000, 'v')},
         {"other", "payload"}};
-    json_record_codec codec;
+    fixture_record_codec codec;
     std::string before;
     require(codec.encode(old, before) == codec_status::ok, "sample encode");
     bool success = false;

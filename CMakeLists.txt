@@ -23,7 +23,6 @@ option(PKV_COMPACT_SET_LEAF "Enable short bulk Set leaves on memory backends" ON
 option(PKV_COMPACT_SET_FRAGMENTS "Enable compact Set fragment pages and references on memory backends" ON)
 option(PKV_TEST_SANITIZERS "Enable AddressSanitizer and UndefinedBehaviorSanitizer" OFF)
 set(PKV_PGO_PROFILE "" CACHE FILEPATH "Optional Clang instrumentation profile")
-set(PKV_YYJSON_SOURCE_DIR "" CACHE PATH "Optional yyjson checkout containing src/yyjson.c and src/yyjson.h")
 
 if(BUILD_WITH_C11)
     set(CMAKE_CXX_STANDARD 11)
@@ -33,7 +32,7 @@ endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Explicitly enabled features must have both their headers and library. Default
-# builds need ACL, yyjson and xxHash, with built-in memory backends.
+# builds need ACL and xxHash, with built-in memory backends.
 function(pkv_find_dependency name header library)
     find_path(${name}_INCLUDE_DIR NAMES ${header})
     find_library(${name}_LIBRARY NAMES ${library})
@@ -48,18 +47,6 @@ pkv_find_dependency(ACL acl-lib/acl_cpp/lib_acl.hpp acl_all)
 pkv_find_dependency(FIBER_CPP acl-lib/fiber/lib_fiber.hpp fiber_cpp)
 pkv_find_dependency(FIBER acl-lib/fiber/lib_fiber.h fiber)
 list(REMOVE_ITEM PKV_LIBRARIES ${ACL_LIBRARY} ${FIBER_CPP_LIBRARY} ${FIBER_LIBRARY})
-
-if(PKV_YYJSON_SOURCE_DIR)
-    if(NOT EXISTS "${PKV_YYJSON_SOURCE_DIR}/src/yyjson.c" OR
-       NOT EXISTS "${PKV_YYJSON_SOURCE_DIR}/src/yyjson.h")
-        message(FATAL_ERROR "PKV_YYJSON_SOURCE_DIR must contain src/yyjson.c and src/yyjson.h")
-    endif()
-    add_library(pkv_yyjson STATIC "${PKV_YYJSON_SOURCE_DIR}/src/yyjson.c")
-    target_include_directories(pkv_yyjson PUBLIC "${PKV_YYJSON_SOURCE_DIR}/src")
-    list(APPEND PKV_LIBRARIES pkv_yyjson)
-else()
-    pkv_find_dependency(YYJSON yyjson.h yyjson)
-endif()
 
 set(PKV_XXHASH_SOURCE_DIR "" CACHE PATH "Optional xxHash source checkout")
 if(PKV_XXHASH_SOURCE_DIR)
@@ -110,7 +97,7 @@ if(PKV_PGO_PROFILE)
     if(NOT EXISTS "${PKV_PGO_PROFILE_PATH}" OR IS_DIRECTORY "${PKV_PGO_PROFILE_PATH}")
         message(FATAL_ERROR "PGO profile is not a file: ${PKV_PGO_PROFILE_PATH}")
     endif()
-    foreach(target pkv pkv_core pkv_fpconv pkv_yyjson pkv_xxhash)
+    foreach(target pkv pkv_core pkv_fpconv pkv_xxhash)
         if(TARGET ${target})
             target_compile_options(${target} PRIVATE
                 "-fprofile-instr-use=${PKV_PGO_PROFILE_PATH}"
@@ -161,9 +148,6 @@ if(PKV_TEST_SANITIZERS AND CMAKE_CXX_COMPILER_ID MATCHES "Clang|GNU")
     if(TARGET pkv_xxhash)
         target_compile_options(pkv_xxhash PRIVATE -g -O1
             -fsanitize=address,undefined -fno-omit-frame-pointer)
-    endif()
-    if(TARGET pkv_yyjson)
-        target_compile_options(pkv_yyjson PRIVATE -g -O1 -fsanitize=address,undefined -fno-omit-frame-pointer)
     endif()
 endif()
 # Build this loopback benchmark explicitly; the normal service does not link it.

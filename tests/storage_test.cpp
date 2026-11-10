@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "native_string_fixture.h"
 #include "dao/json/json_string.h"
 #include "dao/json/json_key.h"
 #include "dao/json/json_hash.h"
@@ -112,6 +113,20 @@ public:
     }
 };
 
+static std::string fixture_value(pkv::value_kind kind,
+    const std::string& value, long long deadline = -1) {
+    pkv::value_record record;
+    record.header.kind = kind;
+    record.header.expires_at_ms = deadline;
+    if (kind == pkv::value_kind::string) record.string_value = value;
+    if (kind == pkv::value_kind::list) record.list_value = {value};
+    if (kind == pkv::value_kind::set) record.set_value = {value};
+    std::string bytes;
+    require(pkv::default_record_codec()->encode(record, bytes) ==
+        pkv::codec_status::ok, "fixture encoding failed");
+    return bytes;
+}
+
 int main() {
     acl::acl_cpp_init();
     using status = pkv::dao::dao_base::read_status;
@@ -120,12 +135,12 @@ int main() {
     pkv::dao::json_string strings;
     pkv::dao::json_key keys;
     std::string out;
-    fixture->records["legacy"] = "{\"T\":\"S\",\"E\":-1,\"D\":\"hello\"}";
+    fixture->records["legacy"] = fixture_value(pkv::value_kind::string, "hello");
     require(strings.get(db, "legacy", out) && out == "hello", "legacy record unreadable");
-    fixture->records["empty"] = "{\"T\":\"S\",\"E\":-1,\"D\":\"\"}";
+    fixture->records["empty"] = fixture_value(pkv::value_kind::string, "");
     require(strings.get(db, "empty", out) && out.empty(), "empty record lost");
     require(!strings.get(db, "absent", out) && strings.status() == status::missing, "missing status incorrect");
-    fixture->records["hash"] = "{\"T\":\"H\",\"E\":-1,\"D\":{}}";
+    fixture->records["hash"] = fixture_value(pkv::value_kind::hash, "");
     require(!strings.get(db, "hash", out) && strings.status() == status::wrong_type, "wrongtype status incorrect");
     const std::vector<std::string> malformed = {
         "not JSON", "[]", "{}",
@@ -139,7 +154,7 @@ int main() {
         require(!strings.get(db, "bad", out) && strings.status() == status::invalid_record, "corruption status incorrect");
         require(fixture->records["bad"] == record, "read destroyed a corrupted record");
     }
-    fixture->records["expired"] = "{\"T\":\"S\",\"E\":0,\"D\":\"old\"}";
+    fixture->records["expired"] = fixture_value(pkv::value_kind::string, "old", 0);
     require(!strings.get(db, "expired", out) && strings.status() == status::missing, "expired key visible");
     require(!fixture->records.count("expired"), "expired key retained");
     // Reuse a DAO repeatedly to catch stale writer state and reader ownership.
@@ -173,7 +188,7 @@ int main() {
     require(keys.ttl(db, "fields", ttl) && ttl >= 59 && ttl <= 60, "hash update cleared TTL");
     require(hashes.hdel(db, "fields", std::vector<std::string>{"a", "a", "none"}) == 1, "hash delete duplicate count");
     require(keys.ttl(db, "fields", ttl) && ttl >= 59 && ttl <= 60, "hash delete cleared TTL");
-    fixture->records["protected"] = "{\"T\":\"S\",\"E\":-1,\"D\":\"safe\"}";
+    fixture->records["protected"] = fixture_value(pkv::value_kind::string, "safe");
     const auto original = fixture->records["protected"];
     require(hashes.hmset(db, "protected", {{"bad", "bad"}}) == -1 && hashes.status() == status::wrong_type,
             "hash overwrote a string");
@@ -256,7 +271,7 @@ int main() {
     require(strings.mget(batch, {"new", "before", "new", "absent"}, results) && results.size() == 4 &&
             results[0].found && results[0].value == "created" && results[1].value == "changed" &&
             results[2].value == "created" && !results[3].found, "batch read ordering mismatch");
-    batch_fixture->records["expired-ro"] = "{\"T\":\"S\",\"E\":0,\"D\":\"old\"}";
+    batch_fixture->records["expired-ro"] = fixture_value(pkv::value_kind::string, "old", 0);
     require(strings.mget(batch, {"expired-ro", "before"}, results) && !results[0].found && results[1].found,
             "MGET returned an expired record");
     require(batch_fixture->records.count("expired-ro") == 1, "read-only snapshot unexpectedly committed expiry cleanup");
@@ -266,7 +281,7 @@ int main() {
             "EXISTS duplicate or type count");
     require(strings.mset(batch, {{"before", "bad"}, {"other", "bad"}}, true, applied) && !applied &&
             !batch_fixture->records.count("other"), "MSETNX partly wrote a blocked request");
-    batch_fixture->records["expired"] = "{\"T\":\"S\",\"E\":0,\"D\":\"old\"}";
+    batch_fixture->records["expired"] = fixture_value(pkv::value_kind::string, "old", 0);
     require(strings.mset(batch, {{"expired", "fresh"}, {"other", "fresh"}}, true, applied) && applied, "expired key blocked MSETNX");
     require(batch->transact({"before", "new", "before"}, [](pkv::db::batch_view entries) {
         require(entries.size() == 2, "batch did not deduplicate keys");
@@ -499,7 +514,7 @@ int main() {
             popped.values == std::vector<std::string>{"x"}, "same-end self move unnecessarily wrote");
     list_fixture->fail_write = false;
     require(lists.push(list_db, "mpop-failure", {"a", binary, "c"}, false, false, length), "mpop fixture");
-    list_fixture->records["mpop-expired"] = "{\"V\":1,\"T\":\"L\",\"E\":0,\"P\":0,\"D\":[\"expired\"]}";
+    list_fixture->records["mpop-expired"] = fixture_value(pkv::value_kind::list, "expired", 0);
     const auto mpop_before = list_fixture->records;
     std::string selected_key;
     list_fixture->fail_write = true;
@@ -666,7 +681,7 @@ int main() {
     require(sets.algebra(set_db, {"set", "set"}, pkv::dao::set_operation::unite, &store_target, set_members) &&
             set_members == std::set<std::string>{"", binary, "tail"} && keys.expiry_time(set_db, store_target, number) && number == -1,
             "Set STORE changed members or kept old TTL");
-    set_fixture->records["expired-set"] = "{\"V\":1,\"T\":\"U\",\"E\":0,\"P\":0,\"D\":[\"expired\"]}";
+    set_fixture->records["expired-set"] = fixture_value(pkv::value_kind::set, "expired", 0);
     const auto snapshot_before = set_fixture->records;
     require(sets.algebra(set_db, {"expired-set", "set"}, pkv::dao::set_operation::unite, nullptr, set_members) &&
             set_members == std::set<std::string>{"", binary, "tail"} && set_fixture->records == snapshot_before,
@@ -725,7 +740,7 @@ int main() {
     require(strings.set(scan_db, "scan:live", binary) && strings.set(scan_db, "scan:expired", "old") &&
             keys.set_expiry(scan_db, "scan:expired", 1, 0), "scan filter fixture");
     scan_fixture->records["ignore:corrupt"] = "bad bytes";
-    scan_fixture->records["scan:expired"] = "{\"T\":\"S\",\"E\":0,\"D\":\"old\"}";
+    scan_fixture->records["scan:expired"] = fixture_value(pkv::value_kind::string, "old", 0);
     scanning.has_match = true;
     scanning.pattern = "scan:*";
     require(scanner.keys(scan_db, scanning, page) && page.cursor == 0 && page.values == std::vector<std::string>{"scan:live"} &&
@@ -754,7 +769,7 @@ int main() {
     require(!scanner.open_collection(scan_db, "collection", pkv::value_kind::hash) && scanner.status() == status::wrong_type, "HSCAN accepted a Set");
     scan_fixture->records["bad-hscan"] = "{\"T\":\"H\",\"E\":-1,\"D\":{\"a\":\"1\",\"a\":\"2\"}}";
     const auto bad_scan = scan_fixture->records.at("bad-hscan");
-    require(scanner.open_collection(scan_db, "bad-hscan", pkv::value_kind::hash) && !scanner.collection(scanning, page) &&
+    require(!scanner.open_collection(scan_db, "bad-hscan", pkv::value_kind::hash) &&
             scanner.status() == status::invalid_record && scan_fixture->records.at("bad-hscan") == bad_scan, "HSCAN hid duplicate-field corruption");
     auto enumerated = pkv::db::create_mdb(16);
     require(enumerated->open(""), "native scan DB open failed");
@@ -1056,7 +1071,7 @@ int main() {
     require(keys.rename(rename_db, "source", "destination", false, renamed) && renamed && !rename_fixture->records.count("source") &&
             rename_fixture->records.at("destination") == source_before && rename_codec->calls == encode_calls,
             "rename rewrote codec bytes or needed an encoder");
-    rename_fixture->records["legacy-source"] = "{\"T\":\"S\",\"E\":4102444800,\"D\":\"legacy\"}";
+    rename_fixture->records["legacy-source"] = fixture_value(pkv::value_kind::string, "legacy", 4102444800000);
     const auto legacy_rename = rename_fixture->records.at("legacy-source");
     require(keys.rename(rename_db, "legacy-source", "legacy-destination", false, renamed) && renamed &&
             rename_fixture->records.at("legacy-destination") == legacy_rename && keys.expiry_time(rename_db, "legacy-destination", number) &&
@@ -1142,12 +1157,13 @@ int main() {
     auto apply_databases = std::make_shared<pkv::database_pool>(copy_from, 4, [&](size_t) { return namespaced_db; });
     pkv::cluster_client multi_applier("", copy_from, apply_databases);
     require(multi_applier.apply(std::make_shared<pkv::kv_message>("", "", pkv::message_oper_ready)), "replica READY rejected");
+    const auto remote = pkv::native_string_fixture("remote");
     namespaced_fixture->fail_write = true;
-    require(!multi_applier.apply(std::make_shared<pkv::kv_message>("key", "remote", pkv::message_oper_set, 3)) &&
+    require(!multi_applier.apply(std::make_shared<pkv::kv_message>("key", remote, pkv::message_oper_set, 3)) &&
             namespaced_fixture->records.at("key") == "local", "replica apply hid failed DB N write");
     namespaced_fixture->fail_write = false;
-    require(multi_applier.apply(std::make_shared<pkv::kv_message>("key", "remote", pkv::message_oper_set, 3)) &&
-            namespaced_fixture->records.at("key") == "remote" && !copy_from_fixture->records.count("key") && old_observer.sets == 0 && identity_observer.sets == 1,
+    require(multi_applier.apply(std::make_shared<pkv::kv_message>("key", remote, pkv::message_oper_set, 3)) &&
+            namespaced_fixture->records.at("key") == remote && !copy_from_fixture->records.count("key") && old_observer.sets == 0 && identity_observer.sets == 1,
             "replica DB N write crossed keyspace or echoed an observer event");
     namespaced_fixture->fail_delete = true;
     require(!multi_applier.apply(std::make_shared<pkv::kv_message>("key", "", pkv::message_oper_del, 3)), "replica delete hid backend failure");

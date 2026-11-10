@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include "native_string_fixture.h"
 #include "rpc/rpc_sender.h"
 #include "rpc/rpc_reader.h"
 #include "rpc/rpc_message.h"
@@ -176,12 +177,12 @@ static void test_rejected_frames() {
 
 static void test_versioned_frames(const std::string& binary) {
     using namespace pkv;
-    for (unsigned version : {1U, 2U, 3U, 4U}) {
+    for (unsigned version : {1U, 2U, 3U, 4U, 5U}) {
         streams pair;
         kv_message ready("", "", message_oper_ready);
-        kv_message zero("same", "zero", message_oper_set);
-        kv_message one("same", "one", message_oper_set, 1);
-        kv_message binary_message("", binary, message_oper_set, 15);
+        kv_message zero("same", native_string_fixture("zero"), message_oper_set);
+        kv_message one("same", native_string_fixture("one"), message_oper_set, 1);
+        kv_message binary_message("", native_string_fixture(binary), message_oper_set, 15);
         kv_message deleted("same", "", message_oper_del, 1);
         std::vector<kv_message*> frames{&ready, &zero, &one, &binary_message,
             &deleted};
@@ -213,9 +214,9 @@ static void test_versioned_frames(const std::string& binary) {
         std::string value;
         auto one_db = databases->get(1);
         auto last_db = databases->get(15);
-        require(primary->get("same", value) && value == "zero" &&
+        require(primary->get("same", value) && value == zero.get_value() &&
             !one_db->get("same", value) && last_db->get("", value) && value ==
-            binary,
+            binary_message.get_value(),
                 "versioned apply crossed database boundaries");
         require(receiver.apply(std::make_shared<kv_message>("same", "",
             message_oper_del, 1, version)), "replayed delete failed");

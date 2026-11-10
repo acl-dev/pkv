@@ -1,4 +1,4 @@
-# Optional backends are opt-in; ACL, yyjson and xxHash are required.
+# Optional backends are opt-in; ACL and xxHash are required.
 BUILD_WITH_C11 ?= NO
 HAS_ROCKSDB ?= NO
 HAS_WT ?= NO

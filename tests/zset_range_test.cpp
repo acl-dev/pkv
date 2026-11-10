@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "db/zset_store.h"
 #include "db/mdb/mdb.h"
-#include "coder/json_record_codec.h"
+#include "fixture_record_codec.h"
 #include <cstdlib>
 #include <iostream>
 #include <new>
@@ -89,7 +89,7 @@ static void test_ranges() {
         seed(database, "zset", expected);
         value_record record;
         record.header.kind = value_kind::zset; record.zset_value = expected;
-        json_record_codec codec;
+        fixture_record_codec codec;
         std::string bytes;
         std::unique_ptr<record_view> reference;
         require(codec.encode(record, bytes) == codec_status::ok &&
@@ -527,7 +527,7 @@ static void test_infinite_metadata_bounds() {
     record.header.kind = value_kind::zset;
     record.header.expires_at_ms = deadline;
     record.zset_value = expected;
-    json_record_codec codec;
+    fixture_record_codec codec;
     std::string encoded, before, after;
     std::unique_ptr<record_view> reference;
     require(codec.encode(record, encoded) == codec_status::ok &&

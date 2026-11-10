@@ -1,5 +1,5 @@
 #include "stdafx.h"
-#include "coder/json_record_codec.h"
+#include "fixture_record_codec.h"
 #include "db/list_store.h"
 #include "db/mdb/mdb.h"
 #include "db/db_watcher.h"
@@ -111,7 +111,7 @@ static void absent_pages(shared_db database, const std::string& key) {
 }
 
 static void test_view() {
-    json_record_codec codec;
+    fixture_record_codec codec;
     list_root root;
     root.elements = 3; root.head = 1; root.tail = 2;
     root.expires_at_ms = deadline;

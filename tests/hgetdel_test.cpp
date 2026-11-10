@@ -1,10 +1,11 @@
 #include "stdafx.h"
+#include "native_string_fixture.h"
 #include "coder/compact_hash.h"
 #include "dao/paged_hash.h"
 #include "dao/json/json_hash.h"
 #include "dao/json/json_key.h"
 #include "db/mdb/mdb.h"
-#include "coder/json_record_codec.h"
+#include "fixture_record_codec.h"
 #include <atomic>
 #include <cstdlib>
 #include <iostream>
@@ -63,7 +64,7 @@ static void deadline(dao::hash& hash, shared_db db) {
         record.header.kind = value_kind::hash;
         record.header.expires_at_ms = future;
         record.hash_value = hash.get_fields();
-        json_record_codec codec; std::string bytes;
+        fixture_record_codec codec; std::string bytes;
         require(codec.encode(record, bytes) == codec_status::ok &&
             db->set("hash", bytes), "legacy TTL fixture");
     } else {
@@ -209,7 +210,7 @@ static void legacy() {
             !take(hash, db, {"a"}, out) && out.empty() &&
             db->get("hash", after) && after == bytes, "corrupt rewrite");
     }
-    require(db->set("hash", "{\"T\":\"S\",\"E\":-1,\"D\":\"v\"}"),
+    require(db->set("hash", native_string_fixture("v")),
         "wrong type seed");
     bool parsed = false;
     require(!hash.hgetdel(db, "hash", [&](std::vector<std::string>&) {

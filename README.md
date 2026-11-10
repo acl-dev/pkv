@@ -25,21 +25,20 @@ PKV 使用 C++ 实现，通过 ACL 的线程与协程处理并发连接，以流
 | 过期与键空间 | 毫秒级期限、条件过期、索引式主动过期、SCAN、DBSIZE、RANDOMKEY | [主动过期](doc/ACTIVE_EXPIRY.md)、[SCAN](doc/SCAN.md) |
 | 扩展数据操作 | Bitmap / BITFIELD、HyperLogLog、GEO、阻塞 List/ZSet、本地 Pub/Sub | [功能导航](doc/README.md) |
 | 认证与诊断 | AUTH、命名 ACL 用户与文件持久化、ACL LOG、CLIENT、INFO、部分 CONFIG | [权限](doc/ACL_PERMISSIONS.md)、[INFO](doc/INFO.md)、[配置](doc/CONFIGURATION.md) |
-| 实时复制 | 私有 PKV1–PKV4 流；页事务、整组 EXEC、有序页编辑及内存 MOVE 重放 | [复制边界](doc/ORDERED_REPLICATION.md) |
+| 实时复制 | 私有 PKV2–PKV5 流；页事务、整组 EXEC、有序页编辑及内存 MOVE 重放 | [复制边界](doc/ORDERED_REPLICATION.md) |
 
 ## 快速开始
 
 ### 1. 准备依赖并构建
 
-需要 CMake 3.10+、C/C++ 编译器（默认 C++17，可选 C++11）、[ACL](https://github.com/acl-dev/acl) 的 `acl_all` / `fiber_cpp` / `fiber`、[yyjson](https://github.com/ibireme/yyjson)、xxHash 0.8.0+、zlib 和线程库。开发头文件和库必须可被 CMake 找到。`redis-cli` 用于下方交互示例，Python 3 用于服务端集成测试。
+需要 CMake 3.10+、C/C++ 编译器（默认 C++17，可选 C++11）、[ACL](https://github.com/acl-dev/acl) 的 `acl_all` / `fiber_cpp` / `fiber`、xxHash 0.8.0+、zlib 和线程库。开发头文件和库必须可被 CMake 找到。`redis-cli` 用于下方交互示例，Python 3 用于服务端集成测试。
 
 ACL 可在其源码目录执行 `make` 和 `make packinstall` 安装；系统目录安装可能需要管理员权限。其他依赖可使用已安装的开发包，或按上游构建说明安装到自定义前缀，并通过 `CMAKE_PREFIX_PATH` 指定。
 
-yyjson 和 xxHash 也可直接使用本地源码，不需要全局安装：
+xxHash 也可直接使用本地源码，不需要全局安装：
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
-  -DPKV_YYJSON_SOURCE_DIR=/path/to/yyjson \
   -DPKV_XXHASH_SOURCE_DIR=/path/to/xxHash
 cmake --build build -j 4
 ```
@@ -47,9 +46,10 @@ cmake --build build -j 4
 若依赖已安装，直接运行 `make`。本地路径也可写入 Git 忽略的 `Makefile.local`：
 
 ```make
-CMAKE_ARGS += -DPKV_YYJSON_SOURCE_DIR="/path/to/yyjson"
 CMAKE_ARGS += -DPKV_XXHASH_SOURCE_DIR="/path/to/xxHash"
 ```
+
+键值存储和复制使用原生二进制记录。请使用新库或已有原生记录的库，旧 JSON 键值和旧版复制兼容转换已移除。
 
 构建产物是 `build/pkv`，源码目录不生成可执行文件。xxHash 源码模式使用私有命名空间，不修改其源码目录。项目同时包含 LGPL-2.1 [许可证](LICENSE)和单独许可的 [fpconv](third_party/fpconv/ORIGIN.md)。
 

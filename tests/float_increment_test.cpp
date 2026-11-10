@@ -1,6 +1,6 @@
 #include "stdafx.h"
 #include "common/redis_decimal.h"
-#include "coder/json_record_codec.h"
+#include "fixture_record_codec.h"
 #include "dao/paged_hash.h"
 #include "dao/paged_string.h"
 #include "dao/json/json_key.h"
@@ -238,7 +238,7 @@ static void test_rollback(bool tbb, bool legacy) {
     old.header.kind = value_kind::hash;
     old.header.expires_at_ms = deadline;
     old.hash_value = {{counter, "0.125"}, {"large", std::string(40000,'x')}};
-    json_record_codec codec;
+    fixture_record_codec codec;
     std::string encoded;
     require(codec.encode(old, encoded) == codec_status::ok, "legacy encode");
     unsigned failures = 0;
