@@ -257,7 +257,8 @@ bool packed_hash_store::remove(const std::string& field,std::string* value,bool&
         if (!publish(next) || !(encoded.empty() ? tx_.erase(owner_,group + 1) :
             tx_.put(owner_,group + 1,std::move(encoded)))) return fail(status::storage);
     }
-    if (value) value->swap(taken); return true;
+    if (value) value->swap(taken);
+    return true;
 }
 bool packed_hash_store::erase(const std::string& field,bool& removed) { return remove(field,nullptr,removed); }
 bool packed_hash_store::take(const std::string& field,std::string& value,bool& found) { return remove(field,&value,found); }

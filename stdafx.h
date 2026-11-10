@@ -7,6 +7,7 @@
 
 //#include <iostream>
 //#include <tchar.h>
+#include <cstring>
 #include <memory>
 #include <utility>
 #include <thread>

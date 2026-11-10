@@ -8,6 +8,7 @@
 #include <cstring>
 #include <numeric>
 #include <stdexcept>
+#include <vector>
 namespace pkv { namespace compact_zset {
 class member_view {
 public:
@@ -83,7 +84,8 @@ inline validation_activity& validation_access() {
 enum : unsigned { validation_miss_limit = 4, validation_cooldown = 64 };
 static_assert(6 + 8 + 3 * max_members + zset_payload_limit <=
     map_page_codec::max_page_bytes, "compact ZSet root must fit one bounded record");
-enum : unsigned { wide_offsets_flag = 64, deadline_flag = 128 };
+constexpr unsigned wide_offsets_flag = 64;
+constexpr unsigned deadline_flag = 128;
 
 inline void write_offset(char* out, size_t width, size_t offset) {
     if (width == 2) *out++ = static_cast<char>(offset >> 8);

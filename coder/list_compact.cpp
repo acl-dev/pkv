@@ -488,7 +488,7 @@ list_page_status list_page_codec::apply_edit(std::string& bytes,
         const auto stride = plan.right_stride;
         if (!plan.id || plan.left || plan.expected_count < 2 ||
             (header != 1 && header != packed_header) || stride < header ||
-            stride - header > (header == 1 ? size_t(UINT8_MAX) :
+            size_t(stride - header) > (header == 1 ? size_t(UINT8_MAX) :
                 wide_member_bytes) ||
             bytes.size() != plan.expected_bytes ||
             bytes.size() != page_header_bytes + stride * size_t(plan.expected_count) ||

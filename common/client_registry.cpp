@@ -159,28 +159,28 @@ client_registry::connection client_registry::add(long long id,
         throw std::invalid_argument("mismatched client metadata identifier");
     // Construct before publishing: allocation failure leaves no live entry.
     connection entry(new client_connection(id, socket, metadata, inspector));
-    auto& bucket = stripe(id);
-    std::lock_guard<std::mutex> lock(bucket.mutex);
-    if (!bucket.entries.emplace(id, entry).second)
+    auto& shard = stripe(id);
+    std::lock_guard<std::mutex> lock(shard.mutex);
+    if (!shard.entries.emplace(id, entry).second)
         throw std::logic_error("duplicate client identifier");
     return entry;
 }
 bool client_registry::retire(const connection& entry) {
     if (!entry) return false;
-    auto& bucket = stripe(entry->id());
-    std::lock_guard<std::mutex> lock(bucket.mutex);
-    const auto found = bucket.entries.find(entry->id());
-    if (found == bucket.entries.end() || found->second != entry) return false;
+    auto& shard = stripe(entry->id());
+    std::lock_guard<std::mutex> lock(shard.mutex);
+    const auto found = shard.entries.find(entry->id());
+    if (found == shard.entries.end() || found->second != entry) return false;
     // This lock order is always bucket -> connection. Never close here.
     entry->retire();
-    bucket.entries.erase(found);
+    shard.entries.erase(found);
     return true;
 }
 client_registry::connection client_registry::find(long long id) const {
-    auto& bucket = stripe(id);
-    std::lock_guard<std::mutex> lock(bucket.mutex);
-    const auto found = bucket.entries.find(id);
-    return found == bucket.entries.end() ? connection() : found->second;
+    auto& shard = stripe(id);
+    std::lock_guard<std::mutex> lock(shard.mutex);
+    const auto found = shard.entries.find(id);
+    return found == shard.entries.end() ? connection() : found->second;
 }
 std::vector<client_registry::connection> client_registry::snapshot(
     bool ordered) const {
@@ -195,8 +195,8 @@ std::vector<client_registry::connection> client_registry::snapshot(
             count += buckets_[i].entries.size();
         }
         result.reserve(count);
-        for (const auto& bucket : buckets_)
-            for (const auto& item : bucket.entries)
+        for (const auto& shard : buckets_)
+            for (const auto& item : shard.entries)
                 result.push_back(item.second);
     }
     if (ordered) std::sort(result.begin(), result.end(),
@@ -208,7 +208,7 @@ std::vector<client_registry::connection> client_registry::snapshot(
 client_registry::~client_registry() {
     // The registry must outlive its handlers. Invalidate any retained snapshot
     // before destroying the membership maps, without taking socket ownership.
-    for (auto& bucket : buckets_)
-        for (const auto& item : bucket.entries) item.second->retire();
+    for (auto& shard : buckets_)
+        for (const auto& item : shard.entries) item.second->retire();
 }
 } // namespace pkv

@@ -89,17 +89,16 @@ private:
     db::batch_view roots_;
     page_change first_{"", 0, "", db::update_action::keep};
     enum : size_t { initial_flat_limit = 40, flat_limit = 120,
-        wide_reserve_limit = 768, wide_flat_limit = 2048 };
+        wide_reserve_limit = 768, wide_flat_limit = 2048,
+        flat_index_size = 256, wide_flat_index_size = 4096 };
     // Small single-owner writes can append without allocating tree nodes.
     std::vector<page_change> owned_flat_;
     std::vector<page_change>& flat_;
     // One-based positions in the append-only, unsorted single-owner vector.
     // The load is bounded by flat_limit; zero ends a probe.
-    enum : size_t { flat_index_size = 256 };
     static_assert(flat_limit < flat_index_size, "flat index needs an empty slot");
     static_assert(flat_limit <= UINT8_MAX, "flat positions fit in one byte");
     uint8_t flat_index_[flat_index_size] = {};
-    enum : size_t { wide_flat_index_size = 4096 };
     static_assert(wide_flat_limit < wide_flat_index_size &&
         wide_flat_limit <= UINT16_MAX, "wide staging positions fit the index");
     std::unique_ptr<uint16_t[]> wide_flat_index_;

@@ -28,7 +28,7 @@ bool map_store::bucket_select(uint64_t rank, std::string& key, bool& found,
     found = false;
     if (kind_ == map_kind::set && root_.grouped) {
         if (rank >= root_.elements) return true;
-        unsigned bucket;
+        unsigned bucket = 0;
         if (!read_directory(false) || !set_bucket_at_rank(rank, bucket)) return false;
         auto apply = [&](map_store& child) { return child.select(rank, key, found, value); };
         return bucket_run(bucket, std::ref(apply), false);

@@ -2,6 +2,7 @@
 #include "compact_zset.h"
 #include "validated_page_cache.h"
 #include <bitset>
+#include <vector>
 
 namespace pkv {
 namespace compact_set {
@@ -194,7 +195,7 @@ public:
 
     // An empty result means that the member already exists.
     bool insert(member_view member, std::string& out) const {
-        unsigned index;
+        unsigned index = 0;
         if (find(member, &index) < count_) return true;
         if (count_ == max_members || member.size() >= 256) return false;
 

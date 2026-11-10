@@ -532,7 +532,7 @@ bool paged_zset::rank(shared_db& db, const std::string& key,
         return true;
     };
     auto compact = [&](const compact_zset::view& packed, db::batch_entry&) {
-        unsigned rank;
+        unsigned rank = 0;
         out.found = packed.find(member, out.score, &rank);
         if (out.found) out.rank = reverse ? packed.count() - rank - 1 : rank;
         return true;
