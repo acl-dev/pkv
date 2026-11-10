@@ -2,13 +2,13 @@
 #include <array>
 #include <atomic>
 #include <cstdint>
+#include <memory>
 #include <mutex>
 #include <string>
 #include <vector>
-#include <unordered_map>
 
 namespace pkv {
-// One owning entry and one heap pointer per expiring key.
+// The deadline heap owns records. The hash slots borrow their addresses.
 struct expiry_totals { uint64_t count = 0, average = 0; };
 class expiry_index {
 public:
@@ -20,12 +20,16 @@ public:
     size_t size() const;
     expiry_totals snapshot(int64_t now) const;
 private:
+    static constexpr size_t stripe_count = 64;
     struct entry {
-        int64_t deadline = -1;
-        size_t position = 0;
+        std::string key;
+        int64_t deadline;
+        size_t hash;
+        size_t position;
+        entry(const std::string& name, int64_t when, size_t hashed, size_t index)
+            : key(name), deadline(when), hash(hashed), position(index) {}
     };
-    using owners = std::unordered_map<std::string, entry>;
-    using heap = std::vector<owners::value_type*>;
+    using heap = std::vector<std::unique_ptr<entry>>;
     struct hint {
         // Hint only: maps always need mutex. Same-owner DB mutations hold
         // the key lock; polls may defer concurrent updates to the next pass.
@@ -36,14 +40,22 @@ private:
     };
     struct bucket {
         mutable std::mutex mutex;
-        owners keys;
+        std::vector<entry*> keys;
         heap deadlines;
+#if defined(__SIZEOF_INT128__)
+        __uint128_t deadline_total = 0;
+#endif
+        size_t find_slot(size_t hash, const std::string& key) const;
+        void rehash_keys(size_t capacity);
+        void erase_slot(size_t slot) noexcept;
     };
-    std::array<bucket, 64> buckets_;
-    std::array<hint, 64> hints_;
+    std::array<bucket, stripe_count> buckets_;
+    std::array<hint, stripe_count> hints_;
     std::atomic<bool> dirty_{false};
     std::atomic<size_t> cursor_{0};
-    bucket& stripe(const std::string& key);
+    static size_t home_slot(size_t hash, size_t mask) noexcept {
+        return (hash / stripe_count) & mask;
+    }
     hint& cached(bucket& value);
     void publish_first(bucket& value, bool exact);
     static void fix_heap(heap& deadlines, size_t position);

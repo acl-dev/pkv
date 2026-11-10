@@ -2,6 +2,7 @@
 #include "db/expiry_index.h"
 #include "db/database_pool.h"
 #include "db/mdb/mdb.h"
+#include <algorithm>
 #include <cstdlib>
 #include <iostream>
 #include <limits>
@@ -34,8 +35,42 @@ static void databases() {
     }
     require(threw, "unavailable stored DB silently omitted");
 }
+static void collisions() {
+    pkv::expiry_index index;
+    std::vector<std::string> keys;
+    for (unsigned i = 0; keys.size() < 96; ++i) {
+        auto key = "expiry-collision:" + std::to_string(i);
+        // Start at the last slot of every table up to 128 slots.
+        if (std::hash<std::string>()(key) % 8192 == 8191)
+            keys.push_back(std::move(key));
+    }
+    for (size_t i = 0; i < keys.size(); ++i)
+        require(index.set(keys[i], 500 + i), "colliding expiry insertion");
+    for (size_t i = 0; i < keys.size(); i += 2) index.erase(keys[i]);
+    for (size_t i = 1; i < keys.size(); i += 2)
+        require(index.set(keys[i], 100), "refresh through erased hash slots");
+    for (size_t i = 0; i < keys.size(); i += 4)
+        require(index.set(keys[i], 2000), "refill expired hash slots");
+    std::vector<std::string> due, expected;
+    index.due(100, keys.size(), due);
+    for (size_t i = 1; i < keys.size(); i += 2) expected.push_back(keys[i]);
+    std::sort(due.begin(), due.end());
+    std::sort(expected.begin(), expected.end());
+    require(due == expected && index.size() == 72 && !index.dirty(),
+        "colliding expiry heap or hash table diverged");
+#if defined(__SIZEOF_INT128__)
+    const auto snapshot = index.snapshot(100);
+    require(snapshot.count == 72 && snapshot.average == 633,
+        "expiry deadline total diverged after updates and removals");
+#endif
+    for (const auto& key : keys) index.erase(key);
+    require(!index.size() && index.set(keys.back(), 0) &&
+        index.due(0, 1, due) && due == std::vector<std::string>{keys.back()},
+        "colliding expiry index did not recover after shrinking");
+}
 int main() {
     databases();
+    collisions();
     pkv::expiry_index index;
     require(index.set("a", 1500) && index.set("b", 2500), "expiry setup");
     auto value = index.snapshot(1000);
@@ -49,6 +84,13 @@ int main() {
     value = index.snapshot(std::numeric_limits<int64_t>::min());
     require(value.count == 1 && value.average ==
         std::numeric_limits<uint64_t>::max(), "TTL subtraction overflow");
+    require(index.set("lower", std::numeric_limits<int64_t>::max() - 16) &&
+        index.set("middle", std::numeric_limits<int64_t>::max() - 5),
+        "wide TTL sum setup");
+    value = index.snapshot(std::numeric_limits<int64_t>::min());
+    require(value.count == 3 && value.average ==
+        std::numeric_limits<uint64_t>::max() - 7, "wide TTL sum and division");
+    index.erase("lower"); index.erase("middle");
     for (unsigned i = 0; i < 20000; ++i)
         require(index.set(std::to_string(i), 5000), "sampling setup");
     value = index.snapshot(1000);

@@ -1,3 +1,4 @@
+#include "db/db_watcher.h"
 #include "stdafx.h"
 #include "coder/compact_list_root.h"
 #include "dao/paged_list.h"
@@ -15,6 +16,7 @@
 #include <random>
 #include <thread>
 #include <atomic>
+#include <chrono>
 
 using namespace pkv;
 static const long long deadline = 4102444800123LL;
@@ -578,7 +580,311 @@ static void test_callback_lifetime_across_yields() {
     native->yielding = false;
 }
 
+static void test_record_bucket_with_pinned_list() {
+    auto database = db::create_mdb(1);
+    require(database->open(""), "record bucket List open");
+    // All keys share one physical root/family bucket; their logical mutexes
+    // differ, allowing sibling changes while the anchor's scope stays pinned.
+    std::array<std::string, 8> names;
+    size_t remaining = names.size();
+    for (unsigned i = 0; remaining; ++i) {
+        const auto key = "record-bucket:" + std::to_string(i);
+        const auto hash = std::hash<std::string>()(key);
+        if (hash % 32) continue;
+        const auto slot = (hash % 256) / 32;
+        if (names[slot].empty()) { names[slot] = key; --remaining; }
+    }
+    dao::paged_list list;
+    const std::vector<std::string> values(128, "anchor");
+    long long length;
+    require(list.push(database, names[0], values, false, false, length) &&
+        list.push(database, names[1], values, false, false, length),
+        "record bucket seed");
+    {
+        execution_guard admission;
+        db::page_lock_scope scope(*database, names[1]);
+        dao::paged_list pinned(&scope);
+        const auto check = [&] {
+            std::string value;
+            bool found;
+            require(pinned.push(database, names[1], {"round"}, false, false,
+                length) && length == 129 && pinned.pop_one(database, names[1],
+                    false, value, found) && found && value == "round",
+                "record bucket invalidated pinned root/page");
+        };
+        check();
+        for (size_t i = 2; i < names.size(); ++i) {
+            require(list.push(database, names[i], values, false, false, length),
+                "record bucket sibling insertion");
+            check();
+        }
+        require(database->del(names[0]), "record bucket first erase");
+        check();
+        require(list.push(database, names[0], values, false, false, length),
+            "record bucket first refill");
+        check();
+        require(database->del(names[0]), "record bucket first erase again");
+        for (size_t i = 2; i < names.size(); ++i) {
+            require(database->del(names[i]), "record bucket sibling erase");
+            check();
+        }
+    }
+    uint64_t count;
+    require(database->key_count(count) == db::count_status::ok && count == 1 &&
+        contents(list, database, names[1]) == values,
+        "overflow-only root survived first erase/refill");
+}
+
+static void test_shard_family_growth_with_pinned_list() {
+    auto database = db::create_mdb(1);
+    require(database->open(""), "directory List open");
+    // Distinct low hash bits select distinct family buckets and logical key
+    // locks, so unrelated writes can run while the anchor scope is pinned.
+    std::array<std::string, 32> names;
+    size_t remaining = names.size();
+    for (unsigned i = 0; remaining; ++i) {
+        const auto key = "directory-list:" + std::to_string(i);
+        const auto slot = std::hash<std::string>()(key) % names.size();
+        if (names[slot].empty()) { names[slot] = key; --remaining; }
+    }
+    dao::paged_list list;
+    const std::vector<std::string> values(128, "anchor");
+    long long length;
+    require(list.push(database, names[0], values, false, false, length),
+        "directory anchor seed");
+    execution_guard admission;
+    db::page_lock_scope scope(*database, names[0]);
+    dao::paged_list pinned(&scope);
+    const auto check = [&] {
+        dao::list_result value;
+        require(pinned.index(database, names[0], "64", value) &&
+            value.found && value.values == std::vector<std::string>{"anchor"},
+            "directory growth invalidated pinned page");
+    };
+    check();
+    for (unsigned round = 0; round < 3; ++round) {
+        for (size_t i = 1; i < names.size(); ++i) {
+            require(list.push(database, names[i], values, false, false, length),
+                "directory sibling seed");
+            check();
+        }
+        for (size_t i = names.size(); --i;) {
+            require(database->del(names[i]), "directory sibling erase");
+            check();
+        }
+        std::string value;
+        bool found;
+        require(pinned.push(database, names[0], {"round"}, false, false,
+            length) && length == 129 && pinned.pop_one(database, names[0],
+                false, value, found) && found && value == "round",
+            "pinned List update after directory contraction");
+    }
+}
+
+static void test_mutation_expiry_index() {
+    for (bool tbb : {false, true}) {
+#ifndef HAS_TBB
+        if (tbb) continue;
+#endif
+        for (size_t width : {size_t(3), size_t(512)}) {
+            auto database = tbb ? db::create_mdb_tbb(4) : memory();
+            if (tbb) require(database->open(""), "open TBB List expiry");
+            dao::paged_list list;
+            dao::json_key keys;
+            const std::string key = "expiry-list", member(width, 'a');
+            long long length;
+            require(list.push(database, key, {member}, false, false, length),
+                "List expiry seed");
+            const auto due = unix_time_ms() + 150;
+            require(keys.set_expiry(database, key, due, 0) &&
+                database->rebuild_expiry() == db::scan_status::ok,
+                "List expiry index seed");
+            {
+                execution_guard admission;
+                db::page_lock_scope scope(*database, key);
+                dao::paged_list scoped(&scope);
+                require(scoped.push(database, key, {member}, true, false,
+                    length) && length == 2, "scoped List deadline write");
+                std::string out;
+                bool found;
+                require(scoped.pop_one(database, key, false, out, found) &&
+                    found && out == member, "scoped List deadline pop");
+            }
+            require(keys.expiry_time(database, key, length) && length == due,
+                "List mutation changed encoded TTL");
+            while (unix_time_ms() <= due)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            const auto expired = database->expire_step(4);
+            std::string bytes;
+            require(expired.ok && expired.removed == 1 &&
+                !database->get(key, bytes),
+                "List mutation lost active expiry registration");
+            require(list.push(database, key, {member}, false, false, length) &&
+                keys.expiry_time(database, key, length) && length == -1,
+                "List recreation inherited old TTL");
+            require(database->expire_step(4).checked == 0,
+                "List recreation retained stale deadline");
+            const auto another = unix_time_ms() + 150;
+            require(keys.set_expiry(database, key, another, 0),
+                "List erase expiry seed");
+            std::string out;
+            bool found;
+            require(list.pop_one(database, key, true, out, found) && found &&
+                list.push(database, key, {member}, false, false, length),
+                "List last-pop recreation");
+            while (unix_time_ms() <= another)
+                std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            require(database->expire_step(4).checked == 0 &&
+                database->get(key, bytes), "last-pop retained stale expiry");
+        }
+    }
+}
+
+class append_payload_observer : public db_watcher {
+public:
+    unsigned publications = 0, page_payloads = 0;
+    bool supports_pages() const override { return true; }
+    bool on_set(const std::string&, const std::string&, bool) override { return true; }
+    bool on_get(const std::string&, const std::string&, bool) override { return true; }
+    bool on_del(const std::string&, bool) override { return true; }
+    bool on_pages_database(unsigned, const std::vector<db::batch_entry>& roots,
+        const std::vector<page_change>& pages) override {
+        require(roots.size() == 1 && !pages.empty(),
+            "payload observer received root without List changes");
+        ++publications;
+        for (const auto& change : pages) {
+            if (change.action != db::update_action::write) continue;
+            list_page page;
+            require(list_page_codec::decode_page(change.value, page) ==
+                list_page_status::ok, "observer received append delta bytes");
+            ++page_payloads;
+        }
+        return true;
+    }
+};
+
+static void test_append_observer_fallback(bool left) {
+    append_payload_observer observer;
+    db_watchers watchers;
+    watchers.add_watcher(&observer);
+    auto database = db::create_mdb(4);
+    require(database->open("", &watchers), "append observed open");
+    dao::paged_list lists;
+    const std::string key = "observed-append";
+    long long length;
+    require(lists.push(database, key, std::vector<std::string>(96, "seed"),
+        false, false, length), "append observed seed");
+    const auto publications = observer.publications;
+    const auto payloads = observer.page_payloads;
+    {
+        execution_guard admission;
+        db::page_lock_scope scope(*database, key);
+        dao::paged_list pinned(&scope);
+        for (unsigned i = 0; i < 100; ++i)
+            require(pinned.push(database, key, {"v"}, left, false, length) &&
+                length == 97 + i, "append observer fallback push");
+    }
+    require(observer.publications == publications + 100 &&
+        observer.page_payloads >= payloads + 100,
+        "append observer lost full page publications");
+    auto values = contents(lists, database, key);
+    std::vector<std::string> expected(96, "seed");
+    expected.insert(left ? expected.begin() : expected.end(), 100, "v");
+    require(values == expected, "observed push final content");
+}
+
+static void test_native_append_scope(shared_db database, bool left) {
+    dao::paged_list lists;
+    const std::string key = "append";
+    std::vector<std::string> model(96, "seed");
+    long long length;
+    require(lists.push(database, key, model, false, false, length),
+        "append scope seed");
+    dao::json_key keys;
+    require(keys.set_expiry(database, key, deadline, 0), "push scope TTL seed");
+    {
+        execution_guard admission;
+        db::page_lock_scope scope(*database, key);
+        dao::paged_list pinned(&scope);
+        for (unsigned i = 0; i < 700; ++i) {
+            const std::string value(i % 20, static_cast<char>(i));
+            const bool pushed = pinned.push(database, key, {value}, left, false, length);
+            if (!pushed) std::cerr << "append failed at " << i << ": " << pinned.error() << '\n';
+            require(pushed, "append scope push");
+            if (left) model.insert(model.begin(), value);
+            else model.push_back(value);
+            require(length == static_cast<long long>(model.size()),
+                "append scope root count");
+            if (i % 17 == 0) {
+                std::string popped; bool found;
+                require(pinned.pop_one(database, key, left, popped, found) &&
+                    found && popped == (left ? model.front() : model.back()),
+                    "native push then ordinary pop");
+                if (left) model.erase(model.begin());
+                else model.pop_back();
+            }
+            if (i % 71 == 0)
+                require(contents(pinned, database, key) == model,
+                    "append scope full content");
+        }
+    }
+    require(contents(lists, database, key) == model,
+        "append scope final content");
+    require(keys.expiry_time(database, key, length) && length == deadline,
+        "native endpoint push lost TTL");
+}
+
+#ifdef HAS_TBB
+static void test_bound_root_retry() {
+    auto database = db::create_mdb_tbb(4);
+    require(database->open(""), "bound root database");
+    const std::string key = "bound-root";
+    const std::string member("a\0b", 3);
+    dao::paged_list lists;
+    long long length;
+    require(lists.push(database, key, std::vector<std::string>(96, member),
+        false, false, length), "bound root seed");
+    execution_guard admission;
+    db::page_lock_scope scope(*database, key);
+    dao::paged_list pinned(&scope);
+    require(pinned.push(database, key, {member}, false, false, length) &&
+        length == 97, "bound root warm append");
+
+    const db::page_root_callback reject = [](db::batch_entry& entry) {
+        require(entry.found && !entry.value.empty(), "bound root snapshot missing");
+        entry.value.assign("uncommitted");
+        return db::page_root_result::rejected;
+    };
+    require(scope.transact(*database, key, {}, &reject) == db::batch_status::aborted,
+        "bound root callback should abort");
+    require(pinned.push(database, key, {member}, false, false, length) &&
+        length == 98, "retry used an uncommitted root");
+
+    dao::list_result popped;
+    require(pinned.pop(database, key, false, length, popped) &&
+        popped.values == std::vector<std::string>(98, member), "bound root erase");
+    require(pinned.push(database, key, {member}, false, false, length) &&
+        length == 1 && contents(pinned, database, key) ==
+            std::vector<std::string>{member}, "bound root recreated with stale pages");
+}
+#endif
+
 int main() {
+#ifdef HAS_TBB
+    test_bound_root_retry();
+    for (bool left : {false, true}) {
+        auto database = db::create_mdb_tbb(4);
+        require(database->open(""), "oneTBB append scope open");
+        test_native_append_scope(database, left);
+    }
+#endif
+    test_append_observer_fallback(false);
+    test_append_observer_fallback(true);
+    test_native_append_scope(memory(), false);
+    test_native_append_scope(memory(), true);
+    test_record_bucket_with_pinned_list();
+    test_shard_family_growth_with_pinned_list();
+    test_mutation_expiry_index();
     test_callback_lifetime_across_yields();
     test_native_open_metadata();
     test_model();

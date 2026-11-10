@@ -270,6 +270,39 @@ static void failures() {
     }
     require(succeeded && failed_in_storage, "allocation sweep did not cover staging");
 }
+static void first_tbb_pages() {
+    for (long allocation = 0; allocation < 128; ++allocation) {
+        auto database = db::create_mdb_tbb(4);
+        const std::string key = "first-page";
+        require(database->open("") && database->set(key, encoded("old")),
+            "first page seed");
+        auto token = watch(database, key);
+        page_sequence sequence;
+        add(sequence, batch(key, action::write, encoded("new"), false,
+            {{key, 1, std::string(512, 'a'), action::write},
+             {key, 2, std::string(512, 'b'), action::write}}));
+        budget = allocation;
+        const auto result = sequence.apply(*database);
+        budget = -1;
+        std::string out;
+        if (result != status::ok) {
+            require(result == status::error && root(database, key) == encoded("old") &&
+                !page(database, key, 1, out) && !page(database, key, 2, out) &&
+                token->valid(unix_time_ms()), "first page failure exposed partial state");
+            continue;
+        }
+        require(allocation > 0 && page(database, key, 1, out) && out == std::string(512, 'a') &&
+            page(database, key, 2, out) && out == std::string(512, 'b'), "first pages missing");
+        require(batch(key, action::write, encoded("clean"), false,
+            {{key, 1, "", action::erase}, {key, 2, "", action::erase}})->apply(*database) == status::ok &&
+            !page(database, key, 1, out) && !page(database, key, 2, out), "last page removal");
+        require(batch(key, action::write, encoded("again"), false,
+            {{key, 1, "restored", action::write}})->apply(*database) == status::ok &&
+            page(database, key, 1, out) && out == "restored", "page recreation");
+        return;
+    }
+    require(false, "first page allocation sweep did not finish");
+}
 static void storage_failure() {
     auto concrete = std::make_shared<measured_db>();
     shared_db database = concrete;
@@ -439,6 +472,7 @@ int main(int argc, char** argv) {
     prefix_validation(database); watch_history(database);
     missing_maintenance(database);
     random_model(database); failures(); storage_failure(); limits();
+    if (backend == "tbb") first_tbb_pages();
     checkpoint(database, true);
     std::cout << "Ordered page sequences passed: " << backend << '\n';
 }

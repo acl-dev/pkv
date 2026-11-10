@@ -15,7 +15,20 @@ New inline roots use a seven-byte header containing the signature and
 version, a one-byte expiry flag, and a two-byte big-endian payload length.
 If the expiry flag is set, the header includes an eight-byte Unix millisecond
 deadline before the payload. Readers accept both layouts. Replication peers
-must support v2 before receiving compact inline roots.
+must support v2 before receiving these inline roots.
+
+## PSR v3 short in-memory layout
+
+The four-byte header contains `PSR` and version byte 3. The remaining bytes
+are the full String payload. Readers infer the payload length from the
+encoded record and enforce the 1024-byte inline limit.
+
+MDB and oneTBB SET and MSET can select v3 for values without a deadline when
+the shorter header fits the encoded value into the platform's `std::string`
+inline storage. On a 22-byte inline implementation this covers values of 16
+through 18 bytes. Writers select v2 when an observer requires replication
+payloads. When an existing v3 root is published to a replica, the publisher
+converts it to v2.
 
 ## PSR v1 layout
 

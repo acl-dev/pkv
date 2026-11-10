@@ -17,6 +17,8 @@ public:
     : db_(db), transaction_(transaction), root_(root), now_(now) {}
     bool open();
     bool read(uint64_t offset, size_t size, std::string& out);
+    bool inspect_value(std::string& scratch, db::page_inspector visit,
+        void* context);
     bool fold(uint64_t offset, size_t size, bitmap_operation operation,
         char* output, char* mask, std::string& scratch);
     uint64_t length() const { return length_; }

@@ -18,8 +18,8 @@ key SCAN. All integer fields use network byte order.
 | --- | --- | --- | --- |
 | Root | PMR v2–v5 | 48 bytes (v2/v3), 12 or 20 bytes (v4/v5) | Kind, expiry, count, tree id, highest id |
 | Directory | PMD v1 / v2 / v3 / v4 | 4112 / 272 / 72 / 13–58 bytes | Bucket roots and counts |
-| AVL node | PMN v2–v9, v11–v16 | 80–272 bytes (v2), variable for packed nodes | Id, bucket, children, height/count, two blob descriptors, inline data |
-| Blob fragment | PMB v1 | 33–16384 bytes | Id, next id, byte offset, nonempty payload |
+| AVL node | PMN v2–v9, v11–v18, ZL, 0xf4–0xf5 | 80–272 bytes (v2), variable for packed nodes | Id, bucket, children, height/count, two blob descriptors, inline data |
+| Blob fragment | PMB v1 / v2 | 33–16384 / 9–520 bytes | Id, next id, byte offset, nonempty payload |
 
 The root kind is Hash or Set. Exact millisecond expiry is stored as a signed
 64-bit deadline, with `-1` for persistence. Count is bounded by signed 64-bit
@@ -78,6 +78,78 @@ PMN v16 uses a seven-byte header for hashed leaves with a 16-bit ID, a
 15–24-byte inline key and an empty value. It stores the bucket and derives
 the key length from the record length. Replication readers must support v16
 before receiving these pages.
+
+Bulk Set builds on memory backends can write leaves that fit in the string's
+inline storage. The three-byte header contains `0xf4` and a big-endian word
+whose lower 14 bits store the nonzero page ID. The upper two bits store the
+member length minus 16. The member follows the header and supplies the
+bucket. Height and count are one, and child links and the value are empty.
+Replication readers must support this format before receiving these pages.
+`make PKV_COMPACT_SET_LEAF=NO` disables new writes in this format and retains
+read support.
+
+PMN v17 uses a six-byte header for leaves written directly during a bulk ZSet
+build with compact ZSet encoding enabled. The two-byte word following the
+version stores a 15-bit page ID and a flag for the member index. The member
+index has a trailing eight-byte score and derives the bucket from the key.
+The score index has an empty value and bucket zero. The inline payload is
+15–25 bytes, and the height and subtree count are both one. The decoder
+accepts earlier PMN versions. Replication readers must support v17 before
+receiving these pages.
+
+Bulk ZSet builds also use `ZL` leaves when the inline payload is 26 or 27
+bytes and the page ID fits in 14 bits. The four-byte header contains the
+two-byte `ZL` signature and a big-endian word. Bits 0–13 hold the nonzero page
+ID, bit 14 selects the 27-byte payload, and bit 15 selects the member index.
+The member index derives its bucket from the key and stores an eight-byte
+score after it. The score index keeps bucket zero and an empty value. Both
+layouts require the declared payload length and imply height and count one.
+Replication readers need `ZL` support before receiving these pages. The
+`PKV_COMPACT_ZSET=NO` build option disables new compact ZSet writes.
+
+The memory backends also use a three-byte ZSet leaf header for inline payloads
+of at least 28 bytes. The `0xf5` tag precedes a big-endian word. Its low 15 bits
+hold the nonzero page ID and its high bit selects the member index. The member
+index derives the bucket from the key and stores an eight-byte score after it.
+The score index has bucket zero and no value. Key length is inferred from the
+record size and is at most 127 bytes in either index. Bulk builds and point
+updates can write this format with compact ZSet encoding enabled. Upgrade
+page replication receivers before enabling these writes.
+
+PMN v18 stores a 20-byte Set node whose member resides in fragments. After
+the version come the bucket and height, then five 16-bit words for the node
+ID, left and right child IDs, subtree count, and first fragment ID. A 32-bit
+member length follows. The node value is empty. Writers use PMN v2 when
+an ID or subtree count exceeds 16 bits.
+
+PMN v19 stores a ZSet node whose key resides in fragments. After the
+four-byte signature and version come flags, height, bucket and a
+four-byte big-endian key length. Five big-endian fields follow for the
+node ID, left and right child IDs, subtree count and first fragment ID.
+Flag bit 0 selects four-byte fields instead of two-byte fields. Flag bit 1
+marks the member index and adds an eight-byte score after the fields.
+The score index uses bucket zero. Writers use PMN v2 when a field exceeds
+32 bits. Upgrade page replication receivers before enabling v19 writes.
+`make PKV_COMPACT_ZSET=NO` disables new v19 writes and retains read support.
+
+PMN v20 stores a ZSet score node whose member bytes reside in the member
+index's fragment chain. It uses the v19 header order. The flags byte is 0,
+1 or 2 for two-, four- or eight-byte fields, and the bucket byte is zero.
+The key length includes the eight-byte ordered score prefix stored after
+the fields. The first fragment ID refers to the member's own chain, whose
+offsets count member bytes from zero. Score nodes never free this chain.
+Upgrade page replication receivers before enabling writes of v20 records.
+For a mixed deployment, build the writers with `PKV_COMPACT_ZSET=NO` before
+they create any v20 records. The disabled build can still read existing
+v20 records and preserve their references during page edits.
+
+The memory backends can use PMB v2 for a member of up to 512 bytes stored
+in one fragment. The header is the four-byte signature and version followed
+by a 32-bit page ID. The payload follows with an implied zero offset and no
+next page. Readers accept both fragment versions and both node layouts in
+one family. Upgrade page replication receivers before enabling v18 writes.
+`make PKV_COMPACT_SET_FRAGMENTS=NO` selects PMN v2 and PMB v1 for fragmented
+Set members.
 
 Standalone Hash and Set roots use PMR v4 when their count and page IDs fit
 in 16 bits. The signature and version occupy bytes 0–3, followed by kind and

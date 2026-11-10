@@ -9,7 +9,7 @@ db::batch_status mdb::dbdetach_pages(const std::string& owner,
     try {
         const auto position = locate(owner);
         std::lock_guard<lock_t> guard(*locks_[position.shard]);
-        auto* family = find_page_family(position, false);
+        auto* family = find_page_family(position.shard, false);
         page_map* pages = nullptr;
         if (family) {
             auto found = family->find(owner);

@@ -16,7 +16,7 @@ public:
         // Swap the storage out so a nested call or another fiber gets its
         // own buffers while this request owns the live keys.
         keys_.swap(cache_);
-        keys_.resize(size);
+        if (keys_.size() < size) keys_.resize(size);
     }
     score_key_batch(const score_key_batch&) = delete;
     score_key_batch& operator=(const score_key_batch&) = delete;
@@ -91,7 +91,12 @@ bool zset_store::trees() {
         fail(status::storage);
         throw;
     }
+    use_crc_member_buckets(root_.crc_member_buckets);
     return (members_->open() && scores_->open()) || tree_error();
+}
+
+void zset_store::use_crc_member_buckets(bool enabled) {
+    root_.crc_member_buckets = members_->crc_buckets_ = enabled;
 }
 
 bool zset_store::open() {
@@ -157,6 +162,7 @@ void zset_store::initialize(int64_t expires_at_ms) {
     entry_->action = db::update_action::write;
     error_ = status::ok; dirty_ = true;
     if (!members_) { trees(); return; }
+    use_crc_member_buckets(false);
     members_->initialize(); scores_->initialize();
     if (members_->error() != status::ok || scores_->error() != status::ok)
         tree_error();
@@ -185,7 +191,7 @@ db::page_lock_scope* zset_store::repeated_read(const std::string& member,
 bool zset_store::get(const std::string& member, zset_score& out) {
     out = zset_score();
     if (error_ != status::ok || !members_) return false;
-    auto* scope = repeated_read(member);
+    auto* scope = repeated_read(member, false);
     if (scope && scope->scored_member_ && *scope->scored_member_ == member) {
         out.found = true;
         out.score = scope->member_score_;
@@ -236,6 +242,57 @@ bool zset_store::validate_score(const std::string& member, double score,
     return true;
 }
 
+bool zset_store::get_scores_batched(const std::string* const* members,
+    size_t count, zset_score* out) {
+    if (error_ != status::ok || !members_ || !scores_) return false;
+    constexpr size_t batch_size = 128;
+    struct lookup_state {
+        zset_store& store;
+        zset_score* output;
+    } state{*this, out};
+    const auto member_found = [](void* raw, size_t index, const map_blob& value) {
+        auto& job = *static_cast<lookup_state*>(raw);
+        std::string bytes;
+        if (value.head && !job.store.members_->read_blob(value, bytes))
+            return job.store.tree_error();
+        double score;
+        if (!zset_page_codec::decode_value(value.head ? bytes : value.inline_value, score))
+            return job.store.fail(status::invalid);
+        job.output[index].found = true;
+        job.output[index].score = score;
+        return true;
+    };
+    const auto score_found = [](void* raw, size_t, const map_blob& value) {
+        if (value.length) return false;
+        --*static_cast<size_t*>(raw);
+        return true;
+    };
+    std::fill_n(out, count, zset_score());
+    map_store::lookup_request requests[batch_size];
+    score_key_batch score_keys(std::min(count, batch_size));
+    for (size_t start = 0; start < count;) {
+        const auto size = std::min(batch_size, count - start);
+        for (size_t i = 0; i < size; ++i)
+            requests[i] = {members[start + i], start + i, 0};
+        if (!members_->find_many(requests, requests + size, member_found, &state))
+            return tree_error();
+        size_t matches = 0;
+        for (size_t i = start; i < start + size; ++i) {
+            if (!out[i].found) continue;
+            auto& key = score_keys[matches];
+            if (!zset_page_codec::score_key(out[i].score, *members[i], key))
+                return fail(status::invalid);
+            requests[matches++] = {&key, i, 0};
+        }
+        auto remaining = matches;
+        if (!scores_->find_many(requests, requests + matches,
+                score_found, &remaining) || remaining)
+            return tree_error();
+        start += size;
+    }
+    return true;
+}
+
 bool zset_store::get_scores(const std::string* const* members, size_t count,
     zset_score* out) {
     auto* scope = count && count <= db::page_lock_scope::max_score_batch ?
@@ -252,51 +309,7 @@ bool zset_store::get_scores(const std::string* const* members, size_t count,
     if (count >= batch_size && root_.elements && error_ == status::ok && members_ &&
         std::none_of(members + 1, members + 16,
             [&](const std::string* member) { return *member == *members[0]; })) {
-        struct lookup_state {
-            zset_store& store;
-            zset_score* output;
-        } state{*this, out};
-        const auto member_found = [](void* raw, size_t index, const map_blob& value) {
-            auto& job = *static_cast<lookup_state*>(raw);
-            std::string bytes;
-            if (!job.store.members_->read_blob(value, bytes))
-                return job.store.tree_error();
-            double score;
-            if (!zset_page_codec::decode_value(bytes, score))
-                return job.store.fail(status::invalid);
-            job.output[index].found = true;
-            job.output[index].score = score;
-            return true;
-        };
-        const auto score_found = [](void* raw, size_t, const map_blob& value) {
-            if (value.length) return false;
-            --*static_cast<size_t*>(raw);
-            return true;
-        };
-        std::fill_n(out, count, zset_score());
-        map_store::lookup_request requests[batch_size];
-        score_key_batch score_keys(batch_size);
-        for (size_t start = 0; start < count;) {
-            const auto size = std::min(batch_size, count - start);
-            for (size_t i = 0; i < size; ++i)
-                requests[i] = {members[start + i], start + i, 0};
-            if (!members_->find_many(requests, requests + size, member_found, &state))
-                return tree_error();
-            size_t matches = 0;
-            for (size_t i = start; i < start + size; ++i) {
-                if (!out[i].found) continue;
-                auto& key = score_keys[matches];
-                if (!zset_page_codec::score_key(out[i].score, *members[i], key))
-                    return fail(status::invalid);
-                requests[matches++] = {&key, i, 0};
-            }
-            auto remaining = matches;
-            if (!scores_->find_many(requests, requests + matches,
-                    score_found, &remaining) || remaining)
-                return tree_error();
-            start += size;
-        }
-        return true;
+        return get_scores_batched(members, count, out);
     }
     if (count >= batch_size && root_.elements) {
         // The request owns both the member strings and the result slots.
@@ -361,6 +374,9 @@ bool zset_store::put_score(const std::string& member, double& score,
         initialize(root_.expires_at_ms);
         if (error_ != status::ok) return false;
     }
+    if (member.size() >= map_store::crc_bucket_min && !root_.elements &&
+        transaction_.database_.supports_compact_zsets())
+        use_crc_member_buckets(true);
     std::string bytes;
     struct previous {
         zset_store& store;
@@ -397,14 +413,19 @@ bool zset_store::put_score(const std::string& member, double& score,
         return fail(status::invalid);
     auto* scope = increment ? nullptr : transaction_.scope_;
     bool handled = false;
+    uint64_t shared_head = 0;
+    const bool share_key = member.size() > map_page_codec::zset_key_inline_bytes &&
+        transaction_.database_.supports_compact_zsets();
     // A recent hit favors the view traversal. A miss switches back to the
     // owning traversal so growing sets do not search twice per insertion.
     if (scope && scope->zadd_member_present_ && root_.elements >= 64 &&
         member.size() <= map_page_codec::zset_key_inline_bytes &&
         !members_->update_inline(member, bytes, gate, handled))
         return tree_error();
-    if (!handled && !members_->put_checked(member, bytes, false, added, &gate))
+    if (!handled && !members_->put_checked(member, bytes, false, added, &gate,
+        share_key ? &shared_head : nullptr))
         return tree_error();
+    if (share_key && !shared_head) return fail(status::invalid);
     if (scope) scope->zadd_member_present_ = !added;
     const auto& old = state.old;
     if (!added && old.found && old.score == score) {
@@ -446,7 +467,7 @@ bool zset_store::put_score(const std::string& member, double& score,
             auto& replacement = replacement_buffer.key.inline_value;
             if (!zset_page_codec::score_key(score, member, replacement))
                 return fail(status::invalid);
-            if (!scores_->replace_score_key(key, replacement) || !counts())
+            if (!scores_->replace_score_key(key, replacement, shared_head) || !counts())
                 return tree_error();
             changed = true;
             return true;
@@ -460,7 +481,7 @@ bool zset_store::put_score(const std::string& member, double& score,
     if (!zset_page_codec::score_key(score, member, key)) {
         added = false; return fail(status::invalid);
     }
-    if (!scores_->put(key, "", true, inserted)) {
+    if (!scores_->put_checked(key, "", true, inserted, nullptr, nullptr, shared_head)) {
         added = false; return tree_error();
     }
     if (!inserted || !counts()) { added = false; return fail(status::invalid); }
@@ -477,7 +498,10 @@ bool zset_store::erase(const std::string& member, bool& removed) {
         transaction_.wide_flat_enabled_ = true;
     std::string bytes;
     bool found;
-    if (!members_->take(member, bytes, found)) return tree_error();
+    map_blob deferred_key;
+    if (!(member.size() > map_page_codec::zset_key_inline_bytes ?
+        members_->erase_value(member, found, &bytes, nullptr, 256, &deferred_key) :
+        members_->take(member, bytes, found))) return tree_error();
     if (!found) return true;
     dirty_ = true;
     // Both deletes are staged. A broken score index aborts the transaction.
@@ -495,7 +519,9 @@ bool zset_store::erase(const std::string& member, bool& removed) {
     bool deleted;
     if (!scores_->erase_value(key, deleted, nullptr, &gate))
         return tree_error();
-    if (!deleted || !counts()) return fail(status::invalid);
+    if (!deleted) return fail(status::invalid);
+    // The score lookup may still need the member's fragment chain.
+    if (!members_->erase_blob(deferred_key) || !counts()) return tree_error();
     removed = true;
     return true;
 }
@@ -519,7 +545,9 @@ bool zset_store::erase_edge_member(std::string& key, zset_member& out,
     char saved_prefix[8];
     const char* prefix = key.data();
     const auto member_size = key.size() - sizeof(saved_prefix);
-    if (batch || (member_size <= map_page_codec::key_inline_bytes &&
+    const bool tight_wide_key = member_size > map_page_codec::zset_key_inline_bytes &&
+        member_size <= 512 && key.capacity() - member_size <= 32;
+    if (batch || tight_wide_key || (member_size <= map_page_codec::key_inline_bytes &&
         member_size > std::string().capacity())) {
         // Reuse the detached key when the reply would allocate a buffer.
         std::memcpy(saved_prefix, prefix, sizeof(saved_prefix));
@@ -582,7 +610,7 @@ bool zset_store::pop_edges(uint64_t count, bool maximum,
         for (auto i = static_cast<uint16_t>(keys.size()); i-- > 0;) {
             const auto& key = keys[i];
             if (key.size() < 8) return fail(status::invalid);
-            auto& head = heads[scan_bucket(key.data() + 8, key.size() - 8)];
+            auto& head = heads[members_->bucket(key.data() + 8, key.size() - 8)];
             next[i] = head;
             head = i;
         }

@@ -59,6 +59,19 @@ bool string_bitop_source::read(uint64_t offset, size_t size, std::string& out) {
     return out.size() == count || fail(dao_base::read_status::invalid_record);
 }
 
+bool string_bitop_source::inspect_value(std::string& scratch,
+    db::page_inspector visit, void* context) {
+    if (!exists_ || !visit || !length_ || length_ > string_page_codec::page_bytes)
+        return fail(dao_base::read_status::invalid_record);
+    const auto size = static_cast<size_t>(length_);
+    if (native_)
+        return native_->inspect_chunk(0, size, scratch, visit, context) ||
+            stored();
+    if (!read(0, size, scratch)) return false;
+    visit(context, scratch);
+    return true;
+}
+
 bool string_bitop_source::fold(uint64_t offset, size_t size,
     bitmap_operation operation, char* output, char* mask, std::string& scratch) {
     if (native_ && offset <= length_ && size <= length_ - offset) {

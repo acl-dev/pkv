@@ -35,10 +35,13 @@ bool paged_list::import(list_store& store) {
     return import_list(*view_, store, read_status_);
 }
 
-bool paged_list::open(shared_db& db, page_transaction& transaction,
-    const std::string& key, list_store& store, long long now) {
-    auto& root = *transaction.roots().find(key);
+bool paged_list::open(shared_db& db, list_store& store, long long now) {
+    auto& root = *store.entry_;
     if (!root.found) return store.open() || store_result(store);
+    if (root.action != db::update_action::erase && root.value.size() >= 4 &&
+        root.value.compare(0, 3, "PLR") == 0 &&
+        (root.value[3] == 1 || root.value[3] == 2))
+        return store.open_paged(true, now) || store_result(store);
     record_header header;
     bool native;
     if (!decode_metadata(db, root.value, header, native, now)) {
@@ -59,10 +62,16 @@ bool paged_list::open(shared_db& db, page_transaction& transaction,
 }
 
 bool paged_list::run_callback(shared_db& db, const std::string& key,
-    const operation& callback, const packed_operation& packed) {
+    const operation& callback, const packed_operation& packed,
+    const single_push* push) {
     reset();
+    long long committed_deadline = -1;
+    list_page_edit edit;
     const auto apply_root = [&](db::batch_entry& root) {
         using result = db::page_root_result;
+        if (push && list_store::stage_cached_push(*scope_, root, *push->value,
+                push->left, edit, push->length, committed_deadline))
+            return result::ready;
         try {
             if (!root.found)
                 return packed(root, nullptr) ? result::ready : result::fallback;
@@ -70,7 +79,10 @@ bool paged_list::run_callback(shared_db& db, const std::string& key,
                 const compact_list_root::view view(root.value);
                 const auto deadline = view.deadline();
                 if ((deadline < 0 || deadline > unix_time_ms()) &&
-                    packed(root, &view)) return result::ready;
+                    packed(root, &view)) {
+                    committed_deadline = deadline;
+                    return result::ready;
+                }
             }
         } catch (const std::runtime_error&) {
             read_status_ = read_status::invalid_record;
@@ -79,21 +91,24 @@ bool paged_list::run_callback(shared_db& db, const std::string& key,
         return result::fallback;
     };
     const auto apply = [&](page_transaction& tx) {
-        list_store store(tx, key);
+        list_store store(tx, key, scope_ ? &edit : nullptr);
         // decode_metadata reads the clock only for a stored deadline.
-        if (!open(db, tx, key, store, -1)) return false;
+        if (!open(db, store, -1)) return false;
         if (!callback(store)) {
             if (store.error() != list_store::status::ok) store_result(store);
             return false;
         }
-        return store.finish() || store_result(store);
+        if (!store.finish()) return store_result(store);
+        committed_deadline = store.metadata().expires_at_ms;
+        return true;
     };
     db::page_root_callback root;
     if (packed) root = std::cref(apply_root);
     const auto result = scope_ ?
-        scope_->transact(*db, key, std::cref(apply), root ? &root : nullptr) :
-        root ? db->transact_page(key, std::cref(apply), root) :
-        db->transact_page(key, std::cref(apply));
+        scope_->transact(*db, key, std::cref(apply), root ? &root : nullptr,
+            false, &committed_deadline, &edit) :
+        db->transact_page(key, std::cref(apply), root ? &root : nullptr,
+            &committed_deadline);
     return batch_result(result);
 }
 
@@ -113,6 +128,7 @@ bool paged_list::push(shared_db& db, const std::string& key,
         length = static_cast<long long>(store.metadata().elements);
         return true;
     };
+    const single_push single{values.begin(), left, length};
     const bool ok = db->supports_compact_lists() && !values.empty() && values.size() <= compact_list_root::max_members ?
         run_packed(db, key, tree,
             [&](db::batch_entry& root, const compact_list_root::view* packed) {
@@ -128,7 +144,7 @@ bool paged_list::push(shared_db& db, const std::string& key,
                 root.action = db::update_action::write;
                 length = static_cast<long long>(count);
                 return true;
-            }) : run(db, key, tree);
+            }, scope_ && values.size() == 1 ? &single : nullptr) : run(db, key, tree);
     if (!ok) length = 0;
     return ok;
 }
@@ -489,7 +505,7 @@ bool paged_list::move_checked(shared_db& db, const std::string& source,
             }
         }
         list_store from(tx, source);
-        if (!open(db, tx, source, from, now)) return false;
+        if (!open(db, from, now)) return false;
         if (!from.exists()) return from.finish() || store_result(from);
         if (!checked_eligibility && eligible && !eligible(source)) return true;
         std::string value;
@@ -498,7 +514,7 @@ bool paged_list::move_checked(shared_db& db, const std::string& source,
                 return store_result(from);
         } else {
             list_store to(tx, destination);
-            if (!open(db, tx, destination, to, now)) return false;
+            if (!open(db, to, now)) return false;
             if (!from.move_to(to, from_left, to_left, value, out.found)) {
                 store_result(from);
                 store_result(to);
@@ -549,7 +565,7 @@ bool paged_list::mpop_checked(shared_db& db,
                 }
             }
             list_store store(tx, key);
-            if (!open(db, tx, key, store, now)) return false;
+            if (!open(db, store, now)) return false;
             if (!store.exists()) {
                 if (!store.finish()) return store_result(store);
                 continue;

@@ -52,13 +52,38 @@ bool string_store::setbit(uint64_t offset, bool bit, long long& previous) {
     const auto page = byte / string_page_codec::page_bytes;
     const auto position = static_cast<size_t>(root_.pages ?
         byte % string_page_codec::page_bytes : byte);
-    if (root_.pages && !read_page(page, bytes)) return false;
-    auto& target = root_.pages ? bytes : root_.inline_value;
-    const auto value = static_cast<unsigned char>(target[position]);
+    unsigned char value;
+    if (root_.pages) {
+        struct bit_update {
+            size_t size, position;
+            unsigned char mask, wanted;
+            std::string& replacement;
+            unsigned char value;
+            bool valid;
+        } update{string_page_codec::page_size(root_, page), position,
+            mask, static_cast<unsigned char>(bit ? mask : 0), bytes, 0, false};
+        const auto inspect = [](void* raw, const std::string& data) {
+            auto& request = *static_cast<bit_update*>(raw);
+            if (data.size() != request.size) return;
+            request.value = static_cast<unsigned char>(data[request.position]);
+            // A fallback backend may have already copied into replacement.
+            if ((request.value & request.mask) != request.wanted &&
+                &data != &request.replacement)
+                request.replacement = data;
+            request.valid = true;
+        };
+        const auto found = transaction_.inspect_bound(entry_, page + 1,
+            bytes, inspect, &update);
+        if (found != db::lookup_status::found || !update.valid)
+            return fail(found == db::lookup_status::error ? status::storage :
+                status::invalid);
+        value = update.value;
+    } else value = static_cast<unsigned char>(root_.inline_value[position]);
     previous = (value & mask) ? 1 : 0;
     if (previous == static_cast<long long>(bit)) return true;
+    auto& target = root_.pages ? bytes : root_.inline_value;
     target[position] = static_cast<char>(bit ? value | mask : value & ~mask);
-    if (root_.pages && !write_page(page, target)) return false;
+    if (root_.pages && !write_page(page, std::move(bytes))) return false;
     dirty_ = true;
     return true;
 }
@@ -74,36 +99,8 @@ bool string_store::scan_bits(uint64_t first, uint64_t last, int bit,
             string_page_codec::page_bytes - 1;
         const auto end = std::min(last_byte, page_end);
         const auto size = static_cast<size_t>(end - offset + 1);
-        unsigned first_mask = offset == first_byte ? 255U >> (first % 8) : 255;
-        unsigned last_mask = end == last_byte ? (255U << (7 - last % 8)) & 255 : 255;
-        if (size == 1) { first_mask &= last_mask; last_mask = 255; }
-
-        auto scan = [&](const char* bytes) {
-            auto consume = [&](const char* data, size_t count, uint64_t base) {
-                if (bit < 0) {
-                    out += static_cast<long long>(bitmap_popcount(data, count));
-                    return false;
-                }
-                const auto found = bitmap_position(data, count, bit);
-                if (found < 0) return false;
-                out = static_cast<long long>(base * 8) + found;
-                return true;
-            };
-            auto masked = [&](char byte, unsigned mask, uint64_t position) {
-                const auto value = static_cast<unsigned char>(byte);
-                const auto adjusted = static_cast<char>(
-                    bit == 0 ? value | ~mask : value & mask);
-                return consume(&adjusted, 1, position);
-            };
-            size_t start = 0, stop = size;
-            if (first_mask != 255) {
-                if (masked(bytes[0], first_mask, offset)) return;
-                ++start;
-            }
-            if (last_mask != 255) --stop;
-            if (start < stop && consume(bytes + start, stop - start, offset + start))
-                return;
-            if (last_mask != 255) masked(bytes[stop], last_mask, end);
+        const auto scan = [&](const char* bytes) {
+            bitmap_scan_chunk(bytes, offset, size, first, last, bit, out);
         };
         if (!root_.pages) {
             scan(root_.inline_value.data() + static_cast<size_t>(offset));

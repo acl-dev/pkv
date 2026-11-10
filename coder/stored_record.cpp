@@ -1,3 +1,4 @@
+#include "packed_hash.h"
 #include "coder/compact_list_root.h"
 #include "coder/compact_hash.h"
 #include "compact_zset.h"
@@ -119,6 +120,14 @@ codec_status native_header(const std::string& bytes, native_kind kind,
             } catch (const std::runtime_error&) {
                 return codec_status::invalid_record;
             }
+        }
+        if (packed_hash::matches(bytes)) {
+            packed_hash::root root;
+            if (packed_hash::decode_root(bytes, root) != map_page_status::ok)
+                return codec_status::invalid_record;
+            header.kind = value_kind::hash;
+            header.expires_at_ms = root.expires_at_ms; elements = root.elements;
+            return codec_status::ok;
         }
         map_root root;
         const auto result = map_page_codec::decode_root(bytes, root);

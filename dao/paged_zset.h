@@ -63,15 +63,13 @@ public:
         bool cardinality_only, const zset_options_parser& configure,
         std::vector<zset_member>& out, long long& cardinality) override;
     using geo_parser =
-        std::function<bool(zset_store&, geo::search_options&)>;
+        std::function<bool(const geo::search_source&, geo::search_options&)>;
     bool geo_search(shared_db& db, const std::string& source,
         const std::string* destination, const geo_parser& configure,
         geo::search_options& options, std::vector<geo::match>& out,
         long long& stored);
 private:
     db::page_lock_scope* scope_;
-    bool geo_collect(zset_store& store, const geo::search_options& options,
-        std::vector<geo::match>& out);
     using operation = std::function<bool(zset_store&)>;
     // These private operations run synchronously and never retain callbacks.
     template <class Callback>

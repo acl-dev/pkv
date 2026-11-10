@@ -75,8 +75,7 @@ redis_coder::pending_reply::~pending_reply() {
 
 std::string& redis_coder::pending_reply::string() {
     assert(object_);
-    object_->set_type(REDIS_OBJ_STRING);
-    return object_->buf_;
+    return object_->string_buffer();
 }
 
 redis_object& redis_coder::pending_reply::object() {

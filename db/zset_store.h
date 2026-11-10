@@ -34,6 +34,9 @@ public:
     // For a bounded batch of arguments borrowed from the live request.
     bool get_scores(const std::string* const* members, size_t count,
         zset_score* out);
+    // Group distinct probes and validate matches against both indexes.
+    bool get_scores_batched(const std::string* const* members, size_t count,
+        zset_score* out);
     bool put(const std::string& member, double score, bool& added,
         bool& changed);
     bool increment(const std::string& member, double& score, bool& added,
@@ -42,16 +45,31 @@ public:
     // The caller handles empty sets and whole-family removal.
     bool pop_edge(bool maximum, zset_member& out);
     bool pop_edges(uint64_t count, bool maximum, std::vector<zset_member>& out);
-    bool pop_rebuild(uint64_t count, bool maximum, std::vector<zset_member>& out);
+    // The DAO can pack the remainder when this is the final operation on
+    // the opened tree. The caller still finishes the transaction normally.
+    bool pop_rebuild(uint64_t count, bool maximum, std::vector<zset_member>& out,
+        bool compact_remainder = false);
     bool rank(const std::string& member, zset_rank& out);
     bool select(uint64_t rank, zset_member& out, bool& found);
+    static constexpr size_t sample_rank_batch = 8;
+    // All ranks must exist. A fragmented path requests scalar fallback.
+    // Output is usable only on success without fallback and includes duplicates.
+    bool select_many(const uint64_t* ranks, size_t count, zset_member* out,
+        bool& fallback);
     using visitor = std::function<bool(const std::string&, double)>;
     // May stop early. Callbacks must not mutate this context.
     bool visit(const visitor& callback);
+    static constexpr size_t visit_batch_capacity = 32;
+    using batch_visitor = std::function<size_t(const std::string* const*, size_t)>;
+    // Visit validated members. The callback returns the next batch size, or
+    // zero to stop. Member pointers remain live only during the callback.
+    bool visit_batches(size_t batch_size, const batch_visitor& callback);
     bool visit_ordered(const visitor& callback);
     bool scan(const scan_options& options, scan_page& out);
-    // Stream an indexed range; false from the visitor stops successfully.
-    bool visit_range(const zset_query& query, const visitor& callback);
+    // False from the visitor stops successfully. Complete scans may validate
+    // a bounded batch before invoking the visitor for its first member.
+    bool visit_range(const zset_query& query, const visitor& callback,
+        bool batch_members = false);
     bool range(const zset_query& query, std::vector<zset_member>& out);
     bool count(const zset_query& query, long long& out);
     bool clone_to(zset_store& destination, bool& copied);
@@ -63,6 +81,7 @@ private:
     db::batch_entry* entry_;
     zset_root root_;
     map_root member_state_, score_state_;
+    void use_crc_member_buckets(bool enabled);
     // Only destroyed contexts enter the bounded per-worker raw-block pool.
     // The stateless deleter preserves the original pointer-sized owners.
     struct tree_deleter {
@@ -98,6 +117,7 @@ private:
     bool lex_bounds(const zset_query& query, uint64_t& first, uint64_t& last,
         bool& indexed);
     bool collect_all(std::vector<zset_member>& values);
+    bool validate_score_members(zset_member* members, size_t count);
     bool collect(uint64_t first, uint64_t last, bool reverse,
         std::vector<zset_member>& out);
     bool lex_range(const zset_query& query, std::vector<zset_member>* out,

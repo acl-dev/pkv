@@ -43,6 +43,31 @@ struct list_page_update {
     std::string value;
 };
 
+// Synchronous native packed endpoint edit, never a stored page format. The producer has
+// validated the complete old page while its logical key lock remains held.
+struct list_page_edit {
+    static constexpr size_t small_member_bytes = 19;
+    static constexpr size_t reserve_min_width = 256;
+    static constexpr size_t reserve_max_width = 1024;
+    uint64_t id = 0;
+    uint32_t expected_bytes = 0;
+    // A bounded page cannot contain more than 16352 one-byte fragments.
+    uint16_t expected_count = 0;
+    bool left = false;
+    uint8_t length_bytes = 1;
+    std::string suffix;
+    // A Pipeline command may borrow its argument until synchronous commit.
+    const std::string* borrowed_value = nullptr;
+    uint16_t right_stride = 0; // Encoded bytes removed by a native right pop.
+    bool preserves_deadline = false;
+    // Expanded size reachable by the current push and its parsed successors.
+    uint16_t fill_limit = 0;
+
+    size_t added_bytes() const {
+        return borrowed_value ? borrowed_value->size() + length_bytes : suffix.size();
+    }
+};
+
 // Borrowed contiguous members for a synchronous list write.
 class list_values_view {
 public:
@@ -68,10 +93,19 @@ public:
     static const size_t max_page_bytes = 16384;
     static const size_t max_fragment_bytes =
         max_page_bytes - page_header_bytes - fragment_header_bytes;
+    // Larger values can have a page to themselves but cannot share it
+    // with another member of the same width.
+    static constexpr size_t wide_member_bytes =
+        (max_page_bytes - page_header_bytes) / 2 - fragment_header_bytes;
+
+    static bool prefer_whole_member(size_t width, size_t target) {
+        return (target == max_page_bytes && width <= max_fragment_bytes) ||
+            width + fragment_header_bytes <= (target - page_header_bytes) / 4;
+    }
 
     // Invalid input and allocation failures leave the output unchanged.
     static list_page_status encode_root(const list_root& root,
-        std::string& out);
+        std::string& out, bool* preserves_deadline = nullptr);
     static list_page_status decode_root(const std::string& bytes,
         list_root& out);
     static list_page_status encode_page(const list_page& page,
@@ -115,14 +149,38 @@ public:
     // Pop one complete endpoint member while keeping the page nonempty.
     // Cross-page members and page deletion request the existing fallback.
     static list_page_status pop_end(const std::string& bytes, bool left,
-        uint64_t member_limit, list_page_update& out);
-    // A linked batch appends to values. Linked batches and opted-in endpoint
+        uint64_t member_limit, list_page_update& out, list_page_edit* edit = nullptr);
+    // A linked batch appends to values. A linked count of zero only unlinks.
+    // Linked batches and opted-in endpoint
     // batches report a whole-page pop in consumed for the caller to remove.
     static list_page_status pop_compact_batch(const std::string& bytes,
         bool left, uint64_t count, uint64_t member_limit, list_page_update& out,
         std::vector<std::string>* values, uint64_t removed_neighbor = 0,
         bool allow_whole = false);
+    // Only complete packed members at the selected endpoint are eligible. A zero id
+    // means the caller must use the ordinary complete-page writer.
+    static list_page_status plan_push(const std::string& bytes,
+        const std::string& value, bool left, uint64_t member_limit,
+        size_t fill_target, list_page_update& update, list_page_edit& plan,
+        bool cached_only = false);
+    static list_page_status plan_uniform_pop_right(const std::string& bytes,
+        uint64_t member_limit, uint16_t verified_count, list_page_update& update,
+        list_page_edit& plan);
+    static list_page_status apply_edit(std::string& bytes,
+        const list_page_edit& plan);
+    static list_page_status plan_append(const std::string& bytes,
+        const std::string& value, uint64_t member_limit, size_t fill_target,
+        list_page_update& update, list_page_edit& plan, bool cached_only = false);
+    static list_page_status apply_append(std::string& bytes,
+        const list_page_edit& plan);
 private:
+    friend class list_store;
+    // Replace the count in an already validated extended root.
+    static void update_root_elements(std::string& bytes, uint64_t elements);
+    static list_page_status apply_fragment_pop_right(std::string& bytes,
+        const list_page_edit& plan);
+    static list_page_status truncate_right(std::string& bytes,
+        size_t remaining, uint32_t count);
     static list_page_status decode_compact(const std::string& bytes,
         list_page& out);
     static list_page_status push_compact(const std::string& bytes,

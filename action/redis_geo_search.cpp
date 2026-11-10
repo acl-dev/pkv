@@ -63,7 +63,7 @@ bool redis_geo::search(const char* command, redis_coder& result) {
     std::vector<geo::match> values;
     long long stored;
     const auto ok = data.geo_search(handler_.get_db(), source, destination,
-        [&](zset_store& input, geo::search_options& parsed) {
+        [&](const geo::search_source& input, geo::search_options& parsed) {
         return parser.parse(input, parsed);
     }, options, values, stored);
     auto& reply = result.create_object();

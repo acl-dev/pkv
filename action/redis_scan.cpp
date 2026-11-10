@@ -10,11 +10,12 @@ bool option_is(const std::string& option, const char* name) {
     const auto size = std::strlen(name);
     return option.size() == size && !strncasecmp(option.data(), name, size);
 }
-void reply_page(redis_coder& result, const scan_page& page) {
+void reply_page(redis_coder& result, const scan_page& page, bool bulk = false) {
     auto& reply = result.create_object();
     reply.set_type(REDIS_OBJ_ARRAY);
     reply.create_child().set_string(std::to_string(page.cursor));
     auto& values = reply.create_child();
+    if (bulk) { values.set_bulk_collection(page.values); return; }
     values.set_type(REDIS_OBJ_ARRAY);
     for (const auto& value : page.values) values.create_child().set_string(value);
 }
@@ -62,7 +63,7 @@ bool redis_scan::exec(const char* cmd, redis_coder& result) {
     if (!(database ? data.keys(handler_.get_db(), options, page) : data.collection(options, page))) {
         result.create_object().set_error(data.error()); return true;
     }
-    reply_page(result, page);
+    reply_page(result, page, database);
     return true;
 }
 }

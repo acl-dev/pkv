@@ -210,6 +210,18 @@ class view {
         return width_ == 1 ? narrow_payload :
             (extended_ ? zset_payload_limit : legacy_payload_limit);
     }
+    // The caller checks the score tag and that its bytes fit the record.
+    static double decode_score(const char* record, unsigned tag) {
+        if (tag < double_tag) return static_cast<int>(tag) - 64;
+        if (tag == double_tag) {
+            double score;
+            check(zset_page_codec::decode_value(record + 1, 8, score));
+            return score;
+        }
+        const auto biased = (byte(record[1]) << 8) | byte(record[2]);
+        const auto value = static_cast<int>(biased) - 32768;
+        return tag == fixed_tag ? value / 256.0 : value;
+    }
 public:
     explicit view(const std::string& bytes) : bytes_(bytes),
         extended_(bytes.size() >= 4 && byte(bytes[3]) == 5),
@@ -274,18 +286,8 @@ public:
     double score(size_t start) const {
         const auto tag = byte(bytes_[start]);
         if (tag < double_tag) return static_cast<int>(tag) - 64;
-        if (tag == fixed_tag || tag == integer_tag) {
-            check(bytes_.size() - start >= 3);
-            const auto biased = (byte(bytes_[start + 1]) << 8) |
-                byte(bytes_[start + 2]);
-            const auto value = static_cast<int>(biased) - 32768;
-            return tag == fixed_tag ? value / 256.0 : value;
-        }
-        check(tag == double_tag);
-        check(bytes_.size() - start > 8);
-        double score;
-        check(zset_page_codec::decode_value(bytes_.data() + start + 1, 8, score));
-        return score;
+        check(score_width(tag) <= bytes_.size() - start);
+        return decode_score(bytes_.data() + start, tag);
     }
 
     unsigned member_index(member_view member, size_t* offset = nullptr,
@@ -413,6 +415,42 @@ public:
                 out[ranks + rank++] = static_cast<char>(remap[member]);
         }
         return out;
+    }
+
+    // Edit a validated root owned by the transaction. The rank is already
+    // known to the caller, so neither table needs a search or a remap array.
+    void erase_one(std::string& bytes, unsigned index, unsigned rank) const {
+        check(&bytes == &bytes_ && count_ > 1 && index < count_ &&
+            rank < count_ && ordered_index(rank) == index);
+        const auto remaining = count_ - 1;
+        const auto payload = bytes.size() - start_;
+        const auto first = offset_at(index);
+        const auto last = index == remaining ? payload : offset_at(index + 1);
+        check(first < last && last <= payload);
+        const auto removed = last - first;
+        const auto kept = payload - removed;
+        if ((kept > narrow_payload) != (width_ == 2) ||
+            (remaining > legacy_max_members || kept > legacy_payload_limit) != extended_) {
+            erase_mask erased;
+            erased.set(index);
+            bytes = without(erased, remaining);
+            return;
+        }
+        auto* data = &bytes[0];
+        for (unsigned i = index; i < remaining; ++i)
+            write_offset(data + offsets_ + i * width_, width_, offset_at(i + 1) - removed);
+        const auto ranks = ranks_ - width_;
+        const auto start = start_ - width_ - 1;
+        for (unsigned i = 0; i < remaining; ++i) {
+            const auto member = byte(data[ranks_ + i + (i >= rank)]);
+            data[ranks + i] = static_cast<char>(member - (member > index));
+        }
+        std::memmove(data + start, data + start_, first);
+        std::memmove(data + start + first, data + start_ + last, payload - last);
+        data[4] = static_cast<char>((byte(data[4]) & (deadline_flag | wide_offsets_flag)) |
+            (extended_ ? 0 : remaining));
+        if (extended_) data[5] = static_cast<char>(remaining);
+        bytes.resize(start + kept);
     }
 
     bool find(member_view member, double& out, unsigned* rank = nullptr) const {
@@ -573,11 +611,22 @@ public:
         // An exception during decoding exits before the rank-validation loop.
         std::array<double, max_members> scores;
         member_view previous_member;
+        const auto* payload = bytes_.data() + start_;
+        const auto size = bytes_.size() - start_;
+        size_t start = 0;
         for (unsigned i = 0; i < count_; ++i) {
-            const auto item = at(i);
-            check(!i || previous_member < item.first);
-            previous_member = item.first;
-            scores[i] = score(item.second);
+            const auto end = i + 1 == count_ ? size : offset_at(i + 1);
+            check(start < end && end <= size);
+            const auto* record = payload + start;
+            const auto tag = byte(record[0]);
+            const auto width = score_width(tag);
+            const auto length = end - start;
+            check(width <= length && length - width <= 256);
+            const member_view member(record + width, length - width);
+            check(!i || previous_member < member);
+            previous_member = member;
+            scores[i] = decode_score(record, tag);
+            start = end;
         }
         for (unsigned i = 0, previous = 0; i < count_; ++i) {
             const auto index = byte(bytes_[ranks_+i]);

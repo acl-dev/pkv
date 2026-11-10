@@ -9,12 +9,13 @@
 #include <string>
 #include <type_traits>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace pkv {
 
-// Inserting pages preserves string addresses. Promotion runs after all
-// prepared replacements have been published and no longer use addresses.
+// Inserting pages preserves string addresses. Promotion and reclamation run
+// after prepared replacements no longer use page addresses.
 template<bool CompactGrowth>
 class mdb_page_index_impl {
     static constexpr size_t prefix_limit = 256;
@@ -88,13 +89,6 @@ class mdb_page_index_impl {
     std::unique_ptr<dense_prefix> dense_;
     using sparse_map = std::unordered_map<uint64_t, std::string>;
     std::unique_ptr<sparse_map> sparse_;
-    std::unique_ptr<inline_pages> small_;
-
-    size_t small_count() const {
-        return small_ ? small_->count +
-            (small_->extension ? small_->extension->count : 0) : 0;
-    }
-
     sparse_map& sparse() {
         if (!sparse_) {
             sparse_.reset(new sparse_map);
@@ -142,6 +136,41 @@ class mdb_page_index_impl {
         if (!dense_->remote) return nullptr;
         const auto found = dense_->remote->find(block);
         return found == dense_->remote->end() ? nullptr : &found->second;
+    }
+
+    bool demote_dense_prefix() noexcept {
+        // The dense prefix covers every small slot, so small_ is empty.
+        decltype(small_) prepared_small;
+        std::array<std::pair<uint64_t, std::string*>, small_limit> moved;
+        size_t count = 0;
+        try {
+            for (size_t i = 0; i < dense_->limit; ++i) {
+                if (!dense_->present[i]) continue;
+                const auto id = i + 1;
+                if (id <= small_limit) {
+                    prepared_small.emplace(id, std::string());
+                    moved[count++] = {id, const_cast<std::string*>(prepared_small.get(id))};
+                } else {
+                    const auto inserted = sparse().emplace(id, std::string());
+                    if (!inserted.second) break;
+                    moved[count++] = {id, &inserted.first->second};
+                }
+            }
+        } catch (const std::bad_alloc&) {
+            // Until preparation succeeds, the dense slots own the payloads.
+        }
+        if (count != dense_->count) {
+            for (size_t i = 0; i < count; ++i)
+                if (moved[i].first > small_limit) sparse_->erase(moved[i].first);
+            if (sparse_ && sparse_->empty()) sparse_.reset();
+            return false;
+        }
+        for (size_t i = 0; i < count; ++i)
+            moved[i].second->swap(dense_->values[moved[i].first - 1]);
+        small_.swap(prepared_small);
+        dense_->present.reset();
+        dense_->count = 0;
+        return true;
     }
 
     bool release_tail_pages(uint64_t slot, tail_block& block) noexcept {
@@ -217,12 +246,176 @@ class mdb_page_index_impl {
         return true;
     }
 
+    struct legacy_small {
+        std::unique_ptr<inline_pages> values;
+
+        size_t size() const {
+            return values ? values->count +
+                (values->extension ? values->extension->count : 0) : 0;
+        }
+        const std::string* get(uint64_t id) const {
+            if (!values) return nullptr;
+            return id <= first_slots ? get_slot(values.get(), id - 1) :
+                get_slot(values->extension.get(), id - first_slots - 1);
+        }
+        void emplace(uint64_t id, const std::string& value) {
+            if (!values) values.reset(new inline_pages);
+            if (id <= first_slots) {
+                insert_slot(*values, id - 1, value);
+            } else {
+                auto& extension = values->extension;
+                if (!extension) extension.reset(new fixed_pages<small_limit - first_slots>);
+                insert_slot(*extension, id - first_slots - 1, value);
+            }
+        }
+        void erase(uint64_t id) noexcept {
+            if (!values) return;
+            if (id <= first_slots) {
+                erase_slot(*values, id - 1);
+            } else {
+                auto& extension = values->extension;
+                if (extension && erase_slot(*extension, id - first_slots - 1) &&
+                    !extension->count) extension.reset();
+            }
+            if (!values->count && !values->extension) values.reset();
+        }
+        void swap(legacy_small& other) noexcept { values.swap(other.values); }
+        template<class Visitor>
+        bool visit(Visitor& visit_page) const {
+            return !values || (visit_slots(values.get(), 0, visit_page) &&
+                visit_slots(values->extension.get(), first_slots, visit_page));
+        }
+    };
+
+    // The concurrent backend transfers ownership of the heap-allocated
+    // index itself. MDB swaps indexes in-place and keeps its small pages
+    // separate so even short payloads retain their addresses on transfer.
+    struct inline_small {
+        struct tail {
+            std::unique_ptr<fixed_pages<small_limit - first_slots>> extension;
+            std::string second;
+        };
+        std::unique_ptr<tail> later;
+        std::string first;
+        bool first_present = false;
+        bool second_present = false;
+
+        inline_small() = default;
+        inline_small(inline_small&& other) noexcept { swap(other); }
+        inline_small& operator=(inline_small&& other) noexcept {
+            inline_small replacement(std::move(other));
+            swap(replacement);
+            return *this;
+        }
+        size_t size() const {
+            return first_present + second_present +
+                (later && later->extension ? later->extension->count : 0);
+        }
+        const std::string* get(uint64_t id) const {
+            if (id == 1) return first_present ? &first : nullptr;
+            if (id == 2) return second_present ? &later->second : nullptr;
+            return later ? get_slot(later->extension.get(), id - first_slots - 1) :
+                nullptr;
+        }
+        void emplace(uint64_t id, const std::string& value) {
+            if (id == 1) {
+                if (first_present) return;
+                std::string(value).swap(first);
+                first_present = true;
+            } else if (id == 2) {
+                if (second_present) return;
+                std::string bytes(value);
+                if (!later) later.reset(new tail);
+                bytes.swap(later->second);
+                second_present = true;
+            } else if (later && later->extension) {
+                insert_slot(*later->extension, id - first_slots - 1, value);
+            } else {
+                std::unique_ptr<fixed_pages<small_limit - first_slots>> extension(
+                    new fixed_pages<small_limit - first_slots>);
+                insert_slot(*extension, id - first_slots - 1, value);
+                if (!later) later.reset(new tail);
+                later->extension.swap(extension);
+            }
+        }
+        void erase(uint64_t id) noexcept {
+            if (id == 1) {
+                std::string().swap(first);
+                first_present = false;
+                return;
+            }
+            if (!later) return;
+            if (id == 2) {
+                std::string().swap(later->second);
+                second_present = false;
+            } else if (later->extension &&
+                erase_slot(*later->extension, id - first_slots - 1) &&
+                !later->extension->count) later->extension.reset();
+            if (!second_present && !later->extension) later.reset();
+        }
+        void swap(inline_small& other) noexcept {
+            later.swap(other.later);
+            first.swap(other.first);
+            std::swap(first_present, other.first_present);
+            std::swap(second_present, other.second_present);
+        }
+        template<class Visitor>
+        bool visit(Visitor& visit_page) const {
+            if (first_present && !visit_page(1, first)) return false;
+            if (second_present && !visit_page(2, later->second)) return false;
+            return !later || visit_slots(later->extension.get(), first_slots, visit_page);
+        }
+    };
+    typename std::conditional<CompactGrowth, legacy_small, inline_small>::type small_;
+
 public:
     size_t size() const {
-        return (sparse_ ? sparse_->size() : 0) + small_count() +
+        return (sparse_ ? sparse_->size() : 0) + small_.size() +
             (dense_ ? dense_->count + dense_->tail_count : 0);
     }
     bool empty() const { return size() == 0; }
+
+    bool has_small_pages(size_t count) const {
+        return !dense_ && !sparse_ && small_.size() == count;
+    }
+
+    static size_t sparse_tail_offset(size_t consecutive) {
+        if (consecutive <= prefix_limit) return 0;
+        const auto partial = (consecutive - prefix_limit) % tail_limit;
+        return partial && partial < tail_growth_min ? consecutive - partial : 0;
+    }
+
+    void reserve_dense_prefix(size_t consecutive) {
+        if (consecutive >= 16)
+            dense_.reset(new dense_prefix(consecutive < prefix_limit ?
+                consecutive : prefix_limit));
+    }
+
+    // The caller has proved at least 16 pages with IDs 1 through count.
+    // Build an empty index block by block, keeping short tails sparse.
+    template<class Iterator, class Value>
+    void build_consecutive(Iterator first, size_t count, Value value) {
+        reserve_dense_prefix(count);
+        auto& prefix = *dense_;
+        for (size_t i = 0; i < prefix.limit; ++i, ++first)
+            insert_slot(prefix, i, value(*first));
+
+        const auto sparse_start = sparse_tail_offset(count);
+        const auto dense_end = sparse_start ? sparse_start : count;
+        const auto tail_count = dense_end - prefix.limit;
+        prefix.tail.resize((tail_count + tail_limit - 1) / tail_limit);
+        for (auto& block : prefix.tail) {
+            block.values.reset(new std::array<std::string, tail_limit>);
+            for (size_t i = 0; i < tail_limit && prefix.tail_count < tail_count;
+                 ++i, ++first, ++prefix.tail_count)
+                insert_slot(block, i, value(*first));
+        }
+        if (sparse_start) {
+            auto& tail = sparse();
+            for (auto id = sparse_start; id < count; ++id, ++first)
+                tail.emplace(id + 1, value(*first));
+        }
+    }
 
     template<class Iterator, class PageId>
     void prepare_empty(Iterator first, Iterator last, PageId page_id) {
@@ -232,9 +425,7 @@ public:
                 if (page_id(*it) != consecutive + 1) break;
                 ++consecutive;
             }
-            if (consecutive >= 16)
-                dense_.reset(new dense_prefix(consecutive < prefix_limit ?
-                    consecutive : prefix_limit));
+            reserve_dense_prefix(consecutive);
         }
         const auto count = static_cast<size_t>(last - first);
         const auto covered = dense_ && consecutive ? consecutive : 0;
@@ -271,11 +462,7 @@ public:
                 }
             }
         }
-        if (id && id <= small_limit) {
-            if (!small_) return nullptr;
-            return id <= first_slots ? get_slot(small_.get(), id - 1) :
-                get_slot(small_->extension.get(), id - first_slots - 1);
-        }
+        if (id && id <= small_limit) return small_.get(id);
         if (!sparse_) return nullptr;
         const auto found = sparse_->find(id);
         return found == sparse_->end() ? nullptr : &found->second;
@@ -284,20 +471,13 @@ public:
         return const_cast<std::string*>(static_cast<const mdb_page_index_impl&>(*this).get(id));
     }
 
-    void emplace(uint64_t id, const std::string& value) {
+    void emplace(uint64_t id, const std::string& value, bool grow_tail = true) {
         if (dense_ && id && id <= dense_->limit) {
             insert_slot(*dense_, id - 1, value);
             return;
         }
         if (id && id <= small_limit) {
-            if (!small_) small_.reset(new inline_pages);
-            if (id <= first_slots) {
-                insert_slot(*small_, id - 1, value);
-            } else {
-                auto& extension = small_->extension;
-                if (!extension) extension.reset(new fixed_pages<small_limit - first_slots>);
-                insert_slot(*extension, id - first_slots - 1, value);
-            }
+            small_.emplace(id, value);
             return;
         }
         const auto index = (id - 1) % tail_limit;
@@ -305,7 +485,7 @@ public:
             if (insert_slot(*block, index, value)) ++dense_->tail_count;
             return;
         }
-        if (dense_ && id > prefix_limit && index == 0 &&
+        if (grow_tail && dense_ && id > prefix_limit && index == 0 &&
             tail_slot(id) == dense_->tail.size() &&
             (dense_->tail.empty() ? !CompactGrowth &&
                 dense_->limit == prefix_limit &&
@@ -344,15 +524,7 @@ public:
             return;
         }
         if (id && id <= small_limit) {
-            if (!small_) return;
-            if (id <= first_slots) {
-                erase_slot(*small_, id - 1);
-            } else {
-                auto& extension = small_->extension;
-                if (extension && erase_slot(*extension, id - first_slots - 1) &&
-                    !extension->count) extension.reset();
-            }
-            if (!small_->count && !small_->extension) small_.reset();
+            small_.erase(id);
             return;
         }
         auto* block = tail_for(id);
@@ -379,9 +551,17 @@ public:
         }
     }
 
+    // Only call after publication has finished using stored page addresses.
+    void reclaim_prefix() noexcept {
+        if (!dense_ || !dense_->count || dense_->count > small_limit ||
+            dense_->limit < small_limit * 4 || !demote_dense_prefix()) return;
+        dense_->release_values();
+        if (dense_->tail.empty() && !dense_->tail_count) dense_.reset();
+    }
+
     void promote_prefix(size_t additions) noexcept {
         const size_t limit = dense_ ? dense_->limit : 0;
-        const auto sparse_count = (sparse_ ? sparse_->size() : 0) + small_count();
+        const auto sparse_count = (sparse_ ? sparse_->size() : 0) + small_.size();
         // An unaligned bulk prefix can leave fewer than 16 final slots.
         // Finish that bounded suffix when present, even below a growth
         // milestone; otherwise its pages remain permanently sparse.
@@ -521,9 +701,7 @@ public:
                             !visit_page(remote_offset + i + 1, (*block.values)[i])) return false;
                 }
         }
-        if (small_ && (!visit_slots(small_.get(), 0, visit_page) ||
-            !visit_slots(small_->extension.get(), first_slots, visit_page)))
-            return false;
+        if (!small_.visit(visit_page)) return false;
         if (sparse_)
             for (const auto& page : *sparse_)
                 if (!visit_page(page.first, page.second)) return false;
@@ -531,8 +709,8 @@ public:
     }
 };
 
-// Keep the concurrent backend's measured growth policy independent of the
-// default MDB memory layout. Both policies have the same object layout.
+// Keep the concurrent backend's measured growth and storage policy
+// independent of default MDB.
 using mdb_page_index = mdb_page_index_impl<true>;
 
 } // namespace pkv

@@ -30,15 +30,15 @@ bool geo_search_parser::dimensions(size_t first, bool box, geo::shape& out) {
     out.radius = width; out.width = width; out.height = height;
     return true;
 }
-bool geo_search_parser::member(zset_store& source, const std::string& name,
+bool geo_search_parser::member(const geo::search_source& source, const std::string& name,
     geo::point& out) {
-    if (!source.exists()) return true;
+    if (!source.exists) return true;
     zset_score score;
     if (!source.get(name, score)) return false;
     if (!score.found) return fail("ERR could not decode requested zset member");
     out = geo::decode(score.score); return true;
 }
-bool geo_search_parser::parse(zset_store& source, geo::search_options& out) {
+bool geo_search_parser::parse(const geo::search_source& source, geo::search_options& out) {
     bool from_member = false, from_coordinates = false;
     bool by_radius = false, by_box = false;
     const bool legacy = radius_ != geo_radius_mode::none;
@@ -48,7 +48,7 @@ bool geo_search_parser::parse(zset_store& source, geo::search_options& out) {
         if (!radius_member(radius_)) {
             if (!coordinates(2, out.area.center) ||
                 !dimensions(4, false, out.area)) return false;
-        } else if (source.exists()) {
+        } else if (source.exists) {
             if (!member(source, *object_.argument(2), out.area.center) ||
                 !dimensions(3, false, out.area)) return false;
         }

@@ -38,8 +38,19 @@ uint64_t estimate_count(const register_histogram& histogram) {
 } // namespace
 
 uint64_t count(const registers& values) {
+    // Separate adjacent registers to avoid serial updates to a single bucket
+    // when the sketch has many equal registers. Each bucket is at most 4096.
+    uint16_t partial[4][64]{};
+    for (size_t i = 0; i < values.size(); i += 4) {
+        ++partial[0][values[i]];
+        ++partial[1][values[i + 1]];
+        ++partial[2][values[i + 2]];
+        ++partial[3][values[i + 3]];
+    }
     register_histogram histogram{};
-    for (auto value : values) ++histogram[value];
+    for (size_t i = 0; i < histogram.size(); ++i)
+        histogram[i] = partial[0][i] + partial[1][i] +
+            partial[2][i] + partial[3][i];
     return estimate_count(histogram);
 }
 

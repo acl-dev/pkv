@@ -3,6 +3,7 @@
 #include "common/command_keys.h"
 #include "dao/paged_string.h"
 #include "dao/json/json_string.h"
+#include "dao/json/json_key.h"
 #include "db/page_transaction.h"
 #include <cstdlib>
 #include <iostream>
@@ -29,6 +30,34 @@ static void codec() {
         require(hll::get(value, i) == input[i], "dense bit packing");
     require(hll::merge(value, output) && input == output,
         "dense register merge");
+    hll::registers maximum{};
+    for (size_t i = 0; i < hll::registers_size; ++i) {
+        output[i] = static_cast<uint8_t>(random() % 64);
+        maximum[i] = std::max(input[i], output[i]);
+    }
+    require(hll::merge(value, output) && output == maximum,
+        "dense merge did not preserve register maxima");
+    value[5] = '\x71';
+    value[7] = '\x53';
+    hll::cache(value, 889);
+    auto packed = value.substr(0, hll::header_size);
+    packed[4] = 1;
+    hll::pack_dense(packed, input);
+    require(packed == value, "dense packed bytes differ from scalar encoding");
+    value.pop_back();
+    require(!hll::merge(value, output) && output == maximum,
+        "truncated dense merge changed registers");
+    value.resize(hll::dense_size);
+    for (unsigned shape = 0; shape < 4; ++shape) {
+        for (size_t i = 0; i < input.size(); ++i) {
+            input[i] = shape == 0 ? 0 : shape == 1 ? 7 :
+                shape == 2 ? (i % 4 ? 0 : random() % 17) : random() % 52;
+            hll::put(value, i, input[i]);
+        }
+        uint64_t scalar;
+        require(hll::count_encoded(value, scalar) && hll::count(input) == scalar,
+            "raw histogram cardinality differs from dense histogram");
+    }
     value = hll::empty();
     for (size_t i = 0; i < 20000; ++i) {
         bool changed;
@@ -101,6 +130,36 @@ static void native(bool tbb) {
     require(!data.pfmerge(database, {"out", "a", "bad"}) &&
         data.get(database, "out", after) && before == after,
         "failed merge changed destination");
+    auto dense = hll::empty();
+    require(hll::dense(dense), "empty dense source");
+    hll::put(dense, hll::registers_size - 1, 51);
+    require(data.set(database, "dense", dense), "dense merge source");
+    before[5] = '\x42';
+    require(data.set(database, "out", before), "reserved HLL header seed");
+    const long long deadline = 4102444800123LL;
+    dao::json_key key_data;
+    require(key_data.set_expiry(database, "out", deadline, 0), "merge TTL seed");
+    std::vector<watch_token> tokens;
+    require(database->watch({"out"}, tokens) == db::batch_status::ok &&
+        tokens.size() == 1, "dense merge WATCH");
+    hll::registers maximum{};
+    require(hll::merge(before, maximum) && hll::merge(dense, maximum),
+        "dense merge reference inputs");
+    auto expected = before.substr(0, hll::header_size);
+    expected.resize(hll::dense_size, '\0');
+    expected[4] = 0;
+    for (size_t i = 0; i < maximum.size(); ++i)
+        hll::put(expected, i, maximum[i]);
+    hll::invalidate(expected);
+    string_root_header header;
+    std::string root;
+    require(data.pfmerge(database, {"out", "dense", "out"}) &&
+        data.get(database, "out", after) && after == expected &&
+        data.get(database, "dense", after) && after == dense &&
+        database->get("out", root) &&
+        string_page_codec::decode_header(root, header) == string_page_status::ok &&
+        header.expires_at_ms == deadline && !tokens[0]->valid(unix_time_ms()),
+        "dense merge bytes, source, TTL or WATCH");
     require(database->transact_pages({"out"}, [](page_transaction& tx) {
         for (const auto& root : tx.roots())
             if (root.value.size() > page_transaction::max_value_bytes)

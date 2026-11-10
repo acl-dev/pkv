@@ -38,6 +38,12 @@ bool db_watchers::on_del(const std::string &key, bool ok) {
     return true;
 }
 
+bool db_watchers::observes_reads() const {
+    for (const auto* watcher : watchers_)
+        if (watcher->observes_reads()) return true;
+    return false;
+}
+
 bool db_watchers::supports_pages() const {
     if (watchers_.empty()) {
         return false;
@@ -57,20 +63,26 @@ bool db_watchers::requires_page_payload() const {
     return false;
 }
 
-bool db_watchers::can_pages(const std::vector<db::batch_entry>& roots,
-    const std::vector<page_change>& pages) const {
-    if (!supports_pages()) return false;
+bool db_watchers::small_page_update_fits(size_t key_size) const {
     // A root and up to two bounded pages fit without computing wire sizes.
     // The full measure still handles compact encodings and other batches.
     static_assert(5 * page_wire::header_bytes + 32 +
         3 * (page_batch::max_key_bytes + page_transaction::max_value_bytes) <=
         page_batch::max_bytes && page_batch::max_records >= 5,
         "small page preflight must fit the plain wire budget");
-    if (roots.size() == 1 && pages.size() <= 2 &&
-        database_ < page_batch::max_databases) {
+    return database_ < page_batch::max_databases && key_size <= page_batch::max_key_bytes;
+}
+
+bool db_watchers::can_overwrite_string(size_t key_size) const {
+    return small_page_update_fits(key_size) && supports_pages() && !requires_page_payload();
+}
+
+bool db_watchers::can_pages(const std::vector<db::batch_entry>& roots,
+    const std::vector<page_change>& pages) const {
+    if (!supports_pages()) return false;
+    if (roots.size() == 1 && pages.size() <= 2 && small_page_update_fits(roots.front().key.size())) {
         const auto& root = roots.front();
-        if (root.key.size() <= page_batch::max_key_bytes &&
-            (root.action != db::update_action::keep || !pages.empty()) &&
+        if ((root.action != db::update_action::keep || !pages.empty()) &&
             page_measure::valid_root(root, nullptr)) {
             uint64_t previous = 0;
             bool valid = true;

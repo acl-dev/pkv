@@ -67,6 +67,7 @@ public:
 private:
     friend class db;
     friend class map_store;
+    friend class packed_hash_store;
     friend class zset_store;
     friend class list_store;
     friend class string_store;
@@ -230,6 +231,7 @@ private:
     template <class Value>
     bool stage_page(db::batch_entry* root, uint64_t id, Value&& bytes,
         db::update_action action);
+    bool can_edit_list() const;
     bool has_changes() const {
         return first_.id != 0 || !flat_.empty() || !changes_.empty();
     }

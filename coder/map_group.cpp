@@ -118,18 +118,16 @@ map_page_status map_page_codec::decode_group(const std::string& bytes,
             get_short(bytes.data() + 4) != tag ||
             get_short(bytes.data() + 6) != root.tree)
             return map_page_status::invalid;
-        const auto present = get_short(bytes.data() + 8);
-        size_t offset = sparse_group_header;
-        for (unsigned i = 0; i < 16; ++i) {
-            if (!(present & (uint16_t(1) << i))) continue;
-            if (bytes.size() - offset < 3) return map_page_status::invalid;
-            auto& entry = group.buckets[i];
-            entry.tree = get_short(bytes.data() + offset);
-            entry.elements = static_cast<uint8_t>(bytes[offset + 2]);
+        unsigned present = get_short(bytes.data() + 8);
+        if (bytes.size() != sparse_group_header + 3 * __builtin_popcount(present))
+            return map_page_status::invalid;
+        const auto* next = bytes.data() + sparse_group_header;
+        for (; present; present &= present - 1, next += 3) {
+            auto& entry = group.buckets[__builtin_ctz(present)];
+            entry.tree = get_short(next);
+            entry.elements = static_cast<uint8_t>(next[2]);
             if (!entry.tree || !entry.elements) return map_page_status::invalid;
-            offset += 3;
         }
-        if (offset != bytes.size()) return map_page_status::invalid;
     } else if (bytes[3] == 3) {
         if (bytes.size() != compact_group_bytes ||
             get_short(bytes.data() + 4) != tag ||

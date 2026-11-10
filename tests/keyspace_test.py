@@ -3,6 +3,7 @@
 import argparse
 import random
 from integration_test import Client, ErrorReply, server
+from resp3_client import RespClient, Reply
 
 
 def compare(port, reference):
@@ -88,6 +89,7 @@ def main():
         count = compare(port, ref)
     with server(args.pkv, cluster=True) as port:
         client = Client(port)
+        resp3 = RespClient(port)
         try:
             assert client.call('KEYS', '*') == []
             key = '{local}key'
@@ -98,8 +100,15 @@ def main():
             assert client.call('MULTI') == b'OK'
             assert client.call('KEYS', '*') == b'QUEUED'
             assert client.call('EXEC') == [[key.encode()]]
+            assert resp3.call('HELLO', 3).kind == b'%'
+            reply = Reply(b'*', [Reply(b'$', key.encode())])
+            assert resp3.call('KEYS', '*') == reply
+            assert resp3.call('MULTI').value == b'OK'
+            assert resp3.call('KEYS', '*').value == b'QUEUED'
+            assert resp3.call('EXEC') == Reply(b'*', [reply])
         finally:
             client.close()
+            resp3.close()
     print('KEYS differential assertions:', count)
 
 

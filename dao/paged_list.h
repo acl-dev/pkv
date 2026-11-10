@@ -56,6 +56,11 @@ public:
 
 private:
     db::page_lock_scope* scope_;
+    struct single_push {
+        const std::string* value;
+        bool left;
+        long long& length;
+    };
     using operation = std::function<bool(list_store&)>;
     // These private operations run synchronously and never retain callbacks.
     template <class Callback>
@@ -69,15 +74,15 @@ private:
     // fiber suspension. Borrow them instead of allocating owning closures.
     template <class Callback, class Packed>
     bool run_packed(shared_db& db, const std::string& key,
-        Callback&& callback, Packed&& packed) {
+        Callback&& callback, Packed&& packed, const single_push* push = nullptr) {
         const operation callback_view(std::ref(callback));
         const packed_operation packed_view(std::ref(packed));
-        return run_callback(db, key, callback_view, packed_view);
+        return run_callback(db, key, callback_view, packed_view, push);
     }
     bool run_callback(shared_db& db, const std::string& key,
-        const operation& callback, const packed_operation& packed = {});
-    bool open(shared_db& db, page_transaction& transaction,
-        const std::string& key, list_store& store, long long now);
+        const operation& callback, const packed_operation& packed = {},
+        const single_push* push = nullptr);
+    bool open(shared_db& db, list_store& store, long long now);
     bool import(list_store& store);
     bool store_result(list_store& store);
     bool batch_result(db::batch_status status);

@@ -5,6 +5,7 @@
 #include <unordered_set>
 
 namespace pkv {
+namespace dao { class paged_list; }
 
 // Typed List operations inside one existing logical-key transaction. Values
 // are packed into bounded pages, with fragmentation for individual big members.
@@ -51,6 +52,15 @@ public:
     bool finish();
 
 private:
+    friend class dao::paged_list;
+    // Only the single-operation typed DAO opts into a native endpoint edit.
+    list_store(page_transaction& transaction, const std::string& owner,
+        list_page_edit* edit);
+    bool open_paged(bool expire, long long now);
+    static bool stage_cached_push(const db::page_lock_scope& scope,
+        db::batch_entry& entry, const std::string& value, bool left,
+        list_page_edit& edit, long long& length, long long& deadline);
+    list_page_edit* edit_ = nullptr;
     page_transaction& transaction_;
     const std::string owner_;
     db::batch_entry* entry_;
@@ -116,7 +126,7 @@ private:
     bool read_page(uint64_t id, list_page& out);
     bool check_links(uint64_t id, uint64_t previous, uint64_t next);
     bool prepare_push(list_values_view values, bool left,
-        list_page& page, bool& applied, size_t fill_target);
+        list_page& page, bool& applied, size_t& fill_target, size_t mixed_target);
     bool pop_values(uint64_t count, bool left, std::vector<std::string>* out,
         std::string* single);
     bool prepare_pop(bool left, std::string* out,

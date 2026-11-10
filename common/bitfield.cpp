@@ -54,8 +54,7 @@ long long field_decode(uint64_t raw, unsigned bits, bool sign) {
     return static_cast<long long>(raw);
 }
 
-long long field_read(const std::string& bytes, unsigned skip, unsigned bits,
-    bool sign) {
+long long field_read(const char* bytes, unsigned skip, unsigned bits, bool sign) {
     uint64_t raw = 0;
     for (unsigned i = 0; i < bits; ++i) {
         const auto index = skip + i;
@@ -65,8 +64,7 @@ long long field_read(const std::string& bytes, unsigned skip, unsigned bits,
     return field_decode(raw, bits, sign);
 }
 
-void field_write(std::string& bytes, unsigned skip, unsigned bits,
-    uint64_t raw) {
+void field_write(char* bytes, unsigned skip, unsigned bits, uint64_t raw) {
     for (unsigned i = 0; i < bits; ++i) {
         const auto index = skip + i;
         const auto mask = 1U << (7 - index % 8);

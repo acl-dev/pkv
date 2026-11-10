@@ -6,6 +6,7 @@
 #include "dao/json/json_scan.h"
 #include "coder/json_record_codec.h"
 #include "coder/compact_set.h"
+#include "common/redis_scan.h"
 #include "db/mdb/mdb.h"
 #include <cstdlib>
 #include <iostream>
@@ -523,6 +524,17 @@ static void test_grouped_add() {
         map_page_codec::decode_root(bytes, metadata) == map_page_status::ok &&
         metadata.grouped, "grouped SADD layout");
 
+    const std::string missing("absent\0member", 13);
+    const std::string* probes[] = {&seed[0], &seed[127], &missing, &seed[0],
+        &seed[13], &seed[127], &missing, &seed[1]};
+    std::set<size_t> groups;
+    for (const auto* member : probes) groups.insert(scan_bucket(*member) / 16);
+    tracked->directories_read = 0;
+    unsigned found;
+    require(data.membership(database, "set", probes, 8, found) && found == 0xbb &&
+        groups.size() > 1 && tracked->directories_read == 1 + groups.size(),
+        "grouped SMISMEMBER shares directories and preserves result order");
+
     std::set<std::string> expected(seed.begin(), seed.end());
     std::vector<std::string> batch;
     for (unsigned i = 0; i < 64; ++i) {
@@ -538,6 +550,54 @@ static void test_grouped_add() {
     tracked->writes = 0;
     require(data.change(database, "set", batch, true, changed) &&
         changed == 0 && tracked->writes == 0, "grouped duplicate SADD");
+}
+
+static void test_compact_set_fragments() {
+    shared_db database = memory();
+    dao::paged_set data;
+    const std::string key("fragment-layout");
+    std::vector<std::string> members;
+    for (unsigned i = 0; i < 257; ++i) {
+        auto member = std::to_string(i);
+        member.resize(72, '\0');
+        members.push_back(std::move(member));
+    }
+    long long changed;
+    require(data.change(database, key, members, true, changed) && changed == 257,
+        "bulk compact Set fragments");
+    const std::string short_fragment(512, 's'), long_fragment(513, 'l');
+    require(data.change(database, key, {short_fragment, long_fragment}, true, changed) &&
+        changed == 2, "incremental compact Set fragments");
+    const bool compact = database->supports_compact_set_fragments();
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        map_root root;
+        if (map_page_codec::decode_root(tx.roots().find(key)->value, root) !=
+            map_page_status::ok || !root.grouped || root.elements != 259) return false;
+        size_t nodes = 0, fragments = 0;
+        for (uint64_t id = 1; id <= root.last_id; ++id) {
+            std::string bytes;
+            const auto status = tx.lookup(key, id, bytes);
+            if (status == db::lookup_status::error) return false;
+            if (status == db::lookup_status::missing || bytes.compare(0, 3, "PMD") == 0)
+                continue;
+            map_node node;
+            if (map_page_codec::decode_node(bytes, node) == map_page_status::ok) {
+                if (!node.key.head || bytes[3] != (compact ? 18 : 2)) return false;
+                ++nodes;
+            } else {
+                map_fragment_view fragment;
+                if (map_page_codec::decode_fragment_view(bytes, fragment) != map_page_status::ok ||
+                    bytes[3] != (compact && fragment.size <= 512 ? 2 : 1)) return false;
+                ++fragments;
+            }
+        }
+        return nodes == 259 && fragments == 259;
+    }) == db::batch_status::ok, "Set fragment and reference layouts");
+    require(data.change(database, key, {short_fragment, members.front()}, false, changed) &&
+        changed == 2, "erase compact Set fragments");
+    dao::set_sample_result result;
+    require(data.sample(database, key, 257, true, result) && result.values.size() == 257 &&
+        data.size(database, key, changed) && !changed, "pop remaining Set fragments");
 }
 
 static void test_sampling_and_locality() {
@@ -1260,6 +1320,7 @@ int main() {
     test_grouped_algebra_large_bucket();
     test_intersection_limit_directory_reads();
     test_grouped_add();
+    test_compact_set_fragments();
     test_sampling_and_locality();
     test_migration_scan_copy();
     test_errors_and_replacement();

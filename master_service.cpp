@@ -327,15 +327,28 @@ void master_service::run(acl::socket_stream& conn, size_t size,
     pkv::redis_coder parser(*ocache);
     pkv::redis_handler handler(*service_, databases_, parser, conn,
         &statistics);
-    constexpr size_t initial_buffer = 2048;
+    constexpr size_t initial_buffer = 1024;
     constexpr size_t normal_buffer = 8192;
     constexpr size_t large_buffer = 65536;
+    // Leave room for RESP headers around a 256 KiB payload.
+    constexpr size_t burst_buffer = 256 * 1024 + 128;
     const bool adaptive = size == normal_buffer;
-    std::vector<char> buf(adaptive ? initial_buffer : std::max<size_t>(size, 2));
+    size_t receive_size = adaptive ? initial_buffer : std::max<size_t>(size, 2);
+    std::unique_ptr<char[]> buf(new char[receive_size]);
     unsigned consecutive = 0;
+#ifdef __APPLE__
+    constexpr size_t queue_bulk_min = 128 * 1024;
+    constexpr size_t queue_max = 4 * 1024 * 1024;
+    constexpr size_t queue_bulk_count = 8;
+    size_t requested_queue = 0;
+#endif
 
     while(true) {
-        int ret = handler.read(buf.data(), buf.size() - 1);
+        if (adaptive && receive_size == large_buffer) {
+            if (!handler.wait_for_receive(buf, receive_size, initial_buffer)) break;
+            if (receive_size != large_buffer) consecutive = 0;
+        }
+        int ret = handler.read(buf.get(), receive_size - 1);
         if (ret <= 0) {
             break;
         }
@@ -346,7 +359,7 @@ void master_service::run(acl::socket_stream& conn, size_t size,
 
         ocache->activity();
         auto len = (size_t) ret;
-        handler.receive(buf.data(), len, buf.capacity());
+        handler.receive(buf.get(), len, receive_size);
         auto obj = parser.get_curr();
         assert(obj);
         if (obj->failed()) {
@@ -357,6 +370,33 @@ void master_service::run(acl::socket_stream& conn, size_t size,
             break;
         }
 
+#ifdef __APPLE__
+        // Size the TCP queue after observing real bulk data. Keep enough
+        // room for several values and raise the budget for larger requests.
+        if (adaptive && static_cast<size_t>(ret) >= large_buffer - 1 &&
+            requested_queue < queue_max && !parser.get_objects().empty()) {
+            const auto* command = parser.get_objects().back();
+            size_t widest = 0;
+            for (size_t i = 1; i < command->size(); ++i) {
+                if (const auto* value = command->argument(i))
+                    widest = std::max(widest, value->size());
+            }
+            if (widest >= queue_bulk_min) {
+                const auto target = std::min(widest, queue_max / queue_bulk_count) *
+                    queue_bulk_count;
+                if (target > requested_queue) {
+                    const int family = conn.sock_type();
+                    if (family == AF_INET || family == AF_INET6) {
+                        conn.set_tcp_recvbuf(static_cast<int>(target));
+                        requested_queue = target;
+                    } else {
+                        requested_queue = queue_max;
+                    }
+                }
+            }
+        }
+#endif
+
         if (!handler.handle()) {
             break;
         }
@@ -366,19 +406,33 @@ void master_service::run(acl::socket_stream& conn, size_t size,
         if (!adaptive) continue;
 
         // Resize after clearing parsed requests, which can borrow this buffer.
-        const bool grow = buf.size() < large_buffer;
+        const auto current = receive_size;
         const auto received = static_cast<size_t>(ret);
-        const bool resize = grow ? received == buf.size() - 1
-                                  : received < normal_buffer / 2;
-        consecutive = resize ? consecutive + 1 : 0;
-        const unsigned resize_after = buf.size() == initial_buffer ? 1 :
-            grow ? 2 : 4;
-        if (consecutive == resize_after) {
+        auto capacity = current;
+        if (current == burst_buffer) {
+            // Release the burst buffer before the next read waits for input.
+            if (received < large_buffer / 2 || !handler.direct_input_ready())
+                capacity = large_buffer;
+        } else if (current == large_buffer && received == current - 1 &&
+            handler.direct_input_pending(large_buffer / 2)) {
+            capacity = burst_buffer;
+        } else {
+            const bool grow = current < large_buffer;
+            const bool resize = grow ? received == current - 1
+                                     : received < normal_buffer / 2;
+            consecutive = resize ? consecutive + 1 : 0;
+            const unsigned resize_after = current == initial_buffer ? 1 :
+                grow ? 2 : 4;
+            if (consecutive == resize_after)
+                capacity = current == normal_buffer ? large_buffer : normal_buffer;
+        }
+
+        if (capacity != current) {
             consecutive = 0;
-            const auto capacity = buf.size() == normal_buffer ? large_buffer : normal_buffer;
             try {
-                std::vector<char>(capacity).swap(buf);
-                handler.receive_capacity(buf.capacity());
+                buf.reset(new char[capacity]);
+                receive_size = capacity;
+                handler.receive_capacity(receive_size);
             } catch (const std::bad_alloc&) {
                 // Keep serving with the current receive buffer.
             }
@@ -719,16 +773,10 @@ void master_service::start_watcher() {
     });
     thr1.detach();
 
-    // Start one thread to wait db messages and forward them to the clients.
-    std::thread thr2([this] {
-        // Start one watcher fiber to wait messages from box.
-        go[this] {
-            watcher_->run();
-        };
-
-        acl::fiber::schedule();
-    });
-    thr2.detach();
+    // The publisher waits on a cross-thread mailbox. RPC clients use
+    // the separate socket scheduler above.
+    std::thread publisher([this] { watcher_->run(); });
+    publisher.detach();
 
     if (var_cfg_active_expire &&
         (!var_cfg_replica_rpc_source || !*var_cfg_replica_rpc_source)) {

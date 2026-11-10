@@ -1,4 +1,5 @@
 #include "list_page.h"
+#include <cassert>
 #include <cstring>
 #include <limits>
 #include <new>
@@ -191,7 +192,7 @@ bool validate_page_bytes(const std::string& bytes,
 } // namespace
 
 list_page_status list_page_codec::encode_root(const list_root& root,
-    std::string& out) {
+    std::string& out, bool* preserves_deadline) {
     if (!valid_root(root)) {
         return list_page_status::invalid;
     }
@@ -202,15 +203,27 @@ list_page_status list_page_codec::encode_root(const list_root& root,
         write32(cursor, 0);
         // Unsigned conversion is defined modulo 2^64, including persistent -1.
         write64(cursor, static_cast<uint64_t>(root.expires_at_ms));
+        const auto deadline_end = cursor - encoded;
         write64(cursor, root.elements);
         write64(cursor, root.head);
         write64(cursor, root.tail);
         if (root.last_id) write64(cursor, root.last_id);
+        // The native edit uses the existing extended root under its key lock.
+        const bool same_deadline = preserves_deadline && root.last_id &&
+            out.size() == extended_root_bytes &&
+            !std::memcmp(out.data(), encoded, static_cast<size_t>(deadline_end));
         out.assign(encoded, static_cast<size_t>(cursor - encoded));
+        if (preserves_deadline) *preserves_deadline = same_deadline;
         return list_page_status::ok;
     } catch (const std::bad_alloc&) {
         return list_page_status::out_of_memory;
     }
+}
+
+void list_page_codec::update_root_elements(std::string& bytes, uint64_t elements) {
+    assert(bytes.size() == extended_root_bytes);
+    auto* cursor = &bytes[0] + 16;
+    write64(cursor, elements);
 }
 
 list_page_status list_page_codec::decode_root(const std::string& bytes,
@@ -329,8 +342,27 @@ list_page_status list_page_codec::push_end(const std::string& bytes,
     }
 }
 
+list_page_status list_page_codec::apply_fragment_pop_right(
+    std::string& bytes, const list_page_edit& plan) {
+    const size_t removed = plan.right_stride;
+    if (!plan.id || plan.left || plan.expected_count < 2 ||
+        removed < fragment_header_bytes || bytes.size() != plan.expected_bytes ||
+        bytes.size() > max_page_bytes ||
+        bytes.size() < page_header_bytes + fragment_header_bytes + removed ||
+        signature(bytes, "PLP") != list_page_status::ok ||
+        get64(bytes, 8) != plan.id || get64(bytes, 24) ||
+        get32(bytes, 4) != plan.expected_count)
+        return list_page_status::invalid;
+    const auto last = bytes.size() - removed;
+    const auto size = removed - fragment_header_bytes;
+    if (get64(bytes, last) != size || get64(bytes, last + 8) ||
+        get32(bytes, last + 16) != size || get32(bytes, last + 20))
+        return list_page_status::invalid;
+    return truncate_right(bytes, last, plan.expected_count - 1);
+}
+
 list_page_status list_page_codec::pop_end(const std::string& bytes,
-    bool left, uint64_t member_limit, list_page_update& out) {
+    bool left, uint64_t member_limit, list_page_update& out, list_page_edit* edit) {
     if (is_compact_page(bytes))
         return pop_compact(bytes, left, member_limit, out);
     const auto status = signature(bytes, "PLP");
@@ -348,6 +380,20 @@ list_page_status list_page_codec::pop_end(const std::string& bytes,
     const auto count = get32(bytes, 4);
     if (count == 1 || get64(bytes, first + 8) != 0 ||
         get64(bytes, first) != size) {
+        out = std::move(update);
+        return list_page_status::ok;
+    }
+    if (!left && edit && !edit->id) {
+        try {
+            out.value.assign(bytes.data() + first + fragment_header_bytes, size);
+        } catch (const std::bad_alloc&) { return list_page_status::out_of_memory; }
+        update.value.swap(out.value);
+        update.applied = true;
+        edit->id = update.id;
+        edit->expected_bytes = static_cast<uint32_t>(bytes.size());
+        edit->expected_count = static_cast<uint16_t>(count);
+        edit->length_bytes = fragment_header_bytes;
+        edit->right_stride = static_cast<uint16_t>(bytes.size() - first);
         out = std::move(update);
         return list_page_status::ok;
     }

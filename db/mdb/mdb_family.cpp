@@ -25,7 +25,7 @@ db::batch_status mdb::dbvisit_pages(const std::string& owner,
     {
         const auto position = locate(owner);
         std::lock_guard<lock_t> guard(*locks_[position.shard]);
-        const auto* family = find_page_family(position, false);
+        const auto* family = find_page_family(position.shard, false);
         if (!family) return batch_status::ok;
         const auto found = family->find(owner);
         if (found == family->end()) return batch_status::ok;

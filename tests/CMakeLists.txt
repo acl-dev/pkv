@@ -602,6 +602,18 @@ if(TARGET pkv_core)
     add_test(NAME list_page_codec COMMAND list_page_test)
     set_tests_properties(list_page_codec PROPERTIES
         ENVIRONMENT "UBSAN_OPTIONS=halt_on_error=1")
+    add_executable(packed_hash_command_test packed_hash_command_test.cpp)
+    target_link_libraries(packed_hash_command_test PRIVATE pkv_core)
+    add_test(NAME packed_hash_commands COMMAND packed_hash_command_test)
+    set_tests_properties(packed_hash_commands PROPERTIES ENVIRONMENT "UBSAN_OPTIONS=halt_on_error=1")
+    add_executable(packed_hash_store_test packed_hash_store_test.cpp)
+    target_link_libraries(packed_hash_store_test PRIVATE pkv_core)
+    add_test(NAME packed_hash_store COMMAND packed_hash_store_test)
+    set_tests_properties(packed_hash_store PROPERTIES ENVIRONMENT "UBSAN_OPTIONS=halt_on_error=1")
+    add_executable(packed_hash_codec_test packed_hash_codec_test.cpp)
+    target_link_libraries(packed_hash_codec_test PRIVATE pkv_core)
+    add_test(NAME packed_hash_codec COMMAND packed_hash_codec_test)
+    set_tests_properties(packed_hash_codec PROPERTIES ENVIRONMENT "UBSAN_OPTIONS=halt_on_error=1")
     add_executable(codec_test codec_test.cpp)
     target_link_libraries(codec_test PRIVATE pkv_core)
     add_test(NAME record_codec COMMAND codec_test)
@@ -725,6 +737,21 @@ if(TARGET pkv_core)
                 list(APPEND socket_args --redis ${PKV_REFERENCE_REDIS})
             endif()
             if(PKV_REFERENCE_REDIS)
+                add_test(NAME packed_hash_protocol
+                    COMMAND ${PKV_PYTHON_EXECUTABLE}
+                    ${CMAKE_CURRENT_SOURCE_DIR}/packed_hash_socket_test.py
+                    ${socket_args})
+                set_tests_properties(packed_hash_protocol PROPERTIES TIMEOUT 90)
+                if(HAS_TBB)
+                    set_property(TEST packed_hash_protocol APPEND PROPERTY
+                        ENVIRONMENT PKV_TEST_BACKEND=mdb_tbb)
+                elseif(HAS_ROCKSDB)
+                    set_property(TEST packed_hash_protocol APPEND PROPERTY
+                        ENVIRONMENT PKV_TEST_BACKEND=rdb)
+                elseif(HAS_WT)
+                    set_property(TEST packed_hash_protocol APPEND PROPERTY
+                        ENVIRONMENT PKV_TEST_BACKEND=wdb)
+                endif()
                 add_test(NAME dbsize_commands
                     COMMAND ${PKV_PYTHON_EXECUTABLE}
                     ${CMAKE_CURRENT_SOURCE_DIR}/dbsize_test.py

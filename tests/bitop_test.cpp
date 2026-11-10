@@ -155,14 +155,15 @@ static void legacy_and_types(bool tbb) {
         "BITOP expired wrong type was not missing");
 }
 
-static void rollback(bool tbb, bool legacy) {
+static void rollback(bool tbb, bool legacy, bool one_page = false) {
     unsigned failures = 0;
     bool success = false;
     for (long budget = 0; budget < 1000 && !success; ++budget) {
         auto database = memory(tbb);
         dao::paged_string data;
         dao::json_string old;
-        const std::string a(20000, '\x55'), b(40001, '\xaa');
+        const std::string a(one_page ? 2048 : 20000, '\x55');
+        const std::string b(one_page ? 4096 : 40001, '\xaa');
         require((legacy ? old.set(database, "a", a) :
             data.set(database, "a", a)) && data.set(database, "b", b),
             "BITOP rollback seed");
@@ -178,8 +179,9 @@ static void rollback(bool tbb, bool legacy) {
         allocation_budget = -1;
         if (ok) {
             success = true;
-            require(length == 40001 && data.get(database, "a", out) &&
-                out == a + std::string(20001, '\0'),
+            require(length == static_cast<long long>(b.size()) &&
+                data.get(database, "a", out) &&
+                out == a + std::string(b.size() - a.size(), '\0'),
                 "BITOP rollback final alias value");
         } else {
             ++failures;
@@ -188,7 +190,9 @@ static void rollback(bool tbb, bool legacy) {
                 "failed BITOP changed destination");
             require(database->transact_page_reads({"a"},
                 [&](page_transaction& tx) {
-                    for (uint64_t id = legacy ? 1 : 3; id <= 3; ++id)
+                    const auto first = legacy ? 1 :
+                        string_page_codec::pages_for(a.size()) + 1;
+                    for (auto id = first; id <= string_page_codec::pages_for(b.size()); ++id)
                         if (tx.lookup("a", id, out) !=
                             db::lookup_status::missing) return false;
                     return true;
@@ -393,6 +397,7 @@ int main(int argc, char** argv) {
 #endif
         byte_model(tbb); legacy_and_types(tbb); transaction_contract(tbb);
         rollback(tbb, false); rollback(tbb, true); concurrent(tbb);
+        rollback(tbb, false, true); rollback(tbb, true, true);
     }
     bounded_output();
     std::cout << "BITOP model/alias/rollback/stream/concurrency passed\n";

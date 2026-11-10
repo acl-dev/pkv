@@ -1132,6 +1132,303 @@ static void test_node_view() {
         "external view tried reading inline payload");
 }
 
+static void test_compact_set_reference() {
+    map_node node, decoded;
+    node.id = 65535;
+    node.left = 1;
+    node.right = 2;
+    node.height = 2;
+    node.elements = 3;
+    node.bucket = 255;
+    node.key.head = 65534;
+    node.key.length = map_page_codec::max_payload_bytes;
+    map_node_view view;
+    std::string bytes;
+    require(map_page_codec::encode_set_reference(node, bytes) == map_page_status::ok &&
+        bytes.size() == 20 && bytes[3] == 18 &&
+        map_page_codec::decode_node(bytes, decoded) == map_page_status::ok &&
+        map_page_codec::decode_node_view(bytes, view) == map_page_status::ok &&
+        decoded.id == node.id && decoded.key.head == node.key.head &&
+        decoded.key.length == node.key.length && decoded.key.inline_value.empty() &&
+        view.bucket == node.bucket && view.left == node.left && view.right == node.right &&
+        view.height == node.height && view.elements == node.elements && !view.value.length,
+        "compact Set fragment reference round trip");
+    require(map_page_codec::decode_node(bytes.substr(0, 19), decoded) ==
+        map_page_status::invalid && map_page_codec::decode_node(bytes + '\0', decoded) ==
+        map_page_status::invalid, "compact Set reference checks record length");
+    bytes[14] = bytes[6]; bytes[15] = bytes[7];
+    require(map_page_codec::decode_node_view(bytes, view) == map_page_status::invalid,
+        "compact Set reference rejects self link");
+    ++node.id;
+    require(map_page_codec::encode_set_reference(node, bytes) == map_page_status::ok &&
+        bytes[3] == 2 && map_page_codec::decode_node(bytes, decoded) == map_page_status::ok &&
+        decoded.id == node.id && decoded.key.head == node.key.head,
+        "compact Set reference preserves wide IDs");
+}
+
+static void test_compact_set_leaf() {
+    map_node node, decoded;
+    map_node_view view;
+    std::string bytes;
+    for (size_t width : {16, 17, 18, 19}) {
+        node.id = 16383;
+        node.key.inline_value.assign(width, '\xff');
+        node.key.inline_value[1] = '\0';
+        node.key.length = width;
+        node.bucket = static_cast<uint8_t>(scan_bucket(node.key.inline_value));
+        require(map_page_codec::encode_packed_node(node, bytes, true, false, true) ==
+            map_page_status::ok && static_cast<unsigned char>(bytes.front()) == 0xf4 &&
+            bytes.size() == width + 3 &&
+            map_page_codec::decode_node(bytes, decoded) == map_page_status::ok &&
+            map_page_codec::decode_node_view(bytes, view) == map_page_status::ok &&
+            decoded.id == node.id && decoded.key.inline_value == node.key.inline_value &&
+            !view.left && !view.right && !view.value.length && view.height == 1 &&
+            view.elements == 1 && view.bucket == node.bucket && view.bucket_derived,
+            "short Set leaf round trip");
+        require(map_page_codec::decode_node_view(bytes.substr(0, bytes.size() - 1), view) ==
+            map_page_status::invalid && map_page_codec::decode_node_view(bytes + '\0', view) ==
+            map_page_status::invalid, "short Set leaf checks the encoded length");
+        bytes[1] = static_cast<char>(static_cast<unsigned char>(bytes[1]) & 0xc0);
+        bytes[2] = 0;
+        require(map_page_codec::decode_node(bytes, decoded) == map_page_status::invalid,
+            "short Set leaf rejects page zero");
+        require(map_page_codec::encode_packed_node(node, bytes, true) == map_page_status::ok &&
+            bytes.compare(0, 3, "PMN") == 0, "ordinary Set writes keep the existing format");
+        ++node.id;
+        require(map_page_codec::encode_packed_node(node, bytes, true, false, true) ==
+            map_page_status::ok && bytes.compare(0, 3, "PMN") == 0 &&
+            map_page_codec::decode_node(bytes, decoded) == map_page_status::ok &&
+            decoded.id == node.id, "short Set leaf keeps the existing wide-ID format");
+    }
+}
+
+static void test_zset_fragment_reference() {
+    for (const bool member : {false, true}) {
+        for (const uint64_t id : {42ULL, 65536ULL, 4294967296ULL}) {
+            map_node node, decoded;
+            node.id = id;
+            node.left = id + 1;
+            node.height = 2;
+            node.elements = 2;
+            node.key.head = id + 2;
+            node.key.length = member ? 2049 : 263;
+            if (member) {
+                node.bucket = 42;
+                node.value.inline_value.assign(8, '\xff');
+                node.value.length = 8;
+            }
+            std::string bytes;
+            map_node_view view;
+            require(map_page_codec::encode_packed_node(node, bytes, member, true) ==
+                map_page_status::ok && bytes[3] == (id > UINT32_MAX ? 2 : 19) &&
+                map_page_codec::decode_node(bytes, decoded) == map_page_status::ok &&
+                map_page_codec::decode_node_view(bytes, view) == map_page_status::ok &&
+                view.id == id && view.left == node.left && view.right == 0 &&
+                view.height == 2 && view.elements == 2 && view.bucket == node.bucket &&
+                view.key.head == node.key.head && view.key.length == node.key.length &&
+                view.key.inline_size() == 0 && decoded.key.head == node.key.head &&
+                decoded.value.inline_value == node.value.inline_value,
+                "ZSet fragment reference round trip");
+            if (id > UINT32_MAX) continue;
+            require(bytes.size() == (id > UINT16_MAX ? 31 : 21) + node.value.length,
+                "ZSet fragment reference record size");
+            require(map_page_codec::decode_node_view(bytes.substr(0, bytes.size() - 1), view) ==
+                map_page_status::invalid, "ZSet fragment reference rejects truncation");
+            bytes[4] = static_cast<char>(static_cast<unsigned char>(bytes[4]) | 0x80);
+            require(map_page_codec::decode_node_view(bytes, view) ==
+                map_page_status::invalid, "ZSet fragment reference rejects unknown flags");
+            node.key.head = node.id;
+            require(map_page_codec::encode_packed_node_scratch(node, bytes, member, true) ==
+                map_page_status::invalid, "ZSet fragment reference rejects self reference");
+        }
+    }
+}
+
+static void test_short_zset_references() {
+    for (bool score : {false, true}) {
+        const char fixture[] = {static_cast<char>(score ? 0xf7 : 0xf6),
+            static_cast<char>(score ? 0 : 42), 0x09, 0x14,
+            0, 42, 0, 43, 0, 44, 0, 3, 0, 45,
+            'a', 0, 'b', 0, 'c', 0, 'd', static_cast<char>(0xff)};
+        const std::string bytes(fixture, sizeof(fixture));
+        const std::string payload(fixture + 14, 8);
+        map_node node;
+        map_node_view view;
+        require(map_page_codec::decode_node(bytes, node) == map_page_status::ok &&
+            map_page_codec::decode_node_view(bytes, view) == map_page_status::ok &&
+            node.id == 42 && node.left == 43 && node.right == 44 && node.elements == 3 &&
+            node.height == 2 && node.bucket == (score ? 0 : 42) && node.key.head == 45 &&
+            node.key.length == (score ? 285 : 277) && !node.value.head &&
+            node.value.length == (score ? 0 : 8) && view.key.shared == score &&
+            (score ? node.key.inline_value : node.value.inline_value) == payload &&
+            (score ? node.value.inline_value : node.key.inline_value).empty(),
+            "short ZSet reference fixture");
+        if (std::string().capacity() >= sizeof(fixture)) {
+            std::string encoded;
+            allocation_budget = 0;
+            const auto result = map_page_codec::encode_packed_node(node, encoded, !score, true);
+            allocation_budget = -1;
+            require(result == map_page_status::ok && encoded == bytes,
+                "short ZSet reference encoding allocated or changed bytes");
+        }
+        require(map_page_codec::decode_node_view(bytes.substr(0, bytes.size() - 1), view) ==
+            map_page_status::invalid, "short ZSet reference accepts a truncated payload");
+        auto damaged = bytes;
+        damaged[13] = 42;
+        require(map_page_codec::decode_node_view(damaged, view) == map_page_status::invalid,
+            "short ZSet reference accepts its own ID");
+        damaged = bytes;
+        damaged[2] = 0; damaged[3] = 126;
+        require(map_page_codec::decode_node_view(damaged, view) == map_page_status::invalid,
+            "short ZSet reference accepts an inline member length");
+        if (score) {
+            damaged = bytes;
+            damaged[1] = 1;
+            require(map_page_codec::decode_node_view(damaged, view) == map_page_status::invalid,
+                "short shared score reference accepts a nonzero bucket");
+        }
+        std::string encoded;
+        node.key.length = score ? 2057 : 2049;
+        require(map_page_codec::encode_packed_node(node, encoded, !score, true) ==
+            map_page_status::ok && encoded[3] == (score ? 20 : 19), "long reference fallback");
+        node.key.length = score ? 2056 : 2048;
+        node.key.head = 65536;
+        require(map_page_codec::encode_packed_node(node, encoded, !score, true) ==
+            map_page_status::ok && encoded[3] == (score ? 20 : 19), "wide reference fallback");
+    }
+}
+
+static void test_compact_zset_leaf() {
+    for (bool member : {false, true}) {
+        map_node node;
+        node.id = 32767;
+        node.key.inline_value = std::string(member ? 17 : 25, '\0');
+        node.key.length = node.key.inline_value.size();
+        if (member) node.value.inline_value = std::string(8, '\xff');
+        node.value.length = node.value.inline_value.size();
+        node.bucket = member ? static_cast<uint8_t>(scan_bucket(node.key.inline_value)) : 0;
+        std::string bytes(96, 's'), legacy;
+        map_node out;
+        map_node_view view;
+        require(map_page_codec::encode_packed_node(node, legacy, member) == map_page_status::ok &&
+            legacy[3] != 17 && map_page_codec::decode_node(legacy, out) == map_page_status::ok &&
+            out.key.inline_value == node.key.inline_value && out.value.inline_value == node.value.inline_value,
+            "legacy ZSet leaf round trip");
+        require(map_page_codec::encode_packed_node(node, bytes, member, true) == map_page_status::ok &&
+            bytes[3] == 17 && bytes.size() == 31 &&
+            map_page_codec::decode_node(bytes, out) == map_page_status::ok &&
+            map_page_codec::decode_node_view(bytes, view) == map_page_status::ok &&
+            out.id == node.id && out.height == 1 && out.elements == 1 && !out.left && !out.right &&
+            out.key.inline_value == node.key.inline_value && out.value.inline_value == node.value.inline_value &&
+            view.bucket == node.bucket && view.bucket_derived == member && view.id == node.id,
+            "six-byte ZSet leaf round trip");
+        require(map_page_codec::decode_node_view(bytes.substr(0, 20), view) == map_page_status::invalid &&
+            map_page_codec::decode_node_view(bytes + '\0', view) == map_page_status::invalid,
+            "compact ZSet leaf payload bounds");
+        bytes[4] = static_cast<char>(member ? 0x80 : 0);
+        bytes[5] = 0;
+        require(map_page_codec::decode_node(bytes, out) == map_page_status::invalid,
+            "compact ZSet leaf rejects page zero");
+        ++node.id;
+        require(map_page_codec::encode_packed_node(node, bytes, member, true) == map_page_status::ok &&
+            bytes[3] != 17 && map_page_codec::decode_node(bytes, out) == map_page_status::ok &&
+            out.id == node.id, "compact ZSet leaf preserves wide IDs");
+
+        for (size_t payload : {26, 27}) {
+            node.id = 16383;
+            node.key.inline_value.resize(payload - node.value.length, 'x');
+            node.key.length = node.key.inline_value.size();
+            node.bucket = member ? static_cast<uint8_t>(scan_bucket(node.key.inline_value)) : 0;
+            require(map_page_codec::encode_packed_node(node, bytes, member, true) == map_page_status::ok &&
+                bytes.compare(0, 2, "ZL") == 0 && bytes.size() == payload + 4 &&
+                map_page_codec::decode_node(bytes, out) == map_page_status::ok &&
+                map_page_codec::decode_node_view(bytes, view) == map_page_status::ok &&
+                out.id == node.id && out.key.inline_value == node.key.inline_value &&
+                out.value.inline_value == node.value.inline_value && view.id == node.id &&
+                view.bucket == node.bucket && view.bucket_derived == member &&
+                view.height == 1 && view.elements == 1 && !view.left && !view.right,
+                "four-byte ZSet leaf round trip");
+            require(map_page_codec::decode_node_view(bytes.substr(0, bytes.size() - 1), view) ==
+                map_page_status::invalid && map_page_codec::decode_node_view(bytes + '\0', view) ==
+                map_page_status::invalid, "four-byte leaf checks the encoded length");
+            bytes[2] = static_cast<char>(static_cast<unsigned char>(bytes[2]) & 0xc0);
+            bytes[3] = 0;
+            require(map_page_codec::decode_node(bytes, out) == map_page_status::invalid,
+                "four-byte leaf rejects page zero");
+            require(map_page_codec::encode_packed_node(node, bytes, member) == map_page_status::ok &&
+                bytes.compare(0, 3, "PMN") == 0, "ordinary writes keep the existing format");
+            ++node.id;
+            require(map_page_codec::encode_packed_node(node, bytes, member, true) == map_page_status::ok &&
+                bytes.compare(0, 3, "PMN") == 0 &&
+                map_page_codec::decode_node(bytes, out) == map_page_status::ok && out.id == node.id,
+                "four-byte leaf keeps the existing wide-ID format");
+        }
+        for (const size_t width : {20, 36, 56, 119}) {
+            node.id = 32767;
+            node.key.inline_value.resize(width + (member ? 0 : 8), 'x');
+            node.key.length = node.key.inline_value.size();
+            node.bucket = member ? static_cast<uint8_t>(scan_bucket(node.key.inline_value)) : 0;
+            require(map_page_codec::encode_packed_node(node, bytes, member, true) ==
+                map_page_status::ok && static_cast<unsigned char>(bytes.front()) == 0xf5 &&
+                bytes.size() == width + 11 &&
+                map_page_codec::decode_node(bytes, out) == map_page_status::ok &&
+                map_page_codec::decode_node_view(bytes, view) == map_page_status::ok &&
+                out.id == node.id && out.key.inline_value == node.key.inline_value &&
+                out.value.inline_value == node.value.inline_value && view.id == node.id &&
+                view.bucket == node.bucket && view.bucket_derived == member &&
+                view.height == 1 && view.elements == 1 && !view.left && !view.right,
+                "three-byte ZSet leaf round trip");
+            require(map_page_codec::encode_packed_node_scratch(node, legacy, member, true) ==
+                map_page_status::ok && legacy == bytes,
+                "point write preserves compact ZSet leaf encoding");
+            require(map_page_codec::decode_node_view(bytes.substr(0, 30), view) ==
+                map_page_status::invalid &&
+                map_page_codec::decode_node_view(bytes + std::string(128, 'x'), view) ==
+                map_page_status::invalid, "three-byte leaf payload bounds");
+            bytes[1] = static_cast<char>(member ? 0x80 : 0);
+            bytes[2] = 0;
+            require(map_page_codec::decode_node(bytes, out) == map_page_status::invalid,
+                "three-byte leaf rejects page zero");
+            ++node.id;
+            require(map_page_codec::encode_packed_node(node, bytes, member, true) ==
+                map_page_status::ok && bytes.compare(0, 3, "PMN") == 0 &&
+                map_page_codec::decode_node(bytes, out) == map_page_status::ok &&
+                out.id == node.id, "three-byte leaf keeps the existing wide-ID format");
+        }
+    }
+}
+
+static void test_shared_zset_score_reference() {
+    for (const uint64_t id : {42ULL, 65536ULL, 4294967296ULL}) {
+        map_node score, decoded;
+        score.id = id;
+        score.right = id + 1;
+        score.height = 2;
+        score.elements = 2;
+        score.key.head = id + 2;
+        score.key.length = 263;
+        score.key.inline_value.assign(8, '\x80');
+        std::string bytes;
+        map_node_view view;
+        const size_t size = id > UINT32_MAX ? 59 : id > UINT16_MAX ? 39 : 29;
+        require(map_page_codec::encode_packed_node(score, bytes) == map_page_status::ok &&
+            bytes.size() == size && bytes[3] == 20 &&
+            map_page_codec::decode_node(bytes, decoded) == map_page_status::ok &&
+            map_page_codec::decode_node_view(bytes, view) == map_page_status::ok &&
+            view.id == id && view.right == score.right && view.elements == score.elements &&
+            view.key.shared && view.key.inline_size() == 8 && !view.value.length &&
+            decoded.key.head == score.key.head && decoded.key.length == score.key.length &&
+            decoded.key.inline_value == score.key.inline_value,
+            "shared score node round trip");
+        require(map_page_codec::decode_node_view(bytes.substr(0, size - 1), view) ==
+            map_page_status::invalid, "shared score node accepts truncated prefix");
+        bytes[4] = 3;
+        require(map_page_codec::decode_node_view(bytes, view) == map_page_status::invalid &&
+            map_page_codec::encode_packed_node(score, bytes, true) == map_page_status::invalid,
+            "shared score node accepts bad flags or member-tree encoding");
+    }
+}
+
 static void test_node_encode_reuse() {
     map_node node;
     node.id = 1; node.left = 2; node.right = 3;
@@ -1492,6 +1789,21 @@ static void test_node_decode_scratch() {
     require(result == map_page_status::ok && scratch.key.inline_value.empty()
         && scratch.value.inline_value.empty(), "scratch retained old inline");
     require_node_bytes(scratch, owned, "scratch fragmented contents");
+    source.key.head = source.value.head = 0;
+    source.key.inline_value.assign("a\0b\0c\0d\xff", 8);
+    source.value.inline_value.assign("\0\xff\0\xff\0\xff\0\xff", 8);
+    source.key.length = source.value.length = 8;
+    const auto key_capacity = scratch.key.inline_value.capacity();
+    const auto value_capacity = scratch.value.inline_value.capacity();
+    require(map_page_codec::encode_node(source, owned) == map_page_status::ok &&
+        map_page_codec::decode_node_scratch(owned, scratch) == map_page_status::ok,
+        "decode fixed binary words");
+    require(scratch.key.inline_value.capacity() == key_capacity &&
+        scratch.value.inline_value.capacity() == value_capacity, "fixed decode dropped scratch capacity");
+    require_node_bytes(scratch, owned, "fixed words changed bytes");
+    require(map_page_codec::decode_node_scratch(owned, scratch, false) == map_page_status::ok &&
+        scratch.key.inline_value == source.key.inline_value && scratch.value.length == 8 &&
+        scratch.value.inline_value.empty(), "key-only decode retained a score word");
     std::cout << "scratch node decode: 0 allocations; strong errors intact\n";
 }
 
@@ -1700,7 +2012,7 @@ static void test_key_buffer_workspace() {
 
 static void test_scan_bucket_compatibility() {
     std::mt19937 random(1729);
-    std::array<char, 1024> bytes;
+    std::array<char, 4098> bytes;
     for (auto& byte : bytes) byte = static_cast<char>(random() & 255);
     for (size_t start = 0; start < 8; ++start) {
         uint64_t hash = 14695981039346656037ULL;
@@ -1711,6 +2023,30 @@ static void test_scan_bucket_compatibility() {
             hash *= 1099511628211ULL;
         }
     }
+    const auto check = [](const std::string& input) {
+        uint64_t hash = 14695981039346656037ULL;
+        for (unsigned char byte : input) hash = (hash ^ byte) * 1099511628211ULL;
+        require(scan_bucket(input) == (hash & 255), "periodic input changed scan bucket");
+        const size_t split = input.size() / 2 + 1;
+        const auto state = detail::scan_bucket_update(input.data(), split, detail::scan_bucket_seed);
+        require((detail::scan_bucket_update(input.data() + split, input.size() - split,
+            state) & 255) == (hash & 255), "fragmented input changed scan bucket");
+    };
+    for (unsigned byte = 0; byte < 256; ++byte) {
+        std::string uniform(2305, static_cast<char>(byte));
+        check(uniform);
+        for (unsigned prefix = 0; prefix < 256; ++prefix) {
+            uniform[0] = static_cast<char>(prefix);
+            check(uniform);
+        }
+    }
+    std::string periodic(4097, '\0');
+    const char pattern[] = {1, '\0', '\xff', 14, 73, 44, '\x80', 24};
+    for (size_t i = 0; i < periodic.size(); ++i) periodic[i] = pattern[i % 8];
+    for (size_t length : {1023, 1024, 1025, 2047, 2048, 2049, 4095, 4096, 4097})
+        check(periodic.substr(0, length));
+    periodic[2047] ^= 1;
+    check(periodic);
 }
 
 int main() {
@@ -1718,6 +2054,12 @@ int main() {
     test_metadata_error_priority();
     test_scan_bucket_compatibility();
     test_node_view();
+    test_compact_set_reference();
+    test_compact_set_leaf();
+    test_compact_zset_leaf();
+    test_zset_fragment_reference();
+    test_short_zset_references();
+    test_shared_zset_score_reference();
     test_node_encode_reuse();
     test_packed_staging_encode();
     test_write_buffers();

@@ -15,6 +15,41 @@
 #include <new>
 
 namespace pkv {
+namespace {
+template<class Entry>
+class pending_additions {
+public:
+    void push(Entry entry, size_t reserve_hint) {
+        if (!count_) {
+            first_ = entry;
+        } else {
+            if (count_ == 1) {
+                extra_.reserve(std::max<size_t>(2, reserve_hint));
+                extra_.push_back(first_);
+            }
+            extra_.push_back(entry);
+        }
+        ++count_;
+    }
+
+    void pop() noexcept {
+        if (count_ > 1) {
+            extra_.pop_back();
+            if (count_ == 2) extra_.clear();
+        }
+        --count_;
+    }
+
+    const Entry* begin() const { return count_ <= 1 ? &first_ : extra_.data(); }
+    const Entry* end() const { return begin() + count_; }
+
+private:
+    Entry first_{};
+    size_t count_ = 0;
+    std::vector<Entry> extra_;
+};
+} // namespace
+
 struct mdb::commit_state : prepared_batch {
     struct direct_copy {
         std::string* target;
@@ -24,14 +59,17 @@ struct mdb::commit_state : prepared_batch {
     struct root_addition {
         root_map* bucket;
         const batch_entry* entry;
-        store* shard;
+        size_t shard;
     };
     struct page_addition { page_map* store; const page_change* entry; };
-    struct owner_addition { page_family* family; const std::string* key; };
+    struct owner_addition { size_t shard; const std::string* key; };
     struct page_reset {
         page_map* store;
+        const std::string* key;
+        location position;
         page_map previous;
-        explicit page_reset(page_map* value) : store(value) {}
+        page_reset(page_map* value, const std::string& owner, location where)
+            : store(value), key(&owner), position(where) {}
     };
     mdb& database;
     const std::vector<batch_entry>& roots;
@@ -51,11 +89,11 @@ struct mdb::commit_state : prepared_batch {
     direct_copy* direct = nullptr;
     size_t direct_count = 0;
     std::vector<std::pair<std::string*, std::string>> replacements;
-    std::vector<root_addition> root_additions;
+    pending_additions<root_addition> root_additions;
     std::array<page_addition, 2> inline_additions;
     size_t inline_addition_count = 0;
     std::vector<page_addition> page_additions;
-    std::vector<owner_addition> owner_additions;
+    pending_additions<owner_addition> owner_additions;
     std::vector<page_reset> resets;
     size_t swapped = 0, inserted_roots = 0, inserted_pages = 0;
     bool done = false;
@@ -88,6 +126,8 @@ struct mdb::commit_state : prepared_batch {
     }
     void gather();
     void prepare();
+    page_map& stage_page_owner(size_t shard, const std::string& key,
+        bool known_absent = false);
     bool prepare_replacement_family();
     void stage_replacement(std::string& target, const std::string& value,
         bool page = false);
@@ -101,7 +141,8 @@ struct mdb::commit_state : prepared_batch {
 
 static bool compact_page_buffer(const std::string& bytes) {
     // Allow the allocator's small-string size-class rounding.
-    return bytes.capacity() - bytes.size() <=
+    return !detail::needs_inline_buffer(bytes.capacity(), bytes.size()) &&
+        bytes.capacity() - bytes.size() <=
         std::max<size_t>(16, bytes.size() / 4);
 }
 
@@ -172,7 +213,20 @@ void mdb::commit_state::gather() {
 
 void mdb::commit_state::stage_replacement(std::string& target,
     const std::string& value, bool page) {
+    if (page && target.capacity() > value.size() + 16 &&
+        inline_count < inline_replacements.size() &&
+        seals_list_endpoint(target, value)) {
+        // Append capacity belongs to the active endpoint only. Prepare an
+        // exact-sized sealed page before publication, keeping failure atomic.
+        auto& replacement = inline_replacements.take(inline_count);
+        std::string exact(value);
+        replacement.second.swap(exact);
+        replacement.first = &target;
+        ++inline_count;
+        return;
+    }
     if (direct && target.size() == value.size() &&
+        (!page || !detail::needs_inline_buffer(target.capacity(), value.size())) &&
         target.capacity() - target.size() <= target.size() / 4 + 32) {
         assert(direct_count < roots.size() + pages.size());
         direct[direct_count++] = {&target, &value};
@@ -182,7 +236,8 @@ void mdb::commit_state::stage_replacement(std::string& target,
     }
     if (inline_count < inline_replacements.size()) {
         inline_replacements.stage(inline_count, target, value,
-            page ? seals_list_endpoint(target, value) : small_root_buffer(value));
+            page ? value.size() <= std::string().capacity() ||
+                seals_list_endpoint(target, value) : small_root_buffer(value));
         ++inline_count;
         return;
     }
@@ -198,7 +253,8 @@ void mdb::commit_state::stage_replacement(std::string& target,
 }
 
 bool mdb::commit_state::prepare_replacement_family() {
-    if (!preserve || pages.size() < 32) return false;
+    if (!preserve || pages.empty() || (!adopt_pages && pages.size() < 32))
+        return false;
     const auto& key = pages.front().owner;
     const auto root = std::find_if(roots.begin(), roots.end(),
         [&](const batch_entry& entry) { return entry.key == key; });
@@ -217,19 +273,35 @@ bool mdb::commit_state::prepare_replacement_family() {
     for (const auto& page : pages)
         replacement.emplace(page.id,
             adopt_pages && compact_page_buffer(page.value) ? empty : page.value);
-    auto* family = database.find_page_family(database.locate(key), true);
-    auto owner = family->find(key);
-    if (owner == family->end()) {
-        owner_additions.reserve(1);
-        owner = family->emplace(key, page_map()).first;
-        owner_additions.push_back({family, &key});
-    }
+    // A sole clear-and-replace root already looked up its old family.
+    const auto shard = single_owner ? single_position.shard : database.locate(key).shard;
+    auto& owner = single_owner && !resets.empty() ? *resets.front().store :
+        stage_page_owner(shard, key, single_owner);
     // The original map is already in resets. Rollback restores it or
     // removes the newly inserted owner, without tracking each new page.
-    assert(owner->second.empty());
-    owner->second.swap(replacement);
-    if (adopt_pages) adopt_target = &owner->second;
+    assert(owner.empty());
+    owner.swap(replacement);
+    if (adopt_pages) adopt_target = &owner;
     return true;
+}
+
+mdb::page_map& mdb::commit_state::stage_page_owner(size_t shard, const std::string& key,
+    bool known_absent) {
+    auto* family = database.find_page_family(shard, false);
+    if (family && !known_absent) {
+        const auto existing = family->find(key);
+        if (existing != family->end()) return existing->second;
+    }
+    // Record rollback before creating an owner or its shard map.
+    owner_additions.push({shard, &key}, std::min(roots.size(), pages.size()));
+    try {
+        if (!family) family = database.find_page_family(shard, true);
+        return family->emplace(key, page_map()).first->second;
+    } catch (const std::bad_alloc&) {
+        owner_additions.pop();
+        if (family && family->empty()) database.prune_page_family(shard);
+        throw;
+    }
 }
 
 void mdb::commit_state::prepare() {
@@ -238,13 +310,13 @@ void mdb::commit_state::prepare() {
     if (preserve) {
         for (const auto& root : roots) {
             if (!root.clear_pages) continue;
-            auto* family = database.find_page_family(
-                database.locate(root.key), false);
+            const auto position = single_owner ? single_position : database.locate(root.key);
+            auto* family = database.find_page_family(position.shard, false);
             if (!family) continue;
             auto owner = family->find(root.key);
             if (owner != family->end()) {
                 if (resets.empty()) resets.reserve(roots.size());
-                resets.emplace_back(&owner->second);
+                resets.emplace_back(&owner->second, root.key, position);
             }
         }
         for (auto& reset : resets) {
@@ -262,9 +334,7 @@ void mdb::commit_state::prepare() {
         auto* bucket = database.find_store(position, true);
         const auto it = bucket->find(root.key);
         if (it == bucket->end()) {
-            if (root_additions.empty()) root_additions.reserve(roots.size());
-            root_additions.push_back({bucket, &root,
-                database.stores_[position.shard].get()});
+            root_additions.push({bucket, &root, position.shard}, roots.size());
         } else {
             auto& stored = it->second.value;
             if (bound_root) *bound_root = &stored;
@@ -278,24 +348,15 @@ void mdb::commit_state::prepare() {
         if (!bucket || (!single_owner && *previous_owner != page.owner)) {
             const auto position = single_owner ? single_position :
                 database.locate(page.owner);
-            auto* family = database.find_page_family(position, true);
-            auto owner = family->find(page.owner);
-            if (owner == family->end()) {
-                // Reserve rollback bookkeeping before publishing a page owner.
-                if (owner_additions.empty())
-                    owner_additions.reserve(std::min(roots.size(), pages.size()));
-                owner = family->emplace(page.owner, page_map()).first;
-                owner_additions.push_back({family, &page.owner});
-            }
+            bucket = &stage_page_owner(position.shard, page.owner);
             previous_owner = &page.owner;
-            bucket = &owner->second;
         }
         const auto it = bucket->get(page.id);
         if (!it) add_page(*bucket, page);
         else stage_replacement(*it, page.value, true);
     }
     for (const auto& item : root_additions) {
-        if (!database.add_root(*item.shard, *item.bucket, item.entry->key,
+        if (!database.add_root(item.shard, *item.bucket, item.entry->key,
             item.entry->value)) throw std::bad_alloc();
         ++inserted_roots;
     }
@@ -319,11 +380,15 @@ void mdb::commit_state::rollback() noexcept {
     for (size_t i = 0; i < inserted_pages; ++i)
         inserted[i].store->erase(inserted[i].entry->id);
     for (size_t i = 0; i < inserted_roots; ++i) {
-        auto& added = root_additions[i];
-        database.erase_root(*added.shard, *added.bucket,
+        const auto& added = root_additions.begin()[i];
+        database.erase_root(added.shard, *added.bucket,
             added.bucket->find(added.entry->key));
     }
-    for (const auto& owner : owner_additions) owner.family->erase(*owner.key);
+    for (const auto& owner : owner_additions) {
+        auto* family = database.find_page_family(owner.shard, false);
+        family->erase(*owner.key);
+        if (family->empty()) database.prune_page_family(owner.shard);
+    }
     for (size_t i = 0; i < swapped; ++i)
         resets[i].store->swap(resets[i].previous);
 }
@@ -338,7 +403,7 @@ std::unique_ptr<db::prepared_transfer> mdb::commit_state::prepare_family(
         target->roots[0].action != update_action::write ||
         !target->roots[0].clear_pages || !preserve || !target->preserve)
         return nullptr;
-    auto* family = database.find_page_family(database.locate(roots[0].key),
+    auto* family = database.find_page_family(database.locate(roots[0].key).shard,
         false);
     if (!family) return std::unique_ptr<prepared_transfer>(
         new prepared_family<page_map>(nullptr, nullptr));
@@ -347,17 +412,10 @@ std::unique_ptr<db::prepared_transfer> mdb::commit_state::prepare_family(
         return std::unique_ptr<prepared_transfer>(
             new prepared_family<page_map>(nullptr, nullptr));
     const auto& key = target->roots[0].key;
-    auto* to_family = target->database.find_page_family(
-        target->database.locate(key), true);
-    auto to = to_family->find(key);
-    if (to == to_family->end()) {
-        target->owner_additions.reserve(target->owner_additions.size() + 1);
-        to = to_family->emplace(key, page_map()).first;
-        target->owner_additions.push_back({to_family, &key});
-    }
-    if (!to->second.empty()) return nullptr;
+    auto& to = target->stage_page_owner(target->database.locate(key).shard, key);
+    if (!to.empty()) return nullptr;
     return std::unique_ptr<prepared_transfer>(new prepared_family<page_map>(
-        &from->second, &to->second));
+        &from->second, &to));
 }
 
 std::unique_ptr<db::prepared_transfer> mdb::commit_state::prepare_family(
@@ -371,17 +429,10 @@ std::unique_ptr<db::prepared_transfer> mdb::commit_state::prepare_family(
     if (family->empty_after_publish()) return
         std::unique_ptr<prepared_transfer>(
             new prepared_family<page_map>(nullptr, nullptr));
-    auto* owners = database.find_page_family(database.locate(key), true);
-    auto target = owners->find(key);
-    if (target == owners->end()) {
-        if (owner_additions.empty())
-            owner_additions.reserve(roots.size());
-        target = owners->emplace(key, page_map()).first;
-        owner_additions.push_back({owners, &root->key});
-    }
-    if (!target->second.empty()) return nullptr;
+    auto& target = stage_page_owner(database.locate(key).shard, root->key);
+    if (!target.empty()) return nullptr;
     return std::unique_ptr<prepared_transfer>(new prepared_family<page_map>(
-        &family->values(), &target->second));
+        &family->values(), &target));
 }
 
 void mdb::commit_state::publish() noexcept {
@@ -413,6 +464,10 @@ void mdb::commit_state::publish() noexcept {
         first->store->promote_tail((last - 1)->entry->id);
         first = last;
     }
+    for (const auto& reset : resets) {
+        // Replacing a paged value with an inline root leaves no page owner.
+        if (reset.store->empty()) database.erase_pages(reset.position, *reset.key);
+    }
     // A whole-key deletion below already releases all of its pages.
     if (!single_owner || roots[0].action != update_action::erase) {
         const std::string* previous_owner = nullptr;
@@ -424,7 +479,7 @@ void mdb::commit_state::publish() noexcept {
                 previous_owner = &page.owner;
                 const auto position = single_owner ? single_position :
                     database.locate(page.owner);
-                family = database.find_page_family(position, false);
+                family = database.find_page_family(position.shard, false);
                 if (family) {
                     owner = family->find(page.owner);
                     if (owner == family->end()) family = nullptr;
@@ -432,10 +487,11 @@ void mdb::commit_state::publish() noexcept {
             }
             if (!family) continue;
             owner->second.erase(page.id, true);
+            owner->second.reclaim_prefix();
             if (owner->second.empty()) {
                 family->erase(owner);
-                if (family->empty()) database.prune_page_family(
-                    single_owner ? single_position : database.locate(page.owner));
+                database.prune_page_family(single_owner ? single_position.shard :
+                    database.locate(page.owner).shard);
                 family = nullptr;
             }
         }
@@ -466,7 +522,9 @@ db::batch_status mdb::dbapply_pages(const std::vector<batch_entry>& roots,
         } catch (const std::bad_alloc&) { return batch_status::error; }
     }
     if (roots.size() == 1 && pages.size() == 1 &&
-        roots[0].action == update_action::write && !roots[0].clear_pages &&
+        roots[0].action == update_action::write &&
+        (!roots[0].clear_pages || (roots[0].found &&
+            roots[0].value.compare(0, 4, "PSR\1", 4) == 0)) &&
         pages[0].action == update_action::write &&
         pages[0].owner == roots[0].key) {
         try {
@@ -486,14 +544,17 @@ bool mdb::replace_root(const batch_entry& root) {
     if (!bucket) return false;
     const auto record = bucket->find(root.key);
     if (record == bucket->end()) return false;
-    page_map* clearing = nullptr;
-    if (root.clear_pages) {
-        auto* family = find_page_family(position, false);
-        if (family) {
-            const auto owner = family->find(root.key);
-            if (owner != family->end()) clearing = &owner->second;
+    const auto retire_pages = [&] {
+        if (!root.clear_pages) return;
+        auto* family = find_page_family(position.shard, false);
+        if (!family) return;
+        const auto owner = family->find(root.key);
+        if (owner != family->end()) {
+            owner->second.swap(retired);
+            family->erase(owner);
         }
-    }
+        prune_page_family(position.shard);
+    };
     auto& stored = record->second.value;
     const auto size = root.value.size();
     const bool compact_collection = compact_list_root::matches(root.value) ||
@@ -502,7 +563,7 @@ bool mdb::replace_root(const batch_entry& root) {
         stored.capacity() >= size && stored.capacity() - size <= size / 4;
     if (stored.size() == size || resize_in_place) {
         if (stored.size() != size) stored.resize(size);
-        if (clearing) clearing->swap(retired);
+        retire_pages();
         if (!root.value.empty())
             std::memcpy(&stored[0], root.value.data(), root.value.size());
         return true;
@@ -514,7 +575,7 @@ bool mdb::replace_root(const batch_entry& root) {
     replacement.stage(0, stored, root.value,
         compact_collection || compact_zset::matches(root.value) ||
             small_root_buffer(root.value));
-    if (clearing) clearing->swap(retired);
+    retire_pages();
     stored.swap(replacement[0].second);
     guard.unlock();
     return true;
@@ -533,6 +594,20 @@ db::batch_status mdb::dbadopt_page_family(const std::vector<batch_entry>& roots,
     std::vector<page_change>& pages) {
     if (typeid(*this) != typeid(mdb)) return batch_status::unsupported;
     try {
+        if (roots.size() == 1 && detail::can_adopt_small_string_family(roots[0], pages)) {
+            const auto& root = roots[0];
+            const auto position = locate(root.key);
+            std::lock_guard<lock_t> guard(*locks_[position.shard]);
+            auto* family = find_page_family(position.shard, false);
+            auto* bucket = find_store(position, false);
+            if (family && bucket) {
+                const auto owner = family->find(root.key);
+                const auto record = bucket->find(root.key);
+                if (owner != family->end() && record != bucket->end() &&
+                    detail::adopt_small_string_family(record->second.value,
+                        owner->second, root, pages)) return batch_status::ok;
+            }
+        }
         commit_state state(*this, roots, pages, true, true);
         state.adopt_pages = &pages;
         state.gather();
@@ -557,6 +632,30 @@ db::batch_status mdb::replace_bound_page(const batch_entry& root,
         batch_status::ok : batch_status::unsupported;
 }
 
+db::batch_status mdb::edit_bound_list_page(const batch_entry& root,
+    const list_page_edit& edit, const page_reader& reader,
+    std::string*& bound_root) {
+    auto* pages = const_cast<page_map*>(static_cast<const page_map*>(reader.context_));
+    if (!pages) return batch_status::error;
+    const auto position = locate(root.key);
+    std::lock_guard<lock_t> guard(*locks_[position.shard]);
+    if (!bound_root) {
+        auto* bucket = find_store(position, false);
+        if (!bucket) return batch_status::error;
+        const auto record = bucket->find(root.key);
+        if (record == bucket->end()) return batch_status::error;
+        bound_root = &record->second.value;
+    }
+    auto* page = pages->get(edit.id);
+    if (!page || bound_root->size() != root.value.size()) return batch_status::error;
+    const auto result = list_page_codec::apply_edit(*page, edit);
+    if (result != list_page_status::ok) return batch_status::error;
+    // All allocation has completed. Publishing the same-sized root cannot throw.
+    if (!root.value.empty())
+        std::memcpy(&(*bound_root)[0], root.value.data(), root.value.size());
+    return batch_status::ok;
+}
+
 bool mdb::replace_page(const batch_entry& root, const page_change& page,
     std::string* adopted, page_map* bound, std::string** bound_root) {
     const auto position = locate(root.key);
@@ -573,12 +672,15 @@ bool mdb::replace_page(const batch_entry& root, const page_change& page,
         if (bound_root) *bound_root = stored;
     }
     if (!bound) {
-        auto* family = find_page_family(position, false);
+        auto* family = find_page_family(position.shard, false);
         if (!family) return false;
         const auto owner = family->find(root.key);
         if (owner == family->end()) return false;
         bound = &owner->second;
     }
+    // Keep only the compact one-page layout. A formerly large index can
+    // still own an allocated directory after all but one page are erased.
+    if (root.clear_pages && !bound->has_small_pages(1)) return false;
     const auto item = bound->get(page.id);
     if (!item) return false;
     auto& stored_root = *stored;
@@ -586,14 +688,16 @@ bool mdb::replace_page(const batch_entry& root, const page_change& page,
     if (stored_root.size() == root.value.size()) {
         if (adopted) {
             stored_page.swap(*adopted);
-        } else if (stored_page.size() == page.value.size()) {
+        } else if (stored_page.size() == page.value.size() &&
+            !detail::needs_inline_buffer(stored_page.capacity(), page.value.size())) {
             if (!page.value.empty())
                 std::memcpy(&stored_page[0], page.value.data(),
                     page.value.size());
         } else {
             // Finish the potentially throwing resize before publication.
             detail::replacement_workspace replacement(true);
-            replacement.stage(1, stored_page, page.value);
+            replacement.stage(1, stored_page, page.value,
+                page.value.size() <= std::string().capacity());
             stored_page.swap(replacement[1].second);
         }
         if (!root.value.empty())
@@ -605,7 +709,8 @@ bool mdb::replace_page(const batch_entry& root, const page_change& page,
     // observers, and an allocation failure changes neither stored value.
     detail::replacement_workspace replacements(true);
     replacements.stage(0, stored_root, root.value, small_root_buffer(root.value));
-    replacements.stage(1, stored_page, page.value);
+    replacements.stage(1, stored_page, page.value,
+        page.value.size() <= std::string().capacity());
     replacements[0].first->swap(replacements[0].second);
     replacements[1].first->swap(replacements[1].second);
     return true;
@@ -660,6 +765,25 @@ db::batch_status mdb::apply_bound_pages(const std::vector<batch_entry>& roots,
     // Inserting other keys may rehash the maps without moving these values.
     auto* bound = const_cast<page_map*>(static_cast<const page_map*>(reader.context_));
     if (!bound) return batch_status::unsupported;
+    const auto& root = roots.front();
+    if (pages.size() <= detail::max_bound_zset_edits &&
+        root.value.compare(0, 3, "PZR") == 0) {
+        const auto position = locate(root.key);
+        std::lock_guard<lock_t> guard(*locks_[position.shard]);
+        auto* stored = bound_root ? *bound_root : nullptr;
+        if (!stored) {
+            auto* bucket = find_store(position, false);
+            if (bucket) {
+                const auto item = bucket->find(root.key);
+                if (item != bucket->end()) stored = &item->second.value;
+            }
+            if (bound_root) *bound_root = stored;
+        }
+        if (stored) {
+            const auto status = detail::commit_bound_zset_pages<true>(*stored, *bound, root, pages);
+            if (status != batch_status::unsupported) return status;
+        }
+    }
     return commit(roots, pages, true, nullptr, bound, bound_root);
 }
 } // namespace pkv

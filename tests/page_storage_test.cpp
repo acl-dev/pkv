@@ -1,10 +1,16 @@
 #include "stdafx.h"
 #include "db/db.h"
+#include "dao/paged_list.h"
+#include "dao/paged_string.h"
 #include "db/db_watcher.h"
 #include "db/mdb/mdb.h"
+#include "db/mdb/mdb_tbb.h"
+#include "db/mdb/replacement_workspace.h"
 #include "db/page_transaction.h"
 #include "db/root_workspace.h"
+#include "db/string_store.h"
 #include "coder/list_page.h"
+#include "common/key_crc32.h"
 #include <atomic>
 #include <functional>
 #include <cstdlib>
@@ -270,6 +276,119 @@ static void test_single_owner_staging_order() {
                 std::string(48, 'v') + std::to_string(i),
                 "page contents followed the sorted ID");
     }
+}
+
+template<bool Recycle>
+static void test_bound_zset_edits() {
+    struct tracked_index : mdb_page_index_impl<Recycle> {
+        size_t staged = 0;
+        void emplace(uint64_t id, const std::string& value) {
+            mdb_page_index_impl<Recycle>::emplace(id, value);
+            if (id >= 4) ++staged;
+        }
+    } index;
+    index.emplace(1, "before");
+    index.emplace(2, "short");
+    index.emplace(3, "delete");
+    const auto inline_capacity = std::string().capacity();
+    const std::string old_node(inline_capacity + 7, 'v');
+    const std::string inline_node(inline_capacity, 'n');
+    index.emplace(6, old_node);
+    index.emplace(7, old_node);
+    index.get(7)->resize(inline_capacity);
+    std::string stored("PZR-old");
+    db::batch_entry root("owner", true, "PZR-new");
+    root.action = action::write;
+    const std::string long_page(1200, 'p');
+    std::vector<page_change> pages;
+    pages.emplace_back(root.key, 1, "edited", action::write);
+    pages.emplace_back(root.key, 2, long_page, action::write);
+    pages.emplace_back(root.key, 3, std::string(), action::erase);
+    auto original = [&] {
+        return stored == "PZR-old" && index.size() == 5 &&
+            *index.get(1) == "before" && *index.get(2) == "short" && *index.get(3) == "delete" &&
+            *index.get(6) == old_node && *index.get(7) == old_node.substr(0, inline_capacity) &&
+            index.get(7)->capacity() > inline_capacity;
+    };
+    pages.emplace_back("other", 4, "foreign", action::write);
+    require(detail::commit_bound_zset_pages<Recycle>(stored, index, root, pages) ==
+        batch_status::unsupported && original(), "bound edit accepted a foreign owner");
+    pages.pop_back();
+    pages.emplace_back(root.key, 4, "new", action::write);
+    pages.emplace_back(root.key, 5, long_page, action::write);
+    pages.emplace_back(root.key, 6, inline_node, action::write);
+    pages.emplace_back(root.key, 7, inline_node, action::write);
+    bool rolled_back_insert = false, committed = false;
+    for (long budget = 0; budget < 32 && !committed; ++budget) {
+        index.staged = 0;
+        allocation_budget = budget;
+        const auto status = detail::commit_bound_zset_pages<Recycle>(stored, index, root, pages);
+        allocation_budget = -1;
+        committed = status == batch_status::ok;
+        if (!committed) {
+            require(status == batch_status::error && original() && !index.get(4) && !index.get(5),
+                "allocation failure published a bound edit");
+            rolled_back_insert = rolled_back_insert || index.staged != 0;
+        }
+    }
+    require(rolled_back_insert && committed && stored == root.value && index.size() == 6 &&
+        *index.get(1) == "edited" && *index.get(2) == long_page && !index.get(3) &&
+        *index.get(4) == "new" && *index.get(5) == long_page,
+        "bound edit failed to publish matching pages and root");
+    for (uint64_t id : {6, 7})
+        require(*index.get(id) == inline_node && index.get(id)->capacity() == inline_capacity,
+            "bound edit retained a heap buffer for an inline page");
+    require(pages[0].value == "edited" && pages[1].value == long_page &&
+        pages[3].value == "new" && pages[4].value == long_page &&
+        pages[5].value == inline_node && pages[6].value == inline_node,
+        "bound edit consumed staged observer payloads");
+}
+
+template<bool CompactGrowth>
+static void test_dense_prefix_contraction() {
+    const std::array<uint64_t, 8> survivors{{1, 2, 4, 9, 24, 40, 55, 64}};
+    const std::string payload(96, 'p');
+    bool failed = false, demoted = false;
+    for (long budget = 0; budget < 32 && !demoted; ++budget) {
+        mdb_page_index_impl<CompactGrowth> index;
+        std::array<uint64_t, 64> prefix;
+        for (size_t i = 0; i < prefix.size(); ++i) prefix[i] = i + 1;
+        index.prepare_empty(prefix.begin(), prefix.end(), [](uint64_t id) { return id; });
+        for (uint64_t id : prefix) index.emplace(id, payload);
+        for (uint64_t id = 257; id <= 320; ++id) index.emplace(id, "tail");
+        index.promote_tail(320);
+        const auto* tail = index.get(320);
+        const auto first_address = reinterpret_cast<uintptr_t>(index.get(1));
+        const auto* first_payload = index.get(1)->data();
+        for (uint64_t id : prefix) {
+            if (id != 63 && std::find(survivors.begin(), survivors.end(), id) == survivors.end())
+                index.erase(id, true);
+        }
+        allocation_budget = budget;
+        index.erase(63, true);
+        require(reinterpret_cast<uintptr_t>(index.get(1)) == first_address,
+            "prefix erase moved a surviving page before reclamation");
+        index.reclaim_prefix();
+        allocation_budget = -1;
+        require(index.size() == 72 && !index.get(63) && index.get(320) == tail,
+            "prefix contraction changed another page or retained staged entries");
+        for (uint64_t id : survivors)
+            require(index.get(id) && *index.get(id) == payload,
+                "prefix contraction lost a surviving page");
+        require(index.get(1)->data() == first_payload,
+            "prefix contraction copied a surviving payload");
+        demoted = reinterpret_cast<uintptr_t>(index.get(1)) != first_address;
+        failed = failed || !demoted;
+        if (demoted) {
+            for (uint64_t id : prefix)
+                if (!index.get(id)) index.emplace(id, "regrown");
+            index.promote_prefix(56);
+            require(index.size() == 128 && index.get(320) == tail &&
+                *index.get(1) == payload && *index.get(63) == "regrown",
+                "regrowth after prefix contraction changed surviving pages");
+        }
+    }
+    require(failed && demoted, "prefix contraction fault sweep did not exercise both paths");
 }
 
 static void test_dense_page_prefix() {
@@ -639,6 +758,28 @@ static void test_dense_page_prefix() {
             "reuse hole after prefix promotion");
     }
     {
+        mdb_page_index_impl<false> index;
+        allocated_bytes = 0;
+        measure_allocations = true;
+        index.emplace(1, "");
+        measure_allocations = false;
+        const auto* first = index.get(1);
+        require(!allocated_bytes && first && first->empty() && index.size() == 1,
+            "first page did not use its inline slot");
+        index.emplace(2, "second");
+        index.emplace(8, "extension");
+        require(index.get(1) == first && first->empty(),
+            "allocating later pages moved the first page");
+        index.erase(2);
+        index.erase(8);
+        mdb_page_index_impl<false> moved(std::move(index));
+        require(index.empty() && !index.get(1) && moved.size() == 1 &&
+            moved.get(1) && moved.get(1)->empty(), "moving an inline empty page lost presence");
+        index = std::move(moved);
+        require(moved.empty() && index.size() == 1 && index.get(1) &&
+            index.get(1)->empty(), "move assignment lost the inline slot");
+    }
+    {
         mdb_page_index index;
         index.emplace(2, "");
         const auto* second = index.get(2);
@@ -767,6 +908,100 @@ static void test_dense_page_prefix() {
         read_page(database, growing, 576) == "last",
         "promotion retains values and applies pending deletion");
 }
+
+#ifdef HAS_TBB
+static void test_tbb_bulk_page_preparation(bool multiple_owners, uint64_t count,
+    bool read_source = false) {
+    struct bulk_db : mdb_tbb {
+        bulk_db() : mdb_tbb(4) {}
+        using mdb_tbb::dbprepare_owned_pages;
+    };
+    auto database = std::make_shared<bulk_db>();
+    require(database->open(""), "bulk oneTBB database");
+    const std::string old_key = "bulk-a", new_key = "bulk-b", source = "bulk-0";
+    seed(database, old_key, 3);
+    require(database->transact_page(old_key, [&](page_transaction& tx) {
+        return tx.put(old_key, 1000, "old sparse page");
+    }) == batch_status::ok, "seed sparse page outside replacement range");
+    std::vector<db::batch_entry> roots;
+    if (read_source) {
+        seed(database, source, 2);
+        roots.emplace_back(source, true, "root");
+    }
+    roots.emplace_back(old_key, true, "replacement");
+    if (multiple_owners) roots.emplace_back(new_key, false, "new");
+    for (auto& root : roots) {
+        if (root.key == source) continue;
+        root.action = action::write;
+        root.clear_pages = true;
+    }
+    std::vector<page_change> pages;
+    for (uint64_t id = 1; id <= count; ++id)
+        pages.emplace_back(old_key, id, std::to_string(id), action::write);
+    if (multiple_owners) {
+        pages.emplace_back(old_key, UINT64_MAX, "sparse", action::write);
+        for (uint64_t id = 1; id <= 32; ++id)
+            pages.emplace_back(new_key, id, std::to_string(id), action::write);
+    }
+
+    const auto source_unchanged = [&] {
+        if (!read_source) return;
+        std::string value;
+        require(database->get(source, value) && value == "root" &&
+            read_page(database, source, 2) == "page:2", "read-only source changed");
+    };
+    const auto unchanged = [&] {
+        source_unchanged();
+        std::string value;
+        require(database->get(old_key, value) && value == "root" &&
+            !database->get(new_key, value), "bulk rollback changed roots");
+        require(read_page(database, old_key, 3) == "page:3" &&
+            read_page(database, old_key, 1000) == "old sparse page",
+            "bulk rollback changed the old page family");
+        read_page(database, old_key, 4, false);
+        read_page(database, new_key, 1, false);
+    };
+    std::unique_ptr<db::prepared_batch> batch;
+    bool failed = false;
+    for (long budget = 0; budget < 96 && !batch; ++budget) {
+        allocation_budget = budget;
+        const auto result = database->dbprepare_owned_pages(roots, pages, batch);
+        allocation_budget = -1;
+        if (result == batch_status::ok) break;
+        require(result == batch_status::error && !batch,
+            "bulk preparation returned an unexpected status");
+        failed = true;
+        unchanged();
+    }
+    require(failed && batch, "bulk preparation fault sweep incomplete");
+    batch.reset();
+    unchanged();
+
+    require(database->dbprepare_owned_pages(roots, pages, batch) ==
+        batch_status::ok && batch, "bulk preparation retry");
+    batch->publish();
+    batch.reset();
+    source_unchanged();
+    read_page(database, old_key, 1000, false);
+    require(database->transact_pages({old_key, new_key}, [&](page_transaction& tx) {
+        std::string value;
+        for (const auto& page : pages)
+            if (tx.lookup(page.owner, page.id, value) != lookup_status::found ||
+                value != page.value) return false;
+        return true;
+    }) == batch_status::ok, "published bulk page contents");
+    const uint64_t last = (count + 63) / 64 * 64;
+    require(database->transact_page(old_key, [&](page_transaction& tx) {
+        for (uint64_t id = count + 1; id <= last; ++id)
+            if (!tx.put(old_key, id, std::to_string(id))) return false;
+        return true;
+    }) == batch_status::ok, "fill the short bulk tail");
+    for (uint64_t id = last - 63; id <= last; ++id)
+        require(read_page(database, old_key, id) == std::to_string(id),
+            "tail promotion lost a page");
+    read_page(database, old_key, last + 1, false);
+}
+#endif
 
 static void test_multi_owner_addresses() {
     for (bool replace : {false, true}) {
@@ -1034,6 +1269,210 @@ static void test_single_key_hook_snapshot() {
         "root replacement wrote a different key");
 }
 
+static void test_single_page_string_replacement(shared_db database) {
+    require(database->open(""), "single-page String backend open");
+    dao::paged_string strings;
+    const std::string key("paged");
+    const std::string old(1025, 'o'), next(1025, 'n'), resized(4096, 'r');
+    dao::set_options options;
+    options.expires_at_ms = 4102444800123;
+    dao::set_result result;
+    require(strings.set(database, key, old, options, result) && result.applied,
+        "single-page String seed");
+    std::vector<watch_token> tokens;
+    require(database->watch({key}, tokens) == batch_status::ok && tokens.size() == 1,
+        "single-page String WATCH");
+    require(strings.set(database, key, next) && !tokens[0]->valid(0) &&
+        read_page(database, key, 1) == next, "single-page String overwrite");
+    std::string root;
+    string_root_header header;
+    require(database->get(key, root) &&
+        string_page_codec::decode_header(root, header) == string_page_status::ok &&
+        header.expires_at_ms == -1 && header.pages == 1, "single-page String TTL");
+
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        return tx.put(key, 2, "orphan");
+    }) == batch_status::ok, "single-page String orphan setup");
+    require(read_page(database, key, 2) == "orphan" &&
+        strings.set(database, key, resized) && read_page(database, key, 1) == resized,
+        "single-page String family replacement");
+    read_page(database, key, 2, false);
+
+    const std::string alternate(4096, 'a');
+    require(database->get(key, root), "single-page String root read");
+    const auto replace_without_commit_allocations = [&] {
+        const auto status = database->transact_page(key, [&](page_transaction& tx) {
+            put_root(tx, key, root);
+            if (!tx.reset_pages(key) || !tx.put(key, 1, alternate)) return false;
+            allocation_budget = 0;
+            return true;
+        });
+        allocation_budget = -1;
+        return status;
+    };
+    require(replace_without_commit_allocations() == batch_status::ok,
+        "compact single-page replacement allocated an index");
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        for (uint64_t id = 2; id <= 16; ++id)
+            if (!tx.put(key, id, "extra")) return false;
+        return true;
+    }) == batch_status::ok, "single-page String dense index setup");
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        for (uint64_t id = 2; id <= 16; ++id)
+            if (!tx.erase(key, id)) return false;
+        return true;
+    }) == batch_status::ok, "single-page String dense index contraction");
+    require(replace_without_commit_allocations() == batch_status::error &&
+        read_page(database, key, 1) == alternate, "replacement retained a dense one-page index");
+    require(strings.set(database, key, resized) &&
+        replace_without_commit_allocations() == batch_status::ok &&
+        read_page(database, key, 1) == alternate, "single-page String index was not compacted");
+}
+
+static void test_small_string_family_replacement(shared_db database) {
+    require(database->open(""), "small String family backend open");
+    dao::paged_string strings;
+    const std::string key("family"), first(16384, 'a'), second(16384, 'b');
+    require(strings.set(database, key, first + "x"), "small String family seed");
+    std::string root;
+    require(database->get(key, root), "small String family root read");
+    const auto replace = [&] {
+        const auto status = database->transact_page(key, [&](page_transaction& tx) {
+            put_root(tx, key, root);
+            if (!tx.reset_pages(key) || !tx.put(key, 1, second) || !tx.put(key, 2, "y"))
+                return false;
+            allocation_budget = 0;
+            return true;
+        });
+        allocation_budget = -1;
+        return status;
+    };
+    require(replace() == batch_status::ok && read_page(database, key, 1) == second &&
+        read_page(database, key, 2) == "y", "compact String family replacement allocated");
+
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        return tx.put(key, 1, first) && tx.erase(key, 2) && tx.put(key, 3, "extra");
+    }) == batch_status::ok, "small String family mismatched page setup");
+    require(replace() == batch_status::error && read_page(database, key, 1) == first &&
+        read_page(database, key, 3) == "extra", "failed replacement published a partial family");
+    require(strings.set(database, key, second + "y") && read_page(database, key, 1) == second &&
+        read_page(database, key, 2) == "y", "small String family rebuild");
+    read_page(database, key, 3, false);
+}
+
+static void test_sorted_string_reassign(shared_db database) {
+    require(database->open(""), "sorted String backend open");
+    const std::string key("sorted"), before(49152, 'a'), patch("x\0y", 3);
+    std::string expected(16385, 'b');
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        string_store store(tx, key);
+        return store.assign(before) && store.assign(expected) &&
+            store.write(16383, patch) && store.finish();
+    }) == batch_status::ok, "sorted String reassign and patch");
+    expected.replace(16383, patch.size(), patch);
+    require(read_page(database, key, 1) == expected.substr(0, 16384) &&
+        read_page(database, key, 2) == expected.substr(16384),
+        "sorted String reassign published incorrect pages");
+    read_page(database, key, 3, false);
+}
+
+#ifdef HAS_TBB
+static void test_tbb_shared_scan_stripes() {
+    auto database = db::create_mdb_tbb(256);
+    require(database->open(""), "shared scan stripe database");
+    // The first and last shards share a stripe, with another stripe between
+    // them in shard order. The buckets also span separate directory pages.
+    const auto key_at = [](size_t shard, size_t bucket) {
+        for (size_t i = 0; ; ++i) {
+            const auto key = "scan-stripe:" + std::to_string(i);
+            const auto hash = key_crc32(key.data(), key.size());
+            if (hash % 256 == shard && (hash / 256) % 256 == bucket)
+                return key;
+        }
+    };
+    const std::vector<std::string> keys = {
+        key_at(0, 2), key_at(1, 19), key_at(128, 34)};
+    require(database->transact_pages(keys, [&](page_transaction& tx) {
+        for (const auto& key : keys) put_root(tx, key, "root");
+        return true;
+    }) == batch_status::ok, "shared scan stripe insertion");
+
+    unsigned long long cursor = 0;
+    std::vector<std::string> page;
+    for (const auto& key : keys) {
+        require(database->scan_keys(cursor, 1, page, cursor) ==
+            db::scan_status::ok && page.size() == 1 && page.front() == key,
+            "shared scan stripe traversal");
+    }
+    require(database->scan_keys(cursor, 1, page, cursor) ==
+        db::scan_status::ok && !cursor && page.empty(),
+        "shared scan stripe traversal termination");
+
+    require(database->transact_pages(keys, [&](page_transaction& tx) {
+        for (const auto& key : keys) tx.roots().find(key)->action = action::erase;
+        return true;
+    }) == batch_status::ok, "shared scan stripe removal");
+    require(database->scan_keys(0, 1, page, cursor) == db::scan_status::ok &&
+        !cursor && page.empty(), "shared scan stripe left live entries");
+}
+
+static void test_tbb_bound_root_replacement(bool read_value) {
+    auto database = db::create_mdb_tbb(256);
+    require(database->open(""), "bound root backend open");
+    const std::string key("owner");
+    seed(database, key, 2);
+    std::string old_root, next_root;
+    require(string_page_codec::encode_inline(-1, "root", old_root, true) ==
+            string_page_status::ok &&
+        string_page_codec::encode_inline(-1, "next", next_root, true) ==
+            string_page_status::ok, "bound root encoding");
+    require(database->transact_page(key, [&](page_transaction& view) {
+        put_root(view, key, old_root);
+        return true;
+    }) == batch_status::ok, "bound root seed");
+    std::vector<watch_token> tokens;
+    require(database->watch({key}, tokens) == batch_status::ok && tokens.size() == 1,
+        "bound root WATCH");
+    const auto replace = [&](const std::string& name, std::string value, bool found,
+                             long budget) {
+        const auto change = [&](db::batch_entry& root) {
+            require(root.found == found &&
+                (read_value && found ? root.value == old_root : root.value.empty()),
+                "bound root snapshot");
+            root.value.swap(value);
+            root.action = action::write;
+            root.clear_pages = true;
+            allocation_budget = budget;
+            return db::page_root_result::ready;
+        };
+        const auto status = read_value ? database->transact_page(name, {}, change) :
+            database->replace_page_root(name, change);
+        allocation_budget = -1;
+        return status;
+    };
+    std::string actual;
+    require(replace(key, std::string(128, 'x'), true, 0) == batch_status::error &&
+        database->get(key, actual) && actual == old_root && tokens[0]->valid(0) &&
+        read_page(database, key, 1) == "page:1", "failed root replacement changed storage");
+    require(replace(key, next_root, true, 0) == batch_status::ok &&
+        database->get(key, actual) && actual == next_root && !tokens[0]->valid(0),
+        "equal-length root replacement allocated or missed WATCH");
+    read_page(database, key, 1, false);
+    read_page(database, key, 2, false);
+    require(replace("absent", "new", false, 0) == batch_status::error &&
+        database->lookup("absent", actual) == lookup_status::missing &&
+        replace("absent", "new", false, -1) == batch_status::ok &&
+        database->get("absent", actual) && actual == "new", "bound insertion rollback or retry");
+    if (read_value) {
+        require(database->transact_page(key, {}, [&](db::batch_entry& root) {
+            root.action = action::erase;
+            return db::page_root_result::ready;
+        }) == batch_status::ok && database->lookup(key, actual) == lookup_status::missing,
+            "read-dependent root erase");
+    }
+}
+#endif
+
 static void test_single_key_entry() {
     const std::string original("owner\0binary", 12);
     auto database = memory();
@@ -1170,6 +1609,101 @@ static void test_unsupported_and_errors() {
     require(observed->transact_pages({"owner"}, [](page_transaction&) {
         return true;
     }) == batch_status::ok, "observer prevented read-only callback");
+}
+
+static void test_shard_family_growth_failure() {
+    std::array<std::string, 3> names;
+    for (unsigned i = 0; names[0].empty() || names[1].empty() ||
+        names[2].empty(); ++i) {
+        const auto key = "directory-fault:" + std::to_string(i);
+        const auto slot = std::hash<std::string>()(key) % 32;
+        if (slot < names.size() && names[slot].empty()) names[slot] = key;
+    }
+    bool succeeded = false;
+    size_t failures = 0;
+    for (long budget = 0; budget < 64; ++budget) {
+        auto database = db::create_mdb(1);
+        require(database->open(""), "directory fault open");
+        seed(database, names[0], 1);
+        seed(database, names[1], 1);
+        const auto status = database->transact_page(names[2],
+            [&](page_transaction& tx) {
+                put_root(tx, names[2], "third");
+                if (!tx.put(names[2], 1, "third-page")) return false;
+                allocation_budget = budget;
+                return true;
+            });
+        allocation_budget = -1;
+        require(read_page(database, names[0], 1) == "page:1" &&
+            read_page(database, names[1], 1) == "page:1",
+            "failed directory growth damaged siblings");
+        std::string bytes;
+        if (status == batch_status::error) {
+            ++failures;
+            require(!database->get(names[2], bytes),
+                "failed directory growth exposed root");
+            read_page(database, names[2], 1, false);
+        } else {
+            require(status == batch_status::ok &&
+                database->get(names[2], bytes) && bytes == "third" &&
+                read_page(database, names[2], 1) == "third-page",
+                "directory growth success");
+            succeeded = true;
+            break;
+        }
+    }
+    require(succeeded && failures, "directory growth failure coverage");
+}
+
+static void test_pinned_owner_rehash(shared_db database) {
+    require(database->open(""), "pinned page owner open");
+    const std::string owner = "pinned";
+    std::string value(4096, 'p');
+    require(database->transact_page(owner, [&](page_transaction& tx) {
+        string_store store(tx, owner);
+        return store.assign(value) && store.finish();
+    }) == batch_status::ok, "pinned page owner seed");
+    std::vector<std::string> siblings;
+    const auto stripe = std::hash<std::string>()(owner) & 255;
+    for (size_t i = 0; siblings.size() < 160; ++i) {
+        const auto key = "sibling:" + std::to_string(i);
+        if ((std::hash<std::string>()(key) & 255) != stripe) siblings.push_back(key);
+    }
+    std::atomic<unsigned> phase{0};
+    const auto wait = [&](unsigned next) {
+        while (phase.load() < next) std::this_thread::yield();
+    };
+    std::thread writer([&] {
+        wait(1);
+        for (const auto& key : siblings) seed(database, key, 1);
+        phase.store(2);
+        wait(3);
+        for (const auto& key : siblings) require(database->del(key), "sibling page delete");
+        phase.store(4);
+    });
+    const auto status = database->transact_page(owner, [&](page_transaction& tx) {
+        string_store store(tx, owner);
+        require(store.open(), "pinned String open");
+        const auto inspect = [&] {
+            std::string scratch;
+            const auto receive = [](void* raw, const std::string& bytes) {
+                require(bytes == *static_cast<const std::string*>(raw),
+                    "rehash moved a pinned page owner");
+            };
+            require(store.inspect_chunk(0, value.size(), scratch, receive, &value),
+                "rehash lost a pinned page owner");
+        };
+        inspect();
+        phase.store(1);
+        wait(2);
+        inspect();
+        phase.store(3);
+        wait(4);
+        inspect();
+        return true;
+    });
+    writer.join();
+    require(status == batch_status::ok, "pinned page owner transaction");
 }
 
 static void test_allocation_failures() {
@@ -1663,7 +2197,63 @@ static void test_cached_node_lifetimes() {
     late_owner.join();
 }
 
+static void test_native_append_failures(bool left) {
+    unsigned failures = 0, successes = 0;
+    for (long budget = 0; budget < 16; ++budget) {
+        auto database = db::create_mdb(4);
+        require(database->open(""), "append failure database");
+        dao::paged_list lists;
+        const std::string key = "append-failure";
+        const std::vector<std::string> seed(96, "");
+        long long length;
+        require(lists.push(database, key, seed, false, false, length),
+            "append failure seed");
+        {
+            execution_guard admission;
+            db::page_lock_scope scope(*database, key);
+            dao::paged_list pinned(&scope);
+            const std::string value;
+            std::string popped; bool found;
+            require(pinned.push(database, key, list_values_view(&value, 1),
+                left, false, length) &&
+                pinned.pop_one(database, key, left, popped, found) && found &&
+                popped.empty(), "push failure cache warm");
+        }
+        std::vector<watch_token> tokens;
+        require(database->watch({key}, tokens) == db::batch_status::ok &&
+            tokens.size() == 1, "append failure WATCH");
+        bool committed;
+        {
+            execution_guard admission;
+            db::page_lock_scope scope(*database, key);
+            dao::paged_list pinned(&scope);
+            std::vector<std::string> warm;
+            require(pinned.range(database, key, 0, -1, warm) && warm == seed,
+                "append failure warm");
+            const std::string added(19, 'x');
+            allocation_budget = budget;
+            committed = pinned.push(database, key, list_values_view(&added, 1),
+                left, false, length);
+            allocation_budget = -1;
+        }
+        std::vector<std::string> values;
+        require(lists.range(database, key, 0, -1, values), "append failure read");
+        auto expected = seed;
+        if (committed) {
+            ++successes;
+            expected.insert(left ? expected.begin() : expected.end(),
+                std::string(19, 'x'));
+        }
+        else ++failures;
+        require(values == expected && tokens[0]->valid(0) == !committed,
+            "failed append changed root/page/WATCH");
+    }
+    require(failures && successes, "append failure sweep coverage");
+}
+
 int main() {
+    test_native_append_failures(false);
+    test_native_append_failures(true);
     acl::acl_cpp_init();
     // Match server startup: initialize ACL's process-wide scheduler keys before
     // threads concurrently use fiber mutexes. Older installed ACL libraries
@@ -1676,18 +2266,41 @@ int main() {
     test_root_workspace_reset();
     test_cached_node_lifetimes();
     test_single_key_hook_snapshot();
+    test_single_page_string_replacement(db::create_mdb(8));
+    test_small_string_family_replacement(db::create_mdb(8));
+    test_sorted_string_reassign(db::create_mdb(8));
     test_single_key_entry();
     test_scratch_reads();
     test_namespace_and_ownership();
     test_moved_pages();
     test_single_owner_staging_order();
+    test_bound_zset_edits<false>();
+    test_bound_zset_edits<true>();
+    test_dense_prefix_contraction<false>();
+    test_dense_prefix_contraction<true>();
     test_dense_page_prefix();
+#ifdef HAS_TBB
+    test_single_page_string_replacement(db::create_mdb_tbb(256));
+    test_small_string_family_replacement(db::create_mdb_tbb(256));
+    test_sorted_string_reassign(db::create_mdb_tbb(256));
+    test_tbb_shared_scan_stripes();
+    test_tbb_bound_root_replacement(false);
+    test_tbb_bound_root_replacement(true);
+    test_tbb_bulk_page_preparation(false, 386);
+    test_tbb_bulk_page_preparation(false, 560, true);
+    test_tbb_bulk_page_preparation(true, 386);
+#endif
     test_multi_owner_addresses();
     test_read_only_staging();
     test_copy_source_staging();
     test_validation_and_abort();
     test_cleanup();
     test_unsupported_and_errors();
+    test_shard_family_growth_failure();
+    test_pinned_owner_rehash(db::create_mdb(1));
+#ifdef HAS_TBB
+    test_pinned_owner_rehash(db::create_mdb_tbb(1));
+#endif
     test_allocation_failures();
     test_concurrent_atomicity();
     test_raw_writer_isolation();

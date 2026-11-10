@@ -221,6 +221,38 @@ def watch_semantics(port):
             assert a.call('MULTI') == b'OK'
             reply = a.call('EXEC')
             assert reply == (None if dirty else []), (operation, reply)
+        key = b'tx:hash\0pipeline'
+        deadline = 4102444800123
+        assert b.call('HSET', key, b'f\0', b'abc') == 1
+        assert b.call('PEXPIREAT', key, deadline) == 1
+        assert a.call('WATCH', key) == b'OK'
+        commands = [('HSET', key, b'f\0', b'abc'), ('HGET', key, b'f\0')] * 35
+        b.socket.sendall(b''.join(Client.encode(command) for command in commands))
+        assert [b.read() for _ in commands] == [0, b'abc'] * 35
+        assert a.call('MULTI') == b'OK'
+        assert a.call('EXEC') is None
+
+        pairs = [part for i in range(62) for part in (f'field:{i}', b'value')]
+        assert b.call('HSET', key, *pairs) == 62
+        commands = [('HSET', key, b'f\0', b'new'), ('HSET', key, 'overflow', 'last'),
+                    ('HGET', key, b'f\0'), ('HGET', key, 'overflow')]
+        b.socket.sendall(b''.join(Client.encode(command) for command in commands))
+        assert [b.read() for _ in commands] == [0, 1, b'new', b'last']
+        assert b.call('HLEN', key) == 64
+        assert b.call('PEXPIRETIME', key) == deadline
+        grouped = b'tx:hash\0grouped'
+        fields = [f'element:{i:012d}' for i in range(512)]
+        assert b.call('HSET', grouped, *(p for f in fields for p in (f, 'abc'))) == len(fields)
+        assert b.call('PEXPIREAT', grouped, deadline) == 1
+        assert a.call('WATCH', grouped) == b'OK'
+        commands = [('HSET', grouped, fields[0], 'abc'), ('HGET', grouped, fields[0])] * 35
+        b.socket.sendall(b''.join(Client.encode(command) for command in commands))
+        assert [b.read() for _ in commands] == [0, b'abc'] * 35
+        assert a.call('MULTI') == b'OK' and a.call('EXEC') is None
+        assert a.call('WATCH', grouped) == b'OK'
+        assert b.call('HSETNX', grouped, fields[0], 'abc') == 0
+        assert a.call('MULTI') == b'OK' and a.call('EXEC') == []
+        assert b.call('PEXPIRETIME', grouped) == deadline
         # A successful explicit expiry dirties even an unchanged deadline.
         for command in ('GETEX', 'PEXPIREAT'):
             deadline = int(time.time() * 1000) + 60000

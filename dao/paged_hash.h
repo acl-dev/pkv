@@ -80,6 +80,23 @@ private:
         const compact_hash::view*)>;
     using promotion_operation = std::function<bool(map_store&,
         const compact_hash::view&)>;
+    // These targets live until the synchronous transaction returns, including
+    // fiber suspension. Reference wrappers avoid owning closure allocations.
+    template <class Callback, class Packed>
+    bool run_packed(shared_db& db, const std::string& key,
+        Callback&& callback, Packed&& packed) {
+        const operation callback_view(std::ref(callback));
+        const packed_operation packed_view(std::ref(packed));
+        return run_callback(db, key, callback_view, packed_view);
+    }
+    template <class Callback, class Packed, class Promotion>
+    bool run_packed(shared_db& db, const std::string& key,
+        Callback&& callback, Packed&& packed, Promotion&& promotion) {
+        const operation callback_view(std::ref(callback));
+        const packed_operation packed_view(std::ref(packed));
+        const promotion_operation promotion_view(std::ref(promotion));
+        return run_callback(db, key, callback_view, packed_view, promotion_view);
+    }
     bool run_callback(shared_db& db, const std::string& key,
         const operation& callback, const packed_operation& packed = {},
         const promotion_operation& promote = {});

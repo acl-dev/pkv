@@ -10,9 +10,9 @@ namespace dao {
 
 namespace {
 
-template<class Select, class Visit>
+template<class Draw, class Visit>
 bool sample_members(uint64_t size, long long count,
-    std::vector<zset_member>& out, bool& too_large, Select select, Visit visit) {
+    std::vector<zset_member>& out, bool& too_large, Draw draw, Visit visit) {
     if (!size || !count) return true;
     const bool repeat = count < 0;
     const auto requested = static_cast<uint64_t>(repeat ? -count : count);
@@ -20,10 +20,7 @@ bool sample_members(uint64_t size, long long count,
     if (wanted > out.max_size()) { too_large = true; return false; }
     out.reserve(static_cast<size_t>(wanted));
     if (!repeat && wanted == size) return visit();
-    rank_sampler ranks(size, repeat);
-    for (uint64_t i = 0; i < wanted; ++i)
-        if (!select(ranks.next())) return false;
-    return true;
+    return draw(wanted, repeat);
 }
 
 } // namespace
@@ -38,17 +35,44 @@ bool paged_zset::sample(shared_db& db, const std::string& key, long long count,
     bool too_large = false;
     auto tree = [&](zset_store& store) {
         out.found = store.exists();
-        return sample_members(store.metadata().elements, count, out.values,
-            too_large, [&](uint64_t rank) {
-                zset_member value;
-                bool present;
-                if (!store.select(rank, value, present)) return false;
-                if (!present) {
-                    read_status_ = read_status::invalid_record;
-                    return false;
-                }
-                out.values.push_back(std::move(value));
-                return true;
+        const auto size = store.metadata().elements;
+        const auto select = [&](uint64_t rank) {
+            zset_member value;
+            bool present;
+            if (!store.select(rank, value, present)) return false;
+            if (!present) {
+                read_status_ = read_status::invalid_record;
+                return false;
+            }
+            out.values.push_back(std::move(value));
+            return true;
+        };
+        return sample_members(size, count, out.values, too_large,
+            [&](uint64_t wanted, bool repeat) {
+                if (wanted < 4) return visit_sampled_ranks(size, wanted, repeat, select);
+                std::array<uint64_t, zset_store::sample_rank_batch> ranks;
+                size_t used = 0;
+                bool fallback = false;
+                const auto flush = [&] {
+                    const auto offset = out.values.size();
+                    out.values.resize(offset + used);
+                    if (!store.select_many(ranks.data(), used, out.values.data() + offset,
+                        fallback))
+                        return false;
+                    if (fallback) {
+                        out.values.resize(offset);
+                        for (size_t i = 0; i < used; ++i)
+                            if (!select(ranks[i])) return false;
+                    }
+                    used = 0;
+                    return true;
+                };
+                const bool ok = visit_sampled_ranks(size, wanted, repeat, [&](uint64_t rank) {
+                    if (fallback) return select(rank);
+                    ranks[used++] = rank;
+                    return used < ranks.size() || flush();
+                });
+                return ok && (!used || flush());
             }, [&] {
                 return store.visit([&](const std::string& member, double score) {
                     out.values.push_back({member, score});
@@ -64,13 +88,15 @@ bool paged_zset::sample(shared_db& db, const std::string& key, long long count,
             return true;
         };
         return sample_members(packed.count(), count, out.values, too_large,
-            append, [&] {
+            [&](uint64_t wanted, bool repeat) {
+                return visit_sampled_ranks(packed.count(), wanted, repeat, append);
+            }, [&] {
                 for (unsigned i = 0; i < packed.count(); ++i) append(i);
                 return true;
             });
     };
     try {
-        ok = run_callback(db, key, tree, false, compact);
+        ok = run_callback(db, key, std::ref(tree), false, std::ref(compact));
     } catch (const std::length_error&) {
         too_large = true; ok = false;
     }

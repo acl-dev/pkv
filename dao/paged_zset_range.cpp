@@ -7,6 +7,20 @@ namespace dao {
 
 namespace {
 
+zset_member pop_compact_edge(const compact_zset::view& packed,
+    db::batch_entry& root, bool maximum) {
+    const auto rank = maximum ? packed.count() - 1 : 0;
+    const auto index = packed.ordered_index(rank);
+    const auto item = packed.at(index);
+    zset_member value{item.first.str(), packed.score(item.second)};
+    if (packed.count() == 1) root.action = db::update_action::erase;
+    else {
+        packed.erase_one(root.value, index, rank);
+        root.action = db::update_action::write;
+    }
+    return value;
+}
+
 template<class Visitor>
 unsigned visit_compact_range(const compact_zset::view& packed,
     const zset_query& query, Visitor visit) {
@@ -163,6 +177,10 @@ bool paged_zset::store_range(shared_db& db, const std::string& source,
             if (compact) return true;
         }
         zset_store target(tx, destination);
+        if (values.size() >= 128) {
+            const bool built = target.build(values, -1);
+            return finish(target) && built;
+        }
         target.initialize();
         for (const auto& value : values) {
             bool added, changed;
@@ -184,7 +202,7 @@ bool paged_zset::pop(zset_store& store, long long count, bool maximum,
     // survivors. Smaller pops retain the edge-removal path.
     if ((wanted > 1 && !remaining) ||
         (wanted >= 64 && remaining <= 128 && wanted >= remaining))
-        return store.pop_rebuild(wanted, maximum, out);
+        return store.pop_rebuild(wanted, maximum, out, true);
     return store.pop_edges(wanted, maximum, out);
 }
 
@@ -194,6 +212,10 @@ void paged_zset::pop_compact(const compact_zset::view& packed,
     const auto wanted = static_cast<unsigned>(std::min<long long>(count,
         packed.count()));
     out.reserve(wanted);
+    if (wanted == 1) {
+        out.push_back(pop_compact_edge(packed, root, maximum));
+        return;
+    }
     compact_zset::erase_mask erased;
     for (unsigned i = 0; i < wanted; ++i) {
         const auto index = packed.ordered_index(maximum ? packed.count() - 1 - i : i);
@@ -231,12 +253,7 @@ bool paged_zset::pop_one(shared_db& db, const std::string& key, bool maximum,
         return found;
     };
     auto compact = [&](const compact_zset::view& packed, db::batch_entry& root) {
-        const auto index = packed.ordered_index(maximum ? packed.count() - 1 : 0);
-        const auto item = packed.at(index);
-        out = {item.first.str(), packed.score(item.second)};
-        compact_zset::erase_mask erased;
-        erased.set(index);
-        erase_compact(packed, root, erased, 1);
+        out = pop_compact_edge(packed, root, maximum);
         found = true;
         return true;
     };

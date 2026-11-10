@@ -1,5 +1,6 @@
 #include "stdafx.h"
 #include "coder/compact_zset.h"
+#include "dao/paged_set.h"
 #include "dao/paged_zset.h"
 #include "dao/json/json_zset.h"
 #include "dao/json/json_key.h"
@@ -102,6 +103,135 @@ static void test_bulk_add_new_key() {
     require(same(contents(data, database, "bulk"),
         contents(data, incremental, "bulk")), "bulk ZADD rank and score model");
     root(database, "bulk", 160);
+}
+
+static void test_bulk_store_alias() {
+    auto database = memory();
+    dao::paged_zset data;
+    dao::json_key keys;
+    const std::string target = "alias";
+    const std::string other = "other";
+    std::vector<zset_member> left, right, expected;
+    for (unsigned i = 0; i < 288; ++i) {
+        const auto name = std::to_string(i) + std::string(i % 2 ? 80 : 140, '\0');
+        if (i < 192) left.push_back({name, double(i)});
+        if (i >= 96) right.push_back({name, 2.0 * i});
+        expected.push_back({name, i < 96 ? 2.0 * i : i < 192 ? 8.0 * i : 6.0 * i});
+    }
+    dao::zadd_result added;
+    require(data.add(database, target, left, {}, added) &&
+        data.add(database, other, right, {}, added) &&
+        keys.set_expiry(database, target, deadline, 0) &&
+        keys.set_expiry(database, other, deadline, 0), "bulk store fixtures");
+    std::vector<watch_token> watch;
+    require(database->watch({target, other}, watch) == db::batch_status::ok,
+        "bulk store WATCH");
+    const auto configure = [](dao::zset_algebra_options& options) {
+        options.weights = {2, 3};
+        return true;
+    };
+    std::vector<zset_member> ignored;
+    long long stored, expiry;
+    std::sort(expected.begin(), expected.end(), zset_less);
+    require(data.algebra(database, {target, other}, dao::zset_operation::unite,
+        &target, false, configure, ignored, stored) && stored == 288 &&
+        same(contents(data, database, target), expected) &&
+        same(contents(data, database, other), right), "bulk union store alias");
+    require(!watch[0]->valid(0) && watch[1]->valid(0) &&
+        keys.expiry_time(database, target, expiry) && expiry == -1 &&
+        keys.expiry_time(database, other, expiry) && expiry == deadline,
+        "bulk union store expiry and WATCH");
+    const auto inline_limit = database->supports_compact_zsets() ?
+        map_page_codec::zset_key_inline_bytes : map_page_codec::key_inline_bytes;
+    uint64_t pages = 2 * expected.size();
+    for (const auto& value : expected) {
+        pages += value.member.size() > inline_limit;
+        pages += value.member.size() + 8 > inline_limit &&
+            (!database->supports_compact_zsets() || value.member.size() <= inline_limit);
+    }
+    zset_root meta;
+    std::string encoded;
+    require(database->get(target, encoded) &&
+        zset_page_codec::decode_root(encoded, meta) == map_page_status::ok &&
+        meta.last_id == pages, "bulk store should inline medium members");
+
+    zset_query query;
+    query.start = 20;
+    query.end = 179;
+    query.reverse = true;
+    const std::vector<zset_member> selected(expected.end() - 180, expected.end() - 20);
+    require(keys.set_expiry(database, target, deadline, 0) &&
+        data.store_range(database, target, target, query, stored) && stored == 160 &&
+        same(contents(data, database, target), selected) &&
+        keys.expiry_time(database, target, expiry) && expiry == -1,
+        "bulk reverse range store alias");
+}
+
+static void test_batched_intersection_cardinality() {
+    auto database = memory();
+    dao::paged_zset zsets;
+    dao::paged_set sets;
+    std::vector<zset_member> left, right;
+    std::vector<std::string> members;
+    for (unsigned i = 0; i < 256; ++i) {
+        auto member = std::to_string(i) + std::string(i % 13 == 0 ? 150 : 16, '\0');
+        if (i < 192) left.push_back({member, double(i)});
+        if (i >= 32 && i < 225) right.push_back({member, double(i) + .25});
+        if (i >= 64) members.push_back(std::move(member));
+    }
+    dao::zadd_result added;
+    long long count;
+    require(zsets.add(database, "left", left, {}, added) &&
+        zsets.add(database, "right", right, {}, added) &&
+        sets.change(database, "set", members, true, count), "batched intersection fixtures");
+    std::vector<zset_member> out;
+    const auto verify = [&](const std::vector<std::string>& keys, long long limit,
+        long long expected) {
+        const auto configure = [&](dao::zset_algebra_options& options) {
+            options.limit = limit;
+            return true;
+        };
+        require(zsets.algebra(database, keys, dao::zset_operation::intersect,
+            nullptr, true, configure, out, count) && count == expected && out.empty(),
+            "batched intersection result");
+    };
+    for (long long limit : {0LL, 1LL, 15LL, 16LL, 31LL, 32LL, 33LL, 127LL,
+            128LL, 129LL, LLONG_MAX}) {
+        verify({"left", "right"}, limit, limit ? std::min(limit, 160LL) : 160);
+        verify({"set", "right", "left", "right"}, limit,
+            limit ? std::min(limit, 128LL) : 128);
+    }
+    verify({"left", "right", "missing"}, 32, 0);
+
+    // Keep the root cardinality intact so the corruption is found while
+    // checking the indexes of the lead or the secondary collection.
+    const auto corrupt = [&](const std::string& key) {
+        require(database->transact_pages({key}, [&](page_transaction& tx) {
+            zset_root root;
+            std::string bytes;
+            map_node node;
+            if (zset_page_codec::decode_root(tx.roots().find(key)->value, root) !=
+                    map_page_status::ok ||
+                tx.lookup(key, root.scores, bytes) != db::lookup_status::found ||
+                map_page_codec::decode_node(bytes, node) != map_page_status::ok) return false;
+            node.value.length = 1;
+            node.value.inline_value = "x";
+            return map_page_codec::encode_node(node, bytes) == map_page_status::ok &&
+                tx.put(key, root.scores, bytes);
+        }) == db::batch_status::ok, "batched intersection corrupt fixture");
+    };
+    const auto configure = [](dao::zset_algebra_options&) { return true; };
+    const auto rejected = [&](const std::string& secondary) {
+        require(!zsets.algebra(database, {"left", secondary}, dao::zset_operation::intersect,
+            nullptr, true, configure, out, count) && count == 0 && out.empty() &&
+            zsets.status() == dao::dao_base::read_status::invalid_record,
+            "batched intersection accepted a corrupt score index");
+    };
+    corrupt("right");
+    rejected("right");
+    require(zsets.add(database, "other", right, {}, added), "batched intersection alternate source");
+    corrupt("left");
+    rejected("other");
 }
 
 static void test_native_score_moves() {
@@ -560,6 +690,40 @@ static void test_compact_validation_cache() {
         "cooldown must validate without allocating and recover cache hits");
 }
 
+static void test_compact_single_erase() {
+    using namespace compact_zset;
+    const double inf = std::numeric_limits<double>::infinity();
+    const std::array<double, 8> scores{{0, 63, -64, 1.25, -0.0, .1, -inf, inf}};
+    for (unsigned count : {2U, 16U, 32U, 63U, 64U, 128U}) {
+        for (size_t width : {size_t(3), size_t(9), size_t(31), size_t(32)}) {
+            for (int64_t expiry : {int64_t(-1), int64_t(deadline)}) {
+                std::vector<entry> values;
+                for (unsigned i = 0; i < count; ++i) {
+                    std::string member(width, '\0');
+                    member[0] = static_cast<char>(i);
+                    member.back() = static_cast<char>(255 - i);
+                    values.emplace_back(std::move(member), scores[(i * 5) % scores.size()]);
+                }
+                const auto initial = encode(values, expiry);
+                const view original(initial);
+                original.validate_fast();
+                for (unsigned rank = 0; rank < count; ++rank) {
+                    const auto index = original.ordered_index(rank);
+                    erase_mask erased;
+                    erased.set(index);
+                    const auto expected = original.without(erased, count - 1);
+                    auto edited = initial;
+                    view(edited).erase_one(edited, index, rank);
+                    require(edited == expected, "compact single erase differs from rebuild");
+                    const view after(edited);
+                    after.validate_fast();
+                    require(after.deadline() == expiry, "compact single erase lost TTL");
+                }
+            }
+        }
+    }
+}
+
 static void test_extended_compact_codec() {
     using namespace compact_zset;
     for (unsigned count : {63U, 64U, 127U, 128U}) {
@@ -608,6 +772,10 @@ static void test_extended_compact_codec() {
             bad = bytes; bad[5] = 0; rejects(bad);
             bad = bytes; bad[4] |= 1; rejects(bad);
             const auto ranks = size_t(14 + 2 * count);
+            bad = bytes; write_offset(&bad[16], 2, 0); rejects(bad);
+            bad = bytes; write_offset(&bad[16], 2, 65535); rejects(bad);
+            bad = bytes; bad[ranks + count] = static_cast<char>(double_tag); rejects(bad);
+            bad = bytes; bad[ranks + count] = static_cast<char>(255); rejects(bad);
             bad = bytes; bad[ranks] = static_cast<char>(128); rejects(bad);
             const auto rank = view(bytes).rank_of(127);
             bad = bytes; bad[ranks + (rank + 1) % count] = 127; rejects(bad);
@@ -873,6 +1041,70 @@ static void test_extended_compact_failures() {
     }
 }
 
+static void test_pop_compact_remainder() {
+    auto database = memory();
+    dao::paged_zset data;
+    dao::json_key keys;
+    const std::string key = "pop-remainder";
+    for (bool maximum : {false, true}) {
+        for (bool oversized : {false, true}) {
+            std::vector<zset_member> seed;
+            for (unsigned i = 0; i < 160; ++i) {
+                auto member = std::to_string(i) + std::string(12, '\0');
+                if (oversized && i == (maximum ? 78u : 80u)) member.resize(300, 'x');
+                const auto score = double(i) - 80;
+                seed.push_back({std::move(member), i == 80 ? -0.0 : score});
+            }
+            // Exercise infinity and negative zero across the reply and remainder.
+            const auto count = 161u;
+            seed.push_back({"first", -INFINITY});
+            std::sort(seed.begin(), seed.end(), zset_less);
+            dao::zadd_result added;
+            require(data.add(database, key, seed, {}, added) &&
+                added.added == count && keys.set_expiry(database, key, deadline, 0),
+                "native pop remainder fixture");
+            std::string bytes;
+            zset_root before;
+            require(database->get(key, bytes) &&
+                zset_page_codec::decode_root(bytes, before) == map_page_status::ok,
+                "pop remainder fixture must have pages");
+            if (maximum) std::reverse(seed.begin(), seed.end());
+            std::vector<zset_member> popped;
+            if (maximum) {
+                std::string selected;
+                dao::zset_pop_result out;
+                require(data.mpop(database, {"missing", key}, true, 81, selected, out)
+                    && out.found && selected == key, "multi-key paged pop");
+                popped.swap(out.values);
+            } else {
+                require(data.pop(database, key, 81, false, popped), "paged pop");
+            }
+            const std::vector<zset_member> expected(seed.begin(), seed.begin() + 81);
+            require(same(popped, expected), "paged pop reply");
+            seed.erase(seed.begin(), seed.begin() + 81);
+            if (maximum) std::reverse(seed.begin(), seed.end());
+            require(same(contents(data, database, key), seed), "paged pop survivors");
+            long long expiry;
+            require(keys.expiry_time(database, key, expiry) && expiry == deadline,
+                "paged pop lost TTL");
+            const bool packed = !oversized && database->supports_compact_zsets();
+            require(database->get(key, bytes) && compact_zset::matches(bytes) == packed,
+                "paged pop chose the wrong remainder encoding");
+            if (packed) {
+                require(database->transact_pages({key}, [&](page_transaction& tx) {
+                    for (uint64_t id = 1; id <= before.last_id; ++id) {
+                        std::string page;
+                        if (tx.lookup(key, id, page) != db::lookup_status::missing) return false;
+                    }
+                    return true;
+                }) == db::batch_status::ok, "paged pop left old pages");
+            }
+            require(data.pop(database, key, count, false, popped) && same(popped, seed),
+                "paged pop cleanup");
+        }
+    }
+}
+
 static void test_compact_lifecycle() {
     auto database = memory();
     if (!database->supports_compact_zsets()) return;
@@ -1031,23 +1263,30 @@ int main() {
     std::thread cache_model(test_compact_validation_cache);
     cache_model.join();
     test_extended_compact_codec();
+    test_compact_single_erase();
     test_compact_score_moves();
     test_compact_rank_permutations();
     test_bulk_add_new_key();
+    test_bulk_store_alias();
+    test_batched_intersection_cardinality();
     test_native_score_moves();
     test_native_score_move_failure();
     test_model(); test_migration_and_keys(); test_expired_page_reclamation();
     test_failure_rollback(); test_complex_failures();
     test_invalid_records_and_sampling();
+    test_pop_compact_remainder();
     test_compact_lifecycle();
     test_extended_compact_model();
     test_extended_compact_failures();
 #if defined(HAS_TBB)
     use_tbb = true;
+    test_bulk_store_alias();
+    test_batched_intersection_cardinality();
     test_native_score_moves();
     test_native_score_move_failure();
     test_model(); test_migration_and_keys(); test_expired_page_reclamation();
     test_failure_rollback(); test_complex_failures();
+    test_pop_compact_remainder();
     test_invalid_records_and_sampling();
     test_compact_lifecycle();
     test_extended_compact_model();

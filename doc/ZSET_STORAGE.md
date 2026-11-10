@@ -10,8 +10,8 @@ transactions. Engines without page transactions reject these commands explicitly
 ## Compact roots
 
 Plain `make` enables compact writes on MDB memory backends.
-Use `make PKV_COMPACT_ZSET=NO` to disable creation of new compact roots.
-Both builds can read data written in the compact format.
+Use `make PKV_COMPACT_ZSET=NO` to disable new compact ZSet roots and pages
+and creation of CRC32 member indexes. Both builds read all supported formats.
 
 Eligible ZADD and ZINCRBY writes store up to 128 members without child pages.
 Roots with at most 63 members and at most 2048 payload bytes retain PZR v3;
@@ -60,9 +60,14 @@ score root ID, and last allocated page ID follow as four big-endian 16-bit
 values. An expiring root appends an eight-byte big-endian Unix millisecond
 deadline.
 
-New roots use v2 while the last page ID fits in 16 bits. Larger roots use
-the 64-byte PZR v1 layout below. The decoder accepts both tree root versions.
-Replication peers must understand v2 before receiving v2 tree roots.
+FNV member indexes use v2 while the last page ID fits in 16 bits. Larger roots
+use the 64-byte PZR v1 layout below. PZR v6 and v7 use the v2 and v1 layouts,
+respectively, and identify a CRC32 member index. Such an index uses the low byte
+of IEEE CRC32 for members of at least 1,024 bytes and the original FNV byte for
+shorter members. A new index uses this policy when its first point insert is a
+wide member, or when a bulk build includes one. Existing indexes keep their
+policy during point edits. COPY preserves the source policy. Replication peers
+need support for the tree root versions they receive, including v6 and v7.
 
 | Offset | Bytes | Meaning |
 |---:|---:|---|
@@ -80,15 +85,35 @@ at least two nodes per member. Empty ZSets delete the root and page family.
 Unknown versions return unsupported-format errors; malformed lengths, reserved
 bytes, TTLs, counts and root pointers fail validation.
 
-Both indexes reuse bounded PMN v2 AVL nodes and PMB v1 fragments from Map storage.
+Both indexes reuse bounded AVL node and fragment formats. Bulk builds can write
+eligible leaves as PMN v17, ZL or `0xf5` when compact ZSet encoding is enabled.
+Point updates can also write `0xf5` leaves. On memory backends with compact
+ZSet encoding enabled, bulk builds and point writes use PMN v19 for eligible
+nodes with fragmented keys. Upgrade page replication receivers before
+enabling writes that use these formats.
+[Map storage](MAP_STORAGE.md)
 No physical value exceeds 16 KiB. The member tree orders by stable scan bucket
 and member bytes, storing an eight-byte score. The score tree orders by lexical
 `encoded score || member bytes`, with an empty value. Equal scores therefore
-sort by binary member bytes. Members may contain empty/arbitrary binary strings;
-large members are independently fragmented in both indexes.
-When a score changes and its ordered key fits in a single fragment, the
-replacement can reuse the retired score-node and fragment IDs in the same
-transaction. Repeated updates can then retain the existing page ID bound.
+sort by binary member bytes. Members may contain empty/arbitrary binary strings.
+With compact writes enabled, a member longer than 127 bytes has one fragment
+chain owned by the member index. The score index stores an eight-byte prefix
+and a reference to that chain in a PMN v20 node. With compact writes enabled
+and at least 22 bytes of inline string capacity, both indexes can use a
+22-byte reference for members from 128 to 2,048 bytes. This format uses
+tag `0xf6` for the member node and `0xf7` for the shared score node. A bucket
+byte follows the tag and is zero for a score node. The next 16 bits contain
+height minus one in the upper five bits and member length minus one in the
+lower eleven bits. Five big-endian 16-bit fields hold the node ID, left ID,
+right ID, subtree count, and fragment head. An eight-byte word holds the
+member's score or the score key's prefix. Larger values use PMN v19/v20 or
+their existing fallbacks. Upgrade replication receivers before enabling
+writes of `0xf6` and `0xf7` pages.
+
+Existing independently fragmented score keys remain readable. For a legacy score key that fits in
+one fragment, replacement can reuse its retired node and fragment IDs.
+Deleting a member stages fragment reclamation after both indexes have
+consumed the member bytes.
 
 Sortable scores use an IEEE-754 double transform: invert all bits for negative
 numbers and flip the sign bit for nonnegative numbers, then write big-endian.
@@ -128,7 +153,8 @@ responding with an individual member still requires its owning string.
 
 `bounded_zset_store` tests numeric/byte ordering of more than 10000 score values,
 root truncation and version checks, deterministic model edits, index order and
-AVL metadata, disjoint page ownership, bounded fragments and orphan reclamation.
+AVL metadata, exclusive ownership of member fragments, validated score
+references, bounded fragments and orphan reclamation.
 Fault sweeps cover score replacement, erase and clear/reseed. Rank/select,
 member-bucket scan, infinity/zero handling, early-stop visitors and 1 MiB members
 have direct coverage. A 10000-member fixture checks point-update locality and

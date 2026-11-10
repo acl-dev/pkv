@@ -104,12 +104,14 @@ bool redis_list::execute(operation op, const char* cmd, redis_coder& result) {
         }
         if (count == 1) {
             std::string value;
+            const bool direct = !counted && handler_.page_pipeline_scope_;
+            auto& payload = direct ? reply.string_buffer() : value;
             bool found;
-            if (!data.pop_one(db, key, left, value, found)) return fail();
+            if (!data.pop_one(db, key, left, payload, found)) return fail();
             if (!found)
                 reply.set_type(counted ? REDIS_OBJ_NULL_ARRAY : REDIS_OBJ_NULL_STRING);
             else if (counted) reply.set_bulk_collection(&value, 1);
-            else reply.set_string(value);
+            else if (!direct) reply.set_string(value);
             return true;
         }
         dao::list_result out;

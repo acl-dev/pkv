@@ -54,7 +54,7 @@ protected:
         return Backend::dbapply_pages(roots, pages);
     }
 };
-static bool world(zset_store&, geo::search_options& options) {
+static bool world(const geo::search_source&, geo::search_options& options) {
     options.area.radius = std::numeric_limits<double>::infinity();
     return true;
 }
@@ -103,7 +103,7 @@ template<class Backend> static void selective() {
     long long stored;
     source->reads = 0;
     require(data.geo_search(database, "source", nullptr,
-        [&](zset_store&, geo::search_options& parsed) {
+        [&](const geo::search_source&, geo::search_options& parsed) {
         parsed.area.center = center; parsed.area.radius = 1; return true;
     }, options, out, stored) && out.size() == 1 &&
         out[0].member == "center" && source->reads < 1024,
@@ -111,7 +111,7 @@ template<class Backend> static void selective() {
     const auto local_reads = source->reads;
     source->reads = 0;
     require(data.geo_search(database, "source", nullptr,
-        [&](zset_store& store, geo::search_options& parsed) {
+        [&](const geo::search_source& store, geo::search_options& parsed) {
         world(store, parsed); parsed.count = 1; parsed.any = true; return true;
     }, options, out, stored) && out.size() == 1 && source->reads < 1024,
         "COUNT ANY did not stop the cursor");
@@ -119,7 +119,7 @@ template<class Backend> static void selective() {
     out.clear(); out.shrink_to_fit();
     largest = 16384;
     const auto ok = data.geo_search(database, "source", nullptr,
-        [&](zset_store& store, geo::search_options& parsed) {
+        [&](const geo::search_source& store, geo::search_options& parsed) {
         world(store, parsed); parsed.count = 1; return true;
     }, options, out, stored);
     largest = SIZE_MAX;
@@ -132,6 +132,72 @@ template<class Backend> static void selective() {
         result) && data.geo_search(database, "large", &target, world, options,
         out, stored) && stored == 1 && out[0].member == large,
         "GEO search failed chunked member storage");
+}
+template<class Backend> static void fragmented_ancestor() {
+    auto source = std::make_shared<tracked<Backend>>();
+    shared_db database = source;
+    require(database->open(""), "fragmented GEO open");
+    const std::string key("source");
+    std::vector<zset_member> values;
+    for (unsigned i = 0; i < 192; ++i) {
+        auto name = i == 96 ? std::string(40000, 'x') : std::to_string(i);
+        values.push_back({std::move(name), double(geo::encode(point(-1. + i * .01, 0)))});
+    }
+    dao::paged_zset data;
+    dao::zadd_result result;
+    require(data.add(database, key, values, {}, result), "fragmented GEO seed");
+    require(database->transact_page(key, [&](page_transaction& tx) {
+        zset_root root;
+        map_node node;
+        std::string bytes;
+        return zset_page_codec::decode_root(tx.roots().find(key)->value, root) == map_page_status::ok &&
+            tx.lookup(key, root.scores, bytes) == db::lookup_status::found &&
+            map_page_codec::decode_node(bytes, node) == map_page_status::ok && node.key.head;
+    }) == db::batch_status::ok, "fragmented GEO score ancestor");
+    geo::search_options options;
+    std::vector<geo::match> out;
+    long long stored;
+    largest = 32768;
+    const bool ok = data.geo_search(database, key, nullptr,
+        [&](const geo::search_source&, geo::search_options& parsed) {
+            parsed.area.center = geo::decode(values.front().score);
+            parsed.area.radius = 6000;
+            return true;
+        }, options, out, stored);
+    largest = SIZE_MAX;
+    require(ok && out.size() == 6, "GEO search assembled a fragmented ancestor");
+    for (size_t i = 0; i < out.size(); ++i)
+        require(out[i].member == std::to_string(i), "fragmented GEO encounter order");
+}
+template<class Backend> static void compact_search() {
+    auto source = std::make_shared<tracked<Backend>>();
+    shared_db database = source;
+    require(database->open(""), "compact GEO open");
+    if (!database->supports_compact_zsets()) return;
+    dao::paged_zset data;
+    dao::zadd_result result;
+    const auto score = double(geo::encode(point(1, 2)));
+    const std::string key("geo"), target("result");
+    require(data.add(database, key, {{"a", score}, {"b", score}}, {}, result),
+        "compact GEO seed");
+    std::string before, after;
+    require(database->get(key, before) && compact_zset::matches(before), "compact GEO root");
+    geo::search_options options;
+    std::vector<geo::match> out;
+    long long stored;
+    const auto configure = [&](const geo::search_source& input, geo::search_options& parsed) {
+        zset_score anchor;
+        if (!input.exists || !input.get("a", anchor) || !anchor.found) return false;
+        parsed.area.center = geo::decode(anchor.score);
+        parsed.any = true; parsed.count = 1;
+        return true;
+    };
+    require(data.geo_search(database, key, nullptr, configure, options, out, stored) &&
+        out.size() == 1 && out[0].member == "a" && database->get(key, after) && after == before,
+        "GEO read changed compact source bytes or encounter order");
+    require(data.geo_search(database, key, &target, configure, options, out, stored) && stored == 1 &&
+        database->get(key, after) && after == before && database->get(target, after) &&
+        compact_zset::matches(after), "GEO store changed source or expanded compact result");
 }
 template<class Backend> static void faults() {
     size_t failures = 0, successes = 0;
@@ -204,9 +270,11 @@ template<class Backend> static void storage_errors() {
     require(!database->get(target, bytes), "failed GEO created destination");
 }
 int main() {
-    geometry(); selective<mdb>(); faults<mdb>(); storage_errors<mdb>();
+    geometry(); selective<mdb>(); fragmented_ancestor<mdb>(); compact_search<mdb>();
+    faults<mdb>(); storage_errors<mdb>();
 #ifdef HAS_TBB
-    selective<mdb_tbb>(); faults<mdb_tbb>(); storage_errors<mdb_tbb>();
+    selective<mdb_tbb>(); fragmented_ancestor<mdb_tbb>(); compact_search<mdb_tbb>();
+    faults<mdb_tbb>(); storage_errors<mdb_tbb>();
 #endif
     std::cout << "GEO search bounded cursor, top-k and rollback passed\n";
 }

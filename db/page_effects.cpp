@@ -6,15 +6,18 @@
 namespace pkv {
 void db::publish_page_effects(const std::vector<batch_entry>& roots,
     const std::vector<page_change>& pages,
-    const std::vector<key_ready_change>& ready, const long long* deadline) {
+    const std::vector<key_ready_change>& ready, const long long* deadline,
+    bool preserves_deadline) {
     if (ready_registry_ && !ready.empty()) ready_registry_->publish(ready);
     size_t cursor = 0;
     for (const auto& root : roots) {
-        if (deadline && root.action == update_action::write)
-            track_deadline(root.key, *deadline);
-        else if (root.action != update_action::keep)
-            track_expiry(root.key, root.action == update_action::erase ?
-                nullptr : &root.value);
+        if (!preserves_deadline) {
+            if (deadline && root.action == update_action::write)
+                track_deadline(root.key, *deadline);
+            else if (root.action != update_action::keep)
+                track_expiry(root.key, root.action == update_action::erase ?
+                    nullptr : &root.value);
+        }
         if (root.maintenance_only && root.found) continue;
         if (root.action == update_action::keep) {
             // A root write already establishes the edit without scanning pages.

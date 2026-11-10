@@ -108,4 +108,36 @@ inline long long bitmap_position(const char* bytes, size_t size, bool bit) {
     return -1;
 }
 
+// Consume a nonempty chunk of a bounded scan. A true result ends a search.
+inline bool bitmap_scan_chunk(const char* bytes, uint64_t offset, size_t size,
+    uint64_t first, uint64_t last, int bit, long long& out) {
+    const auto end = offset + size - 1;
+    unsigned first_mask = offset == first / 8 ? 255U >> (first % 8) : 255;
+    unsigned last_mask = end == last / 8 ? (255U << (7 - last % 8)) & 255 : 255;
+    if (size == 1) { first_mask &= last_mask; last_mask = 255; }
+    const auto consume = [&](const char* data, size_t count, uint64_t base) {
+        if (bit < 0) {
+            out += static_cast<long long>(bitmap_popcount(data, count));
+            return false;
+        }
+        const auto found = bitmap_position(data, count, bit);
+        if (found < 0) return false;
+        out = static_cast<long long>(base * 8) + found;
+        return true;
+    };
+    const auto masked = [&](char byte, unsigned mask, uint64_t position) {
+        const auto value = static_cast<unsigned char>(byte);
+        const auto adjusted = static_cast<char>(bit == 0 ? value | ~mask : value & mask);
+        return consume(&adjusted, 1, position);
+    };
+    size_t start = 0, stop = size;
+    if (first_mask != 255) {
+        if (masked(bytes[0], first_mask, offset)) return true;
+        ++start;
+    }
+    if (last_mask != 255) --stop;
+    if (start < stop && consume(bytes + start, stop - start, offset + start)) return true;
+    return last_mask != 255 && masked(bytes[stop], last_mask, end);
+}
+
 } // namespace pkv

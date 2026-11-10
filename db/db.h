@@ -40,6 +40,8 @@ class key_wait_registry;
 class key_wait_subscription;
 struct page_change;
 struct page_update;
+struct list_page_edit;
+struct bitmap_range;
 
 /**
  * @brief A class representing a key-value database.
@@ -96,6 +98,21 @@ public:
     // Other types, expired roots and unsupported engines use page transactions.
     inline_status read_inline_string(const std::string& key, std::string& out,
         size_t offset = 0, size_t limit = std::string::npos);
+    inline_status read_string_range(const std::string& key, long long start,
+        long long end, std::string& out);
+    inline_status read_string_bit(const std::string& key, uint64_t offset, long long& bit);
+    // A negative bit requests a count. Missing roots are reported separately.
+    inline_status scan_string_bitmap(const std::string& key, const bitmap_range& range,
+        int bit, long long& out);
+    // A bounded overwrite of an existing native String, without resizing it.
+    inline_status overwrite_string_range(const std::string& key, uint64_t offset,
+        const std::string& value, long long& length);
+    static constexpr size_t string_edit_bytes = 64;
+    // Edit a local copy of a bounded range. False from the editor keeps the
+    // original bytes and WATCH state. The editor cannot reenter the database.
+    using string_byte_editor = bool (*)(void*, char*);
+    inline_status edit_string_bytes(const std::string& key, uint64_t offset,
+        size_t count, string_byte_editor edit, void* context);
     enum class update_action { keep, write, erase };
     using update_callback = std::function<update_action(bool, std::string&)>;
 
@@ -113,6 +130,14 @@ public:
     // Never removes expired roots or materializes a vector of all keys.
     scan_status sample_live_key(std::string& out, bool& found);
     using key_visitor = std::function<bool(const std::string&)>;
+    using root_visitor = std::function<bool(const std::string&, const std::string&)>;
+    using scan_root_visitor = std::function<bool(const std::string&, const std::string*)>;
+    // Borrow native root records under exclusive admission. Callbacks must
+    // not mutate the database or retain references after returning.
+    scan_status visit_root_records(const root_visitor& visit) {
+        execution_guard snapshot(true);
+        return dbvisit_root_records(visit);
+    }
     scan_status rebuild_expiry();
     expiry_progress expire_step(size_t limit);
     // Stateless key pages. Backends copy keys under their native locks and
@@ -123,6 +148,17 @@ public:
         keys.clear(); next = 0;
         return dbscan_keys(cursor, count, keys, next);
     }
+    // Borrow one SCAN page under backend locks. The callback must be bounded,
+    // must not re-enter the database, and returns false to abort the page.
+    // A null root asks the caller to look up the key after releasing the locks.
+    // The optional filter skips a key without changing the cursor or count.
+    scan_status scan_root_page(unsigned long long cursor, size_t count,
+        unsigned long long& next, const scan_root_visitor& visit,
+        const key_visitor& filter = {}) {
+        execution_guard admission;
+        next = 0;
+        return dbscan_root_page(cursor, count, next, visit, filter);
+    }
 protected:
     // Exclusive admission stabilizes key references. Callbacks may inspect
     // raw root metadata through dblookup, but must not mutate a DB or call
@@ -130,13 +166,21 @@ protected:
     virtual scan_status dbvisit_keys(const key_visitor&) {
         return scan_status::unsupported;
     }
+    virtual scan_status dbvisit_root_records(const root_visitor&) {
+        return scan_status::unsupported;
+    }
     virtual scan_status dbkey_at_rank(uint64_t rank, std::string& out,
         bool& found);
+    virtual scan_status dbsample_key(std::string& out, bool& found);
     virtual count_status dbkey_count(uint64_t&) {
         return count_status::unsupported;
     }
     virtual scan_status dbscan_keys(unsigned long long, size_t,
         std::vector<std::string>&, unsigned long long&) {
+        return scan_status::unsupported;
+    }
+    virtual scan_status dbscan_root_page(unsigned long long, size_t,
+        unsigned long long&, const scan_root_visitor&, const key_visitor&) {
         return scan_status::unsupported;
     }
 public:
@@ -272,6 +316,7 @@ public:
             return lookup_status::found;
         }
     private:
+        friend class db;
         friend class mdb;
         friend class mdb_tbb;
         read_function read_ = nullptr;
@@ -310,7 +355,7 @@ public:
     class page_lock_scope {
     public:
         enum : size_t { max_score_batch = 6 };
-        enum : size_t { max_membership_batch = 6 };
+        enum : size_t { max_membership_batch = 32 };
         enum : size_t { max_hash_batch = 6 };
         enum : long long { max_cached_range = 128 };
         explicit page_lock_scope(db& owner, const std::string& key);
@@ -320,10 +365,26 @@ public:
         batch_status transact(db& owner, const std::string& key,
             const page_callback& callback,
             const page_root_callback* root = nullptr, bool skip_missing = false);
+        batch_status transact(db& owner, const std::string& key,
+            const page_callback& callback, const page_root_callback* root,
+            bool skip_missing, const long long* deadline);
+        // One typed append plan, consumed synchronously under this key lock.
+        batch_status transact(db& owner, const std::string& key,
+            const page_callback& callback, const page_root_callback* root,
+            bool skip_missing, const long long* deadline,
+            const list_page_edit* edit);
+        inline_status read_inline_string(db& owner, const std::string& key,
+            std::string& out);
+        batch_status replace_root(db& owner, const std::string& key,
+            const page_root_callback& root);
         // The request arguments remain alive for the entire pipeline scope.
         void cache_repeated_map_read(const std::string* member) {
             cache_nodes_ = member && last_member_ && *member == *last_member_;
             last_member_ = member;
+        }
+        // Capacity hint for the current parsed group. Commits stay independent.
+        void set_pending_list_pushes(size_t remaining) {
+            pending_list_pushes_ = remaining;
         }
         void track_zadd_member(const std::string* member) {
             last_member_ = member;
@@ -332,13 +393,17 @@ public:
     private:
         friend class db;
         friend class page_transaction;
+        friend class list_store;
         friend class map_store;
         friend class zset_store;
+        bool can_edit_bound_list() const;
+        bool lock_key();
         db& owner_;
         const std::string& key_;
         acl::fiber_mutex* mutex_ = nullptr;
         std::string committed_root_;
         bool cache_root_ = false;
+        bool cache_collections_ = false;
         bool root_available_ = false;
         bool root_found_ = false;
         bool zadd_member_present_ = false;
@@ -366,7 +431,9 @@ public:
         const std::string* score_batch_members_[max_score_batch];
         zset_score score_batch_values_[max_score_batch];
         size_t membership_size_ = 0;
-        const std::string* membership_args_[max_membership_batch];
+        enum : size_t { inline_membership_batch = 6 };
+        const std::string* membership_args_[inline_membership_batch];
+        std::unique_ptr<const std::string*[]> membership_extra_args_;
         unsigned membership_mask_ = 0;
         std::string hash_field_, hash_value_;
         uint64_t hash_length_ = 0;
@@ -388,6 +455,15 @@ public:
         uint64_t range_end_ = 0;
         bool range_reverse_ = false;
         std::vector<zset_member> range_members_;
+        struct list_end_hint {
+            uint64_t id = 0;
+            uint32_t bytes = 0;
+            uint16_t count = 0;
+            bool left = false;
+            bool uniform_pop = false;
+            uint8_t length_bytes = 1;
+        } list_end_;
+        size_t pending_list_pushes_ = 0;
     };
     // A missing physical root succeeds without invoking the callback.
     batch_status transact_existing_page(const std::string& key,
@@ -397,6 +473,12 @@ public:
     // Callbacks are synchronous; ready roots use the normal commit effects.
     batch_status transact_page(const std::string& key,
         const page_callback& callback, const page_root_callback& root);
+    // Trusted typed callbacks may supply the deadline encoded by a successful
+    // root write, including writes with pages. The pointed value is consumed
+    // synchronously after the callback; keep/erase actions ignore it.
+    batch_status transact_page(const std::string& key,
+        const page_callback& callback, const page_root_callback* root,
+        const long long* deadline);
     // Replace a single root using only the old key's existence. The callback
     // receives an empty value and must supply a replacement or reject.
     batch_status replace_page_root(const std::string& key,
@@ -543,7 +625,10 @@ public:
 
     // Select an immutable codec at open time, before worker threads start.
     bool supports_compact_zsets() const;
+    bool supports_compact_strings() const;
     bool supports_compact_sets() const { return dbinline_strings(); }
+    bool supports_compact_set_leaves() const;
+    bool supports_compact_set_fragments() const;
     bool supports_compact_hashes() const { return dbinline_strings(); }
     bool supports_compact_lists() const { return dbinline_strings(); }
     const record_codec& value_codec() const { return *codec_; }
@@ -698,9 +783,16 @@ private:
     friend class family_workspace;
     friend class page_transaction;
     friend class page_workspace;
+    friend class mdb_tbb;
+    struct native_string_view;
+    template<class Read> inline_status read_native_string(const std::string& key, const Read& read);
+    struct string_edit;
+    inline_status edit_string_range(const std::string& key, uint64_t offset,
+        size_t count, const string_edit& edit, long long* length);
     batch_status transact_single_page(const std::string& key,
         const page_callback& callback, const page_root_callback* root,
-        bool read_value = true, bool skip_missing = false);
+        bool read_value = true, bool skip_missing = false,
+        const long long* deadline = nullptr);
     batch_status transact_pages_impl(std::vector<std::string> keys,
         const page_callback& callback, bool observe,
         const page_update* ordered = nullptr, size_t count = 0);
@@ -711,7 +803,9 @@ private:
         const page_callback& callback, bool observe,
         const page_update* ordered = nullptr, size_t count = 0,
         const page_root_callback* root = nullptr, bool read_value = true,
-        bool skip_missing = false, page_lock_scope* scope = nullptr);
+        bool skip_missing = false, page_lock_scope* scope = nullptr,
+        const long long* deadline = nullptr,
+        const list_page_edit* edit = nullptr);
 
     // Trusted actor-local delta. The workspace validated every staged command
     // and retains exclusive admission, so source roots need not be read again.
@@ -725,7 +819,8 @@ private:
         std::vector<page_change>& pages, bool observe,
         const page_update* ordered = nullptr, size_t count = 0,
         page_lock_scope* scope = nullptr, const page_reader* reader = nullptr,
-        const long long* deadline = nullptr);
+        const long long* deadline = nullptr,
+        const list_page_edit* edit = nullptr);
     std::vector<key_ready_change> prepare_ready(
         const std::vector<batch_entry>& roots,
         const page_update* ordered = nullptr, size_t count = 0,
@@ -750,7 +845,7 @@ private:
     void publish_page_effects(const std::vector<batch_entry>& roots,
         const std::vector<page_change>& pages,
         const std::vector<key_ready_change>& ready,
-        const long long* deadline = nullptr);
+        const long long* deadline = nullptr, bool preserves_deadline = false);
     void observe_pages(const std::vector<batch_entry>& roots,
         const std::vector<page_change>& pages);
     struct lock_table;

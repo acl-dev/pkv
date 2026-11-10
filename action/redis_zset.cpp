@@ -397,7 +397,7 @@ bool redis_zset::sample(redis_coder& result) {
         error("ERR value is out of range");
     if (check_cluster_mode(true) && route_keys("ZRANDMEMBER", result)) return
         true;
-    dao::paged_zset data;
+    dao::paged_zset data(handler_.page_pipeline_scope_);
     dao::zset_sample_result out;
     auto& reply = result.create_object();
     if (!data.sample(handler_.get_db(), *obj_.argument(1), count, out))

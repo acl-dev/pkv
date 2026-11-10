@@ -231,6 +231,38 @@ static void rollback(bool tbb, bool legacy) {
     require(success && failures > 0, "bitmap allocation sweep coverage");
 }
 
+static void paged_bit_update(bool tbb) {
+    auto database = memory(tbb);
+    dao::paged_string data;
+    dao::set_options options;
+    options.expires_at_ms = deadline;
+    dao::set_result result;
+    std::string initial(16384, '\0');
+    initial.back() = '\1';
+    const long long offset = 16384 * 8 - 1;
+    require(data.set(database, "last-bit", initial, options, result),
+        "paged bitmap seed");
+    std::vector<watch_token> tokens;
+    require(database->watch({"last-bit"}, tokens) == db::batch_status::ok &&
+        tokens.size() == 1, "paged bitmap WATCH");
+    std::string root, after;
+    require(database->get("last-bit", root), "paged bitmap root");
+    long long previous = 0;
+    allocation_limit = 1024;
+    const bool same = data.setbit(database, "last-bit", offset, 1, previous);
+    allocation_limit = SIZE_MAX;
+    require(same && previous == 1 && tokens[0]->valid(unix_time_ms()),
+        "unchanged paged SETBIT copied a page or invalidated WATCH");
+    allocation_limit = 1024;
+    const bool changed = data.setbit(database, "last-bit", offset, 0, previous);
+    allocation_limit = SIZE_MAX;
+    initial.back() = 0;
+    require(changed && previous == 1 && !tokens[0]->valid(unix_time_ms()) &&
+        data.get(database, "last-bit", after) && after == initial &&
+        database->get("last-bit", after) && after == root,
+        "paged SETBIT allocated a full page or changed the wrong bytes or metadata");
+}
+
 static void corruption(bool tbb) {
     auto database = memory(tbb);
     dao::paged_string data;
@@ -261,6 +293,36 @@ static void corruption(bool tbb) {
     require(!data.getbit(database, "future", 0, out) && out == 0 &&
         data.status() == dao::dao_base::read_status::unsupported_format,
         "GETBIT accepted a future root");
+}
+
+static void native_reads(bool tbb) {
+    auto database = memory(tbb);
+    dao::paged_string data;
+    constexpr auto page = string_page_codec::page_bytes;
+    std::string value(page + 2, '\0');
+    value[page - 1] = '\x01';
+    value[page] = static_cast<char>(0x80);
+    require(data.set(database, "paged-read", value) &&
+        data.set(database, "inline-read", std::string(1024, '\xff')), "bitmap read fixtures");
+    bitmap_range edge;
+    edge.bits = edge.end_given = true;
+    edge.start = page * 8 - 1;
+    edge.end = page * 8;
+    long long result;
+    allocation_limit = 64;
+    const bool read = data.bitcount(database, "inline-read", bitmap_range(), result) &&
+        result == 8192 && data.bitpos(database, "inline-read", 0, bitmap_range(), result) &&
+        result == 8192 && data.bitcount(database, "paged-read", edge, result) && result == 2 &&
+        data.getbit(database, "paged-read", page * 8, result) && result == 1;
+    allocation_limit = SIZE_MAX;
+    require(read, "native bitmap read copied data or lost range bounds");
+
+    require(database->transact_page("paged-read", [](page_transaction& tx) {
+        return tx.erase("paged-read", 2);
+    }) == db::batch_status::ok, "bitmap read remove later page");
+    require(data.bitpos(database, "paged-read", 1, edge, result) && result == edge.start &&
+        !data.bitcount(database, "paged-read", edge, result) && result == 0,
+        "bitmap search failed to stop or count exposed a partial result");
 }
 
 static void disk(const std::string& backend, const std::string& path) {
@@ -302,8 +364,9 @@ int main(int argc, char** argv) {
 #ifndef HAS_TBB
         if (tbb) continue;
 #endif
-        model(tbb); concurrency(tbb); corruption(tbb);
+        model(tbb); concurrency(tbb); corruption(tbb); native_reads(tbb);
         rollback(tbb, false); rollback(tbb, true);
+        paged_bit_update(tbb);
     }
     locality(); popcount_boundaries(); bitpos_boundaries();
     std::cout << "native bitmap model/concurrency/locality/rollback passed\n";

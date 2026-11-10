@@ -26,12 +26,11 @@ static void require(bool ok, const char* message) {
     if (!ok) { std::cerr << message << '\n'; std::exit(1); }
 }
 
-int main() {
-    acl::acl_cpp_init();
+static void native_batch_failures(bool tbb) {
     bool succeeded = false;
     size_t failures = 0;
     for (long fail_at = 0; fail_at < 512; ++fail_at) {
-        auto db = pkv::db::create_mdb(8);
+        auto db = tbb ? pkv::db::create_mdb_tbb(8) : pkv::db::create_mdb(8);
         require(db->open(""), "memory open failed");
         std::vector<std::string> keys;
         for (int i = 0; i < 24; ++i) {
@@ -61,6 +60,16 @@ int main() {
                 const bool found = db->get(keys[i], value);
                 require(found == (i < 16) && (!found || value == "original"), "failed batch exposed partial commit");
             }
+            uint64_t count = 0;
+            require(db->key_count(count) == pkv::db::count_status::ok && count == 16,
+                "failed batch changed the root count");
+            std::vector<std::string> scanned;
+            unsigned long long next = 0;
+            require(db->scan_keys(0, 1000, scanned, next) == pkv::db::scan_status::ok &&
+                !next && scanned.size() == 16 &&
+                std::set<std::string>(scanned.begin(), scanned.end()) ==
+                    std::set<std::string>(keys.begin(), keys.begin() + 16),
+                "failed batch left a stale scan entry");
         } else {
             succeeded = true;
             auto ordered = keys;
@@ -74,6 +83,16 @@ int main() {
         }
     }
     require(succeeded && failures > 0, "allocation failure loop did not exercise failure and success");
+    std::cout << "Atomic batch preserved all values across " << failures
+        << " allocation failure points in " << (tbb ? "oneTBB" : "MDB") << '\n';
+}
+
+int main() {
+    acl::acl_cpp_init();
+    native_batch_failures(false);
+#ifdef HAS_TBB
+    native_batch_failures(true);
+#endif
     auto scan_db = pkv::db::create_mdb(8);
     require(scan_db->open(""), "scan failure fixture open failed");
     std::set<std::string> expected_keys;
@@ -104,6 +123,5 @@ int main() {
         if (scan_succeeded) break;
     }
     require(scan_succeeded && scan_failures > 0, "scan allocation failures not exercised");
-    std::cout << "Atomic batch preserved all values across " << failures << " allocation failure points\n";
     std::cout << "Native scan preserved all keys across " << scan_failures << " allocation failure points\n";
 }

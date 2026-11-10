@@ -6,6 +6,9 @@
 #include <limits>
 #include <new>
 #include <utility>
+#if defined(__APPLE__) && !defined(HAS_JEMALLOC)
+#include <malloc/malloc.h>
+#endif
 
 namespace pkv {
 namespace {
@@ -354,6 +357,220 @@ list_page_status list_page_codec::decode_compact(const std::string& bytes,
     } catch (const std::bad_alloc&) { return status::out_of_memory; }
 }
 
+list_page_status list_page_codec::plan_append(const std::string& bytes,
+    const std::string& value, uint64_t member_limit, size_t fill_target,
+    list_page_update& update, list_page_edit& plan, bool cached_only) {
+    return plan_push(bytes, value, false, member_limit, fill_target,
+        update, plan, cached_only);
+}
+
+list_page_status list_page_codec::plan_push(const std::string& bytes,
+    const std::string& value, bool left, uint64_t member_limit,
+    size_t fill_target, list_page_update& update, list_page_edit& plan,
+    bool cached_only) {
+    static_assert(max_page_bytes <= std::numeric_limits<uint16_t>::max(),
+        "bounded compact fragment count must fit the push descriptor");
+    if (plan.id || value.size() > max_fragment_bytes || !is_compact_page(bytes) ||
+        (bytes[3] == 3 && value.size() > UINT8_MAX)) return status::ok;
+    if (fill_target < page_header_bytes + fragment_header_bytes ||
+        fill_target > max_page_bytes) return status::invalid;
+    using validation_cache = detail::validated_page_cache<page_view>;
+    const bool eligible = bytes.size() >= page_header_bytes &&
+        bytes.size() <= validation_cache::max_bytes && read32(bytes, 4) >= 8;
+    validation_cache cache(eligible);
+    page_view view;
+    const bool hit = cache.lookup(bytes, member_limit, view);
+    // Random key/page switches use the complete writer without a second scan
+    // or copying a cold snapshot solely to prepare an append descriptor.
+    if (cached_only && !hit) return status::ok;
+    if (!hit && !inspect(bytes, member_limit, view)) return status::invalid;
+    if ((left ? view.previous : view.next) || value.size() > member_limit)
+        return status::invalid;
+    const auto limit = view.expanded > fill_target ? max_page_bytes : fill_target;
+    if (fragment_header_bytes > limit - view.expanded ||
+        value.size() > limit - view.expanded - fragment_header_bytes)
+        return status::ok;
+    try {
+        list_page_edit next;
+        next.expected_bytes = static_cast<uint32_t>(bytes.size());
+        next.expected_count = static_cast<uint16_t>(view.count);
+        next.left = left;
+        next.length_bytes = static_cast<uint8_t>(view.header);
+        char header[packed_header];
+        char* length = header;
+        write_length(length, static_cast<uint32_t>(value.size()), view.header);
+        next.suffix.assign(header, view.header);
+        next.suffix.append(value);
+        next.id = view.id;
+        identify(view, update);
+        if (view.count + 1 >= 8 &&
+            bytes.size() + next.suffix.size() <= validation_cache::max_bytes) {
+            cache.activate();
+            if (!hit) cache.remember(bytes, member_limit, view);
+            auto after = view;
+            ++after.count;
+            after.last = left ? view.last + next.suffix.size() : bytes.size();
+            after.expanded += fragment_header_bytes + value.size();
+            char count[4]; char* cursor = count;
+            write32(cursor, after.count);
+            cache.remember_inserted(bytes, next.suffix,
+                left ? page_header_bytes : bytes.size(), 4, count,
+                sizeof(count), member_limit, after);
+        }
+        plan = std::move(next);
+        return status::ok;
+    } catch (const std::bad_alloc&) { return status::out_of_memory; }
+}
+
+list_page_status list_page_codec::apply_append(std::string& bytes,
+    const list_page_edit& plan) {
+    return plan.left || plan.right_stride ? status::invalid : apply_edit(bytes, plan);
+}
+
+list_page_status list_page_codec::plan_uniform_pop_right(const std::string& bytes,
+    uint64_t member_limit, uint16_t verified_count, list_page_update& update,
+    list_page_edit& plan) {
+    if (plan.id || !is_compact_page(bytes) || bytes.size() > max_page_bytes)
+        return status::ok;
+    const auto header = bytes[3] == 3 ? size_t(1) : packed_header;
+    if (bytes.size() < page_header_bytes + header) return status::ok;
+    const auto count = read32(bytes, 4);
+    if (count < 2 || count > (max_page_bytes - bytes.size()) /
+        (fragment_header_bytes - header)) return status::ok;
+    const auto width = read_length(bytes, page_header_bytes, header);
+    if (width > member_limit || width > wide_member_bytes)
+        return status::ok;
+    const auto stride = width + header;
+    if (bytes.size() - page_header_bytes != stride * count) return status::ok;
+    page_view view{};
+    view.id = read64(bytes, 8); view.previous = read64(bytes, 16);
+    view.next = read64(bytes, 24); view.count = count; view.header = header;
+    if (view.next || !links(view.id, view.previous, view.next)) return status::invalid;
+    // A matching hint was published under the same key lock.
+    if (count != verified_count && !inspect_uniform(bytes, member_limit, view, nullptr))
+        return status::ok;
+    const auto start = bytes.size() - stride;
+    if (read_length(bytes, start, header) != width) return status::invalid;
+    try {
+        update.value.assign(bytes, start + header, width);
+    } catch (const std::bad_alloc&) { return status::out_of_memory; }
+    identify(view, update);
+    update.applied = true;
+    plan.id = view.id;
+    plan.expected_bytes = static_cast<uint32_t>(bytes.size());
+    plan.expected_count = static_cast<uint16_t>(count);
+    plan.length_bytes = static_cast<uint8_t>(header);
+    plan.right_stride = static_cast<uint16_t>(stride);
+    return status::ok;
+}
+
+list_page_status list_page_codec::truncate_right(std::string& bytes,
+    size_t remaining, uint32_t count) {
+    try {
+        // Release slack before publishing a smaller page.
+        if (remaining < bytes.capacity() - bytes.capacity() / 3) {
+            std::string smaller(bytes.data(), remaining);
+            bytes.swap(smaller);
+        } else {
+            bytes.resize(remaining);
+        }
+    } catch (const std::bad_alloc&) { return status::out_of_memory; }
+    char* cursor = &bytes[0] + 4;
+    write32(cursor, count);
+    return status::ok;
+}
+
+list_page_status list_page_codec::apply_edit(std::string& bytes,
+    const list_page_edit& plan) {
+    const auto header = plan.length_bytes;
+    if (plan.right_stride) {
+        if (header == fragment_header_bytes) return apply_fragment_pop_right(bytes, plan);
+        const auto stride = plan.right_stride;
+        if (!plan.id || plan.left || plan.expected_count < 2 ||
+            (header != 1 && header != packed_header) || stride < header ||
+            stride - header > (header == 1 ? size_t(UINT8_MAX) :
+                wide_member_bytes) ||
+            bytes.size() != plan.expected_bytes ||
+            bytes.size() != page_header_bytes + stride * size_t(plan.expected_count) ||
+            bytes.size() > max_page_bytes ||
+            bytes.compare(0, 4, header == 1 ? "PLP\3" : "PLP\2", 4) ||
+            read64(bytes, 8) != plan.id || read64(bytes, 24) ||
+            read32(bytes, 4) != plan.expected_count ||
+            read_length(bytes, bytes.size() - stride, header) != size_t(stride - header))
+            return status::invalid;
+        return truncate_right(bytes, bytes.size() - stride, plan.expected_count - 1);
+    }
+    const auto added = plan.added_bytes();
+    if (!plan.id || bytes.size() != plan.expected_bytes ||
+        bytes.size() < page_header_bytes || bytes.size() > max_page_bytes ||
+        (header != 1 && header != packed_header) ||
+        bytes.compare(0, 4, header == 1 ? "PLP\3" : "PLP\2", 4) ||
+        read64(bytes, 8) != plan.id ||
+        read64(bytes, plan.left ? 16 : 24) ||
+        read32(bytes, 4) != plan.expected_count ||
+        !plan.expected_count || added < header ||
+        (header == 1 && added > size_t(UINT8_MAX) + 1) ||
+        (plan.borrowed_value ? plan.borrowed_value == &bytes :
+            read_length(plan.suffix, 0, header) != added - header) ||
+        added > max_page_bytes - bytes.size()) return status::invalid;
+    const auto count = plan.expected_count + uint64_t(1);
+    const auto expanded = bytes.size() + added +
+        (fragment_header_bytes - header) * count;
+    if (expanded > max_page_bytes) return status::invalid;
+    try {
+        // Reserve is the only potentially throwing step. Until it succeeds,
+        // both logical bytes and the matching root remain unchanged.
+        const auto needed = bytes.size() + added;
+        if (needed > bytes.capacity()) {
+            size_t capacity = needed;
+            if (added <= list_page_edit::small_member_bytes + 1) {
+                const size_t quantum = added > 8 ? 128 : 64;
+                capacity = (needed + quantum - 1) / quantum * quantum;
+            } else {
+                if (header == packed_header &&
+                    added >= list_page_edit::reserve_min_width + packed_header &&
+                    added <= list_page_edit::reserve_max_width + packed_header && needed >= 1024 &&
+                    plan.fill_limit >= expanded &&
+                    bytes.size() == page_header_bytes + added * plan.expected_count) {
+                    const auto stride = added + fragment_header_bytes - header;
+                    const auto remaining = static_cast<size_t>(plan.fill_limit - expanded);
+                    capacity = needed + added * (remaining / stride);
+                }
+#if defined(__APPLE__) && !defined(HAS_JEMALLOC)
+                // Use the rest of this allocation class for later pushes.
+                capacity = malloc_good_size(capacity + 1) - 1;
+#endif
+            }
+            bytes.reserve(std::min(capacity, size_t(max_page_bytes)));
+        }
+        if (plan.borrowed_value) {
+            const auto width = added - header;
+            if (plan.left) {
+                const auto before = bytes.size();
+                bytes.resize(needed);
+                auto* body = &bytes[0] + page_header_bytes;
+                std::memmove(body + added, body, before - page_header_bytes);
+                write_length(body, static_cast<uint32_t>(width), header);
+                std::memcpy(body, plan.borrowed_value->data(), width);
+            } else {
+                if (header == 1) {
+                    bytes.push_back(static_cast<char>(width));
+                } else {
+                    char length[packed_header];
+                    char* cursor = length;
+                    write32(cursor, static_cast<uint32_t>(width));
+                    bytes.append(length, sizeof(length));
+                }
+                bytes.append(*plan.borrowed_value);
+            }
+        } else if (plan.left) bytes.insert(page_header_bytes, plan.suffix);
+        else bytes.append(plan.suffix);
+        char* cursor = &bytes[0] + 4;
+        write32(cursor, static_cast<uint32_t>(count));
+        return status::ok;
+    } catch (const std::bad_alloc&) { return status::out_of_memory; }
+}
+
 list_page_status list_page_codec::push_compact(const std::string& bytes,
     list_values_view values, bool left, uint64_t member_limit,
     list_page_update& out, size_t fill_target, uint64_t neighbor) {
@@ -392,8 +609,7 @@ list_page_status list_page_codec::push_compact(const std::string& bytes,
             const auto available = limit - view.expanded;
             const auto width = values[0].size();
             if (available < fragment_header_bytes + (width != 0) ||
-                width + fragment_header_bytes <=
-                    (fill_target - page_header_bytes) / 4) {
+                prefer_whole_member(width, fill_target)) {
                 try {
                     update.bytes = bytes;
                     char* link = &update.bytes[0] + (left ? 16 : 24);
@@ -530,15 +746,21 @@ list_page_status list_page_codec::pop_compact_batch(const std::string& bytes,
         return status::ok;
     }
     if (whole) count = members;
-    const bool eligible = !whole && !left && admit_right_cache(bytes);
+    const bool eligible = count && !whole && !left && admit_right_cache(bytes);
     right_validation_cache cache(eligible);
     right_page_view indexed{};
     auto& view = indexed.page;
-    const auto first = left ? 0 : static_cast<uint32_t>(members - count);
+    const auto first = left || !count ? 0 : static_cast<uint32_t>(members - count);
     batch_offsets batch(first);
-    if (!count || !(cache.lookup(bytes, member_limit, indexed) ||
+    if ((!count && !removed_neighbor) || !(cache.lookup(bytes, member_limit, indexed) ||
         inspect(bytes, member_limit, view, &batch, eligible ? indexed.offsets : nullptr)) ||
         (left ? view.previous : view.next) != removed_neighbor) return status::invalid;
+    if (!count && view.header == packed_header &&
+        bytes.size() - page_header_bytes <= view.count * (packed_header + UINT8_MAX)) {
+        // The existing writer can narrow a PLP2 page of short members.
+        out = list_page_update();
+        return status::ok;
+    }
     const auto stride = batch.stride;
     const auto start = eligible && !stride ?
         member_offset(bytes, indexed, first) : batch.start;

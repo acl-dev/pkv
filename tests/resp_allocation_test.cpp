@@ -251,6 +251,103 @@ static void bulk_allocation_state() {
     }
 }
 
+static void streamed_bulk_growth() {
+    std::string payload(128 * 1024, 'v');
+    payload.back() = '\0';
+    const auto initial = live.load();
+    constexpr size_t chunk = 65535;
+    for (bool inject_failure : {false, true}) {
+        pkv::redis_ocache cache(1);
+        pkv::redis_coder parser(cache);
+        auto* value = parser.get_curr();
+        size_t remaining = sizeof("$131072\r\n") - 1;
+        budget = 0;
+        value->update("$131072\r\n", remaining);
+        budget = -1;
+        require(!remaining && value->get_buf().empty(), "bulk header alone allocated storage");
+
+        remaining = chunk;
+        value->update(payload.data(), remaining);
+        require(!remaining && !value->finish(), "streamed bulk first chunk");
+        remaining = chunk;
+        bool failed = false;
+        budget = inject_failure ? 0 : 1;
+        try { value->update(payload.data() + chunk, remaining); }
+        catch (const std::bad_alloc&) { failed = true; }
+        require(failed == inject_failure && !remaining && !value->finish(),
+            "streamed bulk growth changed allocation failure state");
+        if (failed) {
+            budget = -1;
+            require(value->get_buf().size() == chunk, "failed reserve changed bulk bytes");
+            continue;
+        }
+        budget = 0;
+        remaining = payload.size() - 2 * chunk;
+        value->update(payload.data() + 2 * chunk, remaining);
+        require(!remaining && !value->finish(), "streamed bulk published without terminator");
+        remaining = 2;
+        value->update("\r\n", remaining);
+        budget = -1;
+        require(!remaining && value->finish() && value->get_buf() == payload,
+            "streamed bulk tail allocated or changed binary payload");
+    }
+    require(live == initial, "streamed bulk allocation failure leaked objects");
+}
+
+static void streamed_bulk_cache() {
+    const std::string payload = std::string(128 * 1024 - 1, 'v') + '\0';
+    const auto initial = live.load();
+    {
+        pkv::redis_ocache cache(8);
+        auto parse = [&](pkv::redis_object* value) {
+            const char header[] = "$131072\r\n";
+            size_t n = sizeof(header) - 1;
+            value->update(header, n);
+            require(!n && value->get_buf().empty(), "bulk cache header published bytes");
+            n = 32768;
+            value->update(payload.data(), n);
+            require(!n && !value->finish(), "bulk cache published a partial value");
+            n = payload.size() - 32768;
+            value->update(payload.data() + 32768, n);
+            require(!n && !value->finish(), "bulk cache published without CRLF");
+            n = 2;
+            value->update("\r\n", n);
+            require(!n && value->finish() && value->get_buf() == payload,
+                "bulk cache changed binary payload");
+        };
+
+        pkv::redis_object* values[5];
+        for (auto& value : values) {
+            value = cache.get();
+            parse(value);
+        }
+        for (auto* value : values) cache.put(value);
+        budget = 0;
+        for (size_t i = 0; i < 4; ++i) {
+            values[i] = cache.get();
+            parse(values[i]);
+        }
+        values[4] = cache.get();
+        bool exhausted = false;
+        try { parse(values[4]); }
+        catch (const std::bad_alloc&) { exhausted = true; }
+        budget = -1;
+        require(exhausted, "bulk cache retained more than four buffers");
+        for (size_t i = 1; i < 5; ++i) cache.put(values[i]);
+
+        cache.activity();
+        cache.trim_idle(8);
+        const auto warm = live.load();
+        budget = 0;
+        cache.trim_idle(8);
+        budget = -1;
+        require(live == warm - 3 && values[0]->get_buf() == payload,
+            "idle trim failed to reclaim returned bulk buffers or touched a live value");
+        cache.put(values[0]);
+    }
+    require(live == initial, "bulk cache leaked backing storage");
+}
+
 static void raw_reply_recycling() {
     pkv::redis_ocache cache(1);
     auto* reply = cache.get();
@@ -329,12 +426,133 @@ static void idle_cache_reclaims_only_returned_objects() {
     require(live == initial, "idle cache leaked objects");
 }
 
+static void idle_cache_releases_large_backing_storage() {
+    const auto initial = live.load();
+    {
+        pkv::redis_ocache cache(256);
+        auto* wide = cache.get();
+        wide->set_type(pkv::REDIS_OBJ_ARRAY);
+        for (unsigned i = 0; i < 96; ++i) wide->create_child().set_number(i);
+        auto* large = cache.get();
+        const std::string payload(512, 'v');
+        large->set_string(payload);
+        auto* borrowed = cache.get();
+        borrowed->set_string(payload);
+        cache.put(wide);
+        cache.put(large);
+        const auto warm = live.load();
+        cache.activity();
+        cache.trim_idle(256);
+        require(live == warm, "active cache released wide backing storage");
+        budget = 0;
+        cache.trim_idle(256);
+        auto* reused_large = cache.get();
+        auto* reused_wide = cache.get();
+        budget = -1;
+        require(live == warm - 3 && borrowed->get_buf() == payload &&
+            reused_large == large && reused_large->get_buf().capacity() < payload.size() &&
+            reused_wide == wide, "idle trim failed to release only cached backing storage");
+        reused_wide->set_type(pkv::REDIS_OBJ_ARRAY);
+        reused_wide->create_child().set_string(payload);
+        require(reused_wide->size() == 1 && *reused_wide->argument(0) == payload,
+            "reused cache object failed to rebuild its backing storage");
+        cache.put(reused_large);
+        cache.put(reused_wide);
+        cache.put(borrowed);
+    }
+    require(live == initial, "idle backing storage test leaked objects");
+}
+
+static void cached_payload_budget() {
+    const auto initial = live.load();
+    {
+        pkv::redis_ocache cache(8);
+        const std::string payload(64 * 1024 - 128, 'x');
+        auto* borrowed = cache.get();
+        borrowed->set_string(payload);
+        pkv::redis_object* replies[6];
+        for (auto& reply : replies) {
+            reply = cache.get();
+            reply->set_string(payload);
+        }
+        const auto capacity = replies[0]->get_buf().capacity();
+        const auto retained = (256 * 1024) / (capacity + 1);
+        require(retained > 0 && retained < 6, "payload budget fixture");
+        const auto before = live.load();
+        budget = 0;
+        for (auto* reply : replies) cache.put(reply);
+        require(live == before - (6 - static_cast<long>(retained)),
+            "returned payloads exceeded the cache budget");
+        for (size_t i = 6; i > 0; --i) {
+            auto* reply = cache.get();
+            require(reply == replies[i - 1] && reply->get_buf().empty() &&
+                (reply->get_buf().capacity() == capacity) == (i <= retained),
+                "payload cache changed order or retained the wrong buffers");
+        }
+        budget = -1;
+        for (auto* reply : replies) reply->set_string(payload);
+        budget = 0;
+        for (auto* reply : replies) cache.put(reply);
+        cache.activity();
+        cache.trim_idle(8);
+        const auto warm = live.load();
+        cache.trim_idle(8);
+        budget = -1;
+        require(live == warm - static_cast<long>(retained) &&
+            borrowed->get_buf() == payload,
+            "checkout or idle trim corrupted the payload budget");
+        cache.put(borrowed);
+    }
+    require(live == initial, "payload budget leaked backing storage");
+}
+
+static void wide_array_growth() {
+    const size_t arguments = 514;
+    std::string wire;
+    for (size_t i = 0; i < arguments; ++i) wire += "$1\r\nx\r\n";
+    const auto initial = live.load();
+    for (long allocations = 0; allocations <= 9; ++allocations) {
+        pkv::redis_ocache cache(arguments + 2);
+        std::vector<pkv::redis_object*> shells;
+        for (size_t i = 0; i < arguments + 2; ++i) shells.push_back(cache.get());
+        for (auto* shell : shells) cache.put(shell);
+        pkv::redis_coder parser(cache);
+        auto* array = parser.get_curr();
+        size_t n = 6;
+        budget = 0;
+        array->update("*514\r\n", n);
+        budget = -1;
+        require(!n && !array->size(), "array header alone allocated child storage");
+
+        bool failed = false;
+        budget = allocations;
+        try {
+            n = wire.size() - 1;
+            array->update(wire.data(), n);
+            require(!n && array->size() == arguments - 1 && !array->finish(),
+                "incomplete array published its last child");
+            n = 1;
+            array->update(wire.data() + wire.size() - 1, n);
+        } catch (const std::bad_alloc&) { failed = true; }
+        budget = -1;
+        if (allocations == 9)
+            require(!failed && !n && array->finish() && array->size() == arguments &&
+                *array->argument(arguments - 1) == "x", "wide array exceeded its allocation budget");
+    }
+    require(live == initial, "wide array allocation failure leaked objects");
+}
+
 int main() {
     idle_cache_reclaims_only_returned_objects();
+    idle_cache_releases_large_backing_storage();
+    cached_payload_budget();
     take_raw_frame_without_copy();
     raw_reply_recycling();
     bulk_collection_protocols();
     bulk_allocation_state();
+    streamed_bulk_growth();
+    streamed_bulk_cache();
+    wide_array_growth();
     inline_allocations();
     pending_reply_allocations();
     pending_reply_publication_failure();

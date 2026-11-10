@@ -8,6 +8,7 @@
 #include "dao/paged_zset.h"
 #include "db/page_workspace.h"
 #include "db/mdb/mdb.h"
+#include "db/db_watcher.h"
 #include "coder/list_page.h"
 #include "coder/map_page.h"
 #include "coder/zset_page.h"
@@ -58,7 +59,10 @@ static std::unordered_set<std::string> scan(shared_db db,
     const std::string& pattern) {
     dao::json_scan data;
     std::unordered_set<std::string> out;
-    require(data.all_keys(db, pattern, out), "KEYS scan"); return out;
+    require(data.visit_all_keys(db, pattern, [&](const std::string& key) {
+        require(out.insert(key).second, "KEYS emitted a duplicate");
+    }), "KEYS scan");
+    return out;
 }
 static void traversal(shared_db database) {
     dao::paged_string data;
@@ -157,6 +161,142 @@ static void coherent(shared_db database) {
             "KEYS observed torn keyspace");
     writer.join();
 }
+static void borrowed_root_errors(shared_db database) {
+    dao::json_scan data;
+    const std::string invalid("\0", 1);
+    require(database->set("corrupt", invalid), "KEYS invalid root seed");
+    require(scan(database, "miss:*").empty(), "KEYS decoded a nonmatching root");
+    require(!data.visit_all_keys(database, "corrupt", [](const std::string&) {
+        require(false, "KEYS emitted an invalid root");
+    }) && data.status() == dao::dao_base::read_status::invalid_record,
+        "KEYS accepted an invalid matching root");
+    require(database->del("corrupt"), "KEYS invalid root cleanup");
+
+    list_root root;
+    root.elements = root.head = root.tail = root.last_id = 1;
+    root.expires_at_ms = 0;
+    std::string bytes;
+    require(list_page_codec::encode_root(root, bytes) == list_page_status::ok &&
+        database->set("expired:a", bytes) && database->set("expired:b", bytes),
+        "KEYS expired root seed");
+    uint64_t before = 0, after = 0;
+    require(database->key_count(before) == db::count_status::ok &&
+        scan(database, "expired:*").empty() &&
+        database->key_count(after) == db::count_status::ok && before == after + 2,
+        "KEYS did not remove expired roots after visiting");
+}
+class scan_read_observer : public db_watcher {
+public:
+    size_t reads = 0;
+    bool supports_pages() const override { return true; }
+    bool on_pages_database(unsigned, const std::vector<db::batch_entry>&,
+        const std::vector<page_change>&) override { return true; }
+    bool on_set(const std::string&, const std::string&, bool) override { return true; }
+    bool on_get(const std::string&, const std::string&, bool) override {
+        ++reads;
+        return true;
+    }
+    bool on_del(const std::string&, bool) override { return true; }
+};
+static void borrowed_scan_pages(bool tbb) {
+    scan_read_observer observer;
+    db_watchers observers;
+    observers.add_watcher(&observer);
+    auto native = tbb ? db::create_mdb_tbb(4) : db::create_mdb(4);
+    shared_db reference = tbb ? db::create_mdb_tbb(4) :
+        std::make_shared<scan_source>();
+    const std::string long_name = "scan:" + std::string(1100, 'n');
+    const std::string binary("scan:\0\xff", 7);
+    for (auto database : {native, reference}) {
+        require(database->open("", tbb && database == reference ? &observers : nullptr),
+            "SCAN backend open");
+        dao::paged_string strings;
+        dao::json_string legacy;
+        for (unsigned i = 0; i < 100; ++i)
+            require(strings.set(database, "scan:" + std::to_string(i), "v"),
+                "SCAN native seed");
+        require(strings.set(database, long_name, "long key") &&
+            strings.set(database, binary, "binary key") &&
+            legacy.set(database, "scan:legacy", std::string(600, 'l')),
+            "SCAN deferred roots");
+        list_root root;
+        root.elements = root.head = root.tail = root.last_id = 1;
+        root.expires_at_ms = 0;
+        std::string bytes;
+        require(list_page_codec::encode_root(root, bytes) == list_page_status::ok &&
+            database->set("scan:expired", bytes), "SCAN expired root");
+    }
+    observer.reads = 0;
+    dao::json_scan a, b;
+    for (size_t hint : {size_t{1}, size_t{7}, SIZE_MAX}) {
+        scan_options options;
+        options.count = hint;
+        options.has_match = options.has_type = true;
+        options.pattern = "scan:*";
+        options.type = "string";
+        size_t found = 0;
+        do {
+            scan_page fast, copied;
+            require(a.keys(native, options, fast) && b.keys(reference, options, copied) &&
+                fast.cursor == copied.cursor && fast.values == copied.values,
+                "SCAN changed the cursor or reply order");
+            found += fast.values.size();
+            options.cursor = fast.cursor;
+        } while (options.cursor);
+        require(found == 103, "SCAN lost live keys during deferred filtering");
+    }
+    for (auto database : {native, reference}) {
+        uint64_t keys = 0;
+        require(database->key_count(keys) == db::count_status::ok && keys == 103,
+            "SCAN did not clear an expired root of another type");
+        require(database->set("scan:bad", std::string(1, '\0')), "SCAN bad root seed");
+    }
+    scan_options options;
+    options.count = SIZE_MAX;
+    options.has_match = true;
+    options.pattern = "scan:bad";
+    scan_page page;
+    require(!a.keys(native, options, page) && page.values.empty() && !page.cursor &&
+        a.status() == dao::dao_base::read_status::invalid_record,
+        "SCAN published a page containing a damaged root");
+    if (tbb) require(observer.reads > 0, "SCAN skipped the read observer");
+}
+#ifdef HAS_TBB
+static void borrowed_scan_contended_key() {
+    auto database = db::create_mdb_tbb(1);
+    const std::string key = "locked";
+    const std::string value = "root";
+    require(database->open("") && database->set(key, value), "SCAN lock seed");
+    std::atomic<bool> held{false}, release{false};
+    std::thread writer([&] {
+        require(database->update(key, [&](bool found, std::string&) {
+            require(found, "SCAN lock key disappeared");
+            held.store(true);
+            const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(5);
+            while (!release.load() && std::chrono::steady_clock::now() < deadline)
+                std::this_thread::yield();
+            return db::update_action::keep;
+        }), "SCAN lock writer");
+    });
+    while (!held.load()) std::this_thread::yield();
+    unsigned long long next = 0;
+    bool deferred = false;
+    const auto status = database->scan_root_page(0, 1, next,
+        [&](const std::string& candidate, const std::string* root) {
+            deferred = candidate == key && !root;
+            return true;
+        });
+    release.store(true);
+    writer.join();
+    require(status == db::scan_status::ok && deferred, "SCAN waited for a locked key");
+    bool borrowed = false;
+    require(database->scan_root_page(0, 1, next,
+        [&](const std::string& candidate, const std::string* root) {
+            borrowed = candidate == key && root && *root == value;
+            return true;
+        }) == db::scan_status::ok && borrowed, "SCAN did not borrow an unlocked root");
+}
+#endif
 class metadata_probe : public dao::dao_base {
 public:
     bool inspect(shared_db& db, const std::string& bytes,
@@ -312,14 +452,18 @@ static void metadata_expiry_and_type() {
 
 int main() {
     acl::acl_cpp_init(); metadata(); metadata_expiry_and_type();
-    allocation_and_errors();
+    allocation_and_errors(); borrowed_scan_pages(false);
+#ifdef HAS_TBB
+    borrowed_scan_pages(true);
+    borrowed_scan_contended_key();
+#endif
     for (bool tbb : {false, true}) {
 #ifndef HAS_TBB
         if (tbb) continue;
 #endif
         auto database = tbb ? db::create_mdb_tbb(4) : db::create_mdb(4);
         require(database->open(""), "KEYS backend open");
-        traversal(database); coherent(database);
+        traversal(database); coherent(database); borrowed_root_errors(database);
     }
     std::cout << "KEYS storage checks passed\n";
 }

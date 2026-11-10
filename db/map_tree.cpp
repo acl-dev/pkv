@@ -6,7 +6,7 @@
 namespace pkv {
 
 bool map_store::make_node(const std::string& key, const std::string& value,
-    unsigned bucket, uint64_t& id, const node_children& children) {
+    unsigned bucket, uint64_t& id, node_children& children) {
     if (root_.elements == static_cast<uint64_t>(LLONG_MAX))
         return fail(status::too_large);
     const auto key_limit = key.size() > map_page_codec::key_inline_bytes &&
@@ -18,10 +18,19 @@ bool map_store::make_node(const std::string& key, const std::string& value,
     detail::node_key_workspace node(reuse_node_keys(key), key.size() <= key_limit);
     node.bucket = static_cast<uint8_t>(bucket);
     node.id = children.retired_id;
-    if ((!node.id && !allocate(node.id)) ||
-        !store_blob(key, key_limit, node.key, children.retired_key_head) || (!value.empty() &&
-            !store_blob(value, map_page_codec::value_inline_bytes, node.value)))
+    if (!node.id && !allocate(node.id)) return false;
+    if (children.shared_key_head) {
+        if (!lexical_ || key.size() <= map_page_codec::zset_key_inline_bytes + 8 ||
+            children.shared_key_head > last_id()) return fail(status::invalid);
+        node.key.inline_value.assign(key.data(), 8);
+        node.key.length = key.size();
+        node.key.head = children.shared_key_head;
+    } else if (!store_blob(key, key_limit, node.key, children.retired_key_head)) {
         return false;
+    }
+    if (!value.empty() && !store_blob(value, map_page_codec::value_inline_bytes, node.value))
+        return false;
+    children.key_head = node.key.head;
     ++root_.elements;
     if (!write(node)) return false;
     id = node.id;
@@ -138,6 +147,7 @@ bool map_store::insert(uint64_t& id, const std::string& key,
     if (!depth && node.elements != root_.elements) return fail(status::invalid);
     if (!known && !this->order(node, key, bucket, order)) return false;
     if (!order) {
+        children.key_head = node.key.head;
         if (only_missing) return true;
         bool replace = true;
         if (gate && gate->inspect && !gate->inspect(gate->context, node.value, replace))
@@ -222,7 +232,7 @@ bool map_store::remove_edge(uint64_t& id, map_node& edge, unsigned depth,
         if (key) {
             if (node.value.length) return fail(status::invalid);
             if (!node.key.head) key->swap(node.key.inline_value);
-            else if (!read_blob(node.key, *key) || !erase_blob(node.key))
+            else if (!read_blob(node.key, *key, true))
                 return false;
         }
         edge = std::move(node);
@@ -336,7 +346,7 @@ bool map_store::take_edge_range(uint64_t& id, node_summary& summary,
     if (node.value.length) return fail(status::invalid);
     std::string key;
     if (node.key.head) {
-        if (!read_blob(node.key, key) || !erase_blob(node.key)) return false;
+        if (!read_blob(node.key, key, true)) return false;
     } else key.swap(node.key.inline_value);
     if (!keys.empty() && (maximum ? keys.back() <= key : keys.back() >= key))
         return fail(status::invalid);
@@ -366,10 +376,11 @@ bool map_store::take_edges(size_t count, bool maximum,
 }
 
 bool map_store::replace_score_key(const std::string& old_key,
-    const std::string& new_key) {
+    const std::string& new_key, uint64_t shared_key_head) {
     if (error_ != status::ok || !embedded_ || !lexical_)
         return fail(status::invalid);
     node_children children(reuse_node_keys(old_key));
+    children.shared_key_head = shared_key_head;
     node_summary updated;
     return replace_score_path(root_.tree, old_key, new_key, 0, children, updated);
 }
@@ -382,17 +393,24 @@ bool map_store::replace_score_path(uint64_t& id, const std::string& old_key,
     detail::node_key_workspace node(reuse);
     if (!load_child(id, node, children)) return false;
     int before = 0, after = 0;
-    if (!node.key.head) {
+    if (!node.key.head || node.key.shares_fragments()) {
         const auto& pivot = node.key.inline_value;
-        auto compare_score_key = [&](const std::string& key) {
+        auto compare_score_key = [&](const std::string& key, int& result) {
             if (pivot.size() >= 8 && key.size() >= 8) {
                 const auto score_order = std::memcmp(pivot.data(), key.data(), 8);
-                if (score_order) return score_order;
+                if (score_order) {
+                    result = score_order;
+                    return true;
+                }
             }
-            return pivot.compare(key);
+            if (!node.key.head) {
+                result = pivot.compare(key);
+                return true;
+            }
+            return compare(node.key, key, result);
         };
-        before = compare_score_key(old_key);
-        after = compare_score_key(new_key);
+        if (!compare_score_key(old_key, before) || !compare_score_key(new_key, after))
+            return false;
     }
     if (before && after && (before > 0) == (after > 0)) {
         const bool leftward = before > 0;
@@ -487,7 +505,9 @@ bool map_store::remove(uint64_t& id, const std::string& key, bool& removed,
     node_summary left, right;
     if (!check_path(node, order > 0, children, left, right)) return false;
     if (!depth && node.elements != root_.elements) return fail(status::invalid);
-    if (!known && !this->order(node, key, bucket, order)) return false;
+    bool matched_single_fragment = false;
+    if (!known && !compare(node.key, key, order, &matched_single_fragment))
+        return false;
     if (order) {
         if (!remove(order > 0 ? node.left : node.right, key, removed,
             bucket, depth + 1, children, order > 0 ? left : right,
@@ -500,7 +520,8 @@ bool map_store::remove(uint64_t& id, const std::string& key, bool& removed,
         return false;
     if (!replace) return true;
     if (value && !read_blob(node.value, *value)) return false;
-    removed = remove_node(node, id, depth, children, left, right, updated);
+    removed = remove_node(node, id, depth, children, left, right, updated,
+        matched_single_fragment);
     return removed;
 }
 
@@ -578,12 +599,20 @@ bool map_store::remove_rank(uint64_t& id, uint64_t rank, std::string& key,
 
 bool map_store::remove_node(map_node& node, uint64_t& id, unsigned depth,
     node_children& children, node_summary left, node_summary right,
-    node_summary& updated) {
+    node_summary& updated, bool matched_single_fragment) {
     const bool reuse = children.reuse();
     dirty_ = true;
-    if (!erase_blob(node.key) || !erase_blob(node.value)) return false;
+    // An exact match of the terminal first fragment already checked its
+    // identity, offset, length and lack of a successor under this key lock.
+    if (children.deferred_key && node.key.head) {
+        *children.deferred_key = std::move(node.key);
+    } else if (matched_single_fragment) {
+        if (!transaction_.erase_bound(entry_, node.key.head))
+            return fail(status::storage);
+    } else if (!erase_blob(node.key)) return false;
+    if (!erase_blob(node.value)) return false;
     // Score replacement can consume the head tombstone in this transaction.
-    if (lexical_) children.retired_key_head = node.key.head;
+    if (lexical_) children.retired_key_head = node.key.shares_fragments() ? 0 : node.key.head;
     if (!node.left || !node.right) {
         if (!transaction_.erase_bound(entry_, node.id))
             return fail(status::storage);

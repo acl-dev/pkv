@@ -21,6 +21,16 @@ const uint32_t map_page_codec::max_height;
 namespace {
 
 constexpr size_t packed_node_header = 24;
+constexpr size_t zset_reference_header = 11;
+constexpr uint8_t zset_short_member_reference = 0xf6;
+constexpr uint8_t zset_short_score_reference = 0xf7;
+constexpr size_t zset_short_reference_header = 14;
+constexpr size_t zset_short_reference_bytes = zset_short_reference_header + 8;
+constexpr unsigned zset_short_reference_length_bits = 11;
+constexpr uint64_t zset_short_reference_max_length = 1 << zset_short_reference_length_bits;
+constexpr uint32_t zset_short_reference_max_height = 1U << (16 - zset_short_reference_length_bits);
+constexpr uint8_t zset_reference_wide = 1;
+constexpr uint8_t zset_reference_valued = 2;
 constexpr size_t medium_node_header = 16;
 constexpr size_t wide24_node_header = 19;
 constexpr uint64_t wide24_id_max = 0xffffff;
@@ -30,6 +40,24 @@ constexpr size_t short_leaf_header = 8;
 constexpr size_t short_leaf_payload = 14;
 constexpr size_t hashed_key_leaf_header = 7;
 constexpr size_t hashed_key_leaf_max = 24;
+constexpr uint8_t set_short_tag = 0xf4;
+constexpr size_t set_short_header = 3;
+constexpr size_t set_short_min = 16;
+constexpr uint16_t set_short_id_mask = 0x3fff;
+constexpr size_t set_reference_bytes = 20;
+constexpr size_t zset_leaf_header = 6;
+constexpr size_t zset_leaf_min = 15;
+constexpr size_t zset_leaf_max = 25;
+constexpr uint16_t zset_leaf_valued = 0x8000;
+constexpr uint16_t zset_leaf_id_mask = zset_leaf_valued - 1;
+constexpr size_t zset_short_header = 4;
+constexpr size_t zset_short_payload = 26;
+constexpr uint16_t zset_short_length = 0x4000;
+constexpr uint16_t zset_short_id_mask = zset_short_length - 1;
+constexpr uint16_t zset_short_signature = ('Z' << 8) | 'L';
+constexpr uint8_t zset_wide_leaf_tag = 0xf5;
+constexpr size_t zset_wide_leaf_header = 3;
+constexpr size_t zset_wide_leaf_min = 28;
 constexpr size_t short_branch_header = 8;
 constexpr size_t compact_member_header = 11;
 constexpr size_t compact_hash_leaf_header = 7;
@@ -164,6 +192,25 @@ bool valid(const map_node& node) {
 }
 
 template<class Node>
+#if defined(__GNUC__) || defined(__clang__)
+__attribute__((always_inline))
+#endif
+inline map_page_status read_zset_leaf(Node& node, uint16_t meta, const char* payload,
+    size_t size) {
+    const bool valued = meta & zset_leaf_valued;
+    node.id = meta & zset_leaf_id_mask;
+    if (!node.id) return map_page_status::invalid;
+    node.value.length = valued ? 8 : 0;
+    node.key.length = size - node.value.length;
+    node.bucket = valued ? static_cast<uint8_t>(scan_bucket(payload,
+        static_cast<size_t>(node.key.length))) : 0;
+    node.bucket_derived = valued;
+    node.left = node.right = node.key.head = node.value.head = 0;
+    node.height = 1; node.elements = 1;
+    return map_page_status::ok;
+}
+
+template<class Node>
 map_page_status read_node_header(const std::string& bytes, Node& node,
     size_t& header) {
     using codec = map_page_codec;
@@ -172,10 +219,156 @@ map_page_status read_node_header(const std::string& bytes, Node& node,
     if (size < 4) return map_page_status::invalid;
     const auto prefix = get(data, 0, 4);
     constexpr uint32_t node_signature = ('P' << 16) | ('M' << 8) | 'N';
-    if (prefix >> 8 != node_signature) return map_page_status::invalid;
+    if (prefix >> 8 != node_signature) {
+        const auto tag = static_cast<uint8_t>(prefix >> 24);
+        if (tag == zset_short_member_reference || tag == zset_short_score_reference) {
+            if (size != zset_short_reference_bytes) return map_page_status::invalid;
+            const bool score = tag == zset_short_score_reference;
+            const auto length = (prefix & (zset_short_reference_max_length - 1)) + 1;
+            node.bucket = static_cast<uint8_t>(prefix >> 16);
+            if (length <= codec::zset_key_inline_bytes || (score && node.bucket))
+                return map_page_status::invalid;
+            header = zset_short_reference_header;
+            node.bucket_derived = false;
+            node.height = ((prefix & UINT16_MAX) >> zset_short_reference_length_bits) + 1;
+            const auto fields = get(data, 4);
+            node.id = fields >> 48;
+            node.left = (fields >> 32) & UINT16_MAX;
+            node.right = (fields >> 16) & UINT16_MAX;
+            node.elements = fields & UINT16_MAX;
+            node.key.head = get(data, 12, 2);
+            node.key.length = length + (score ? 8 : 0);
+            node.value.head = 0;
+            node.value.length = score ? 0 : 8;
+            return node.key.head && node.key.head != node.id && valid_header(node) ?
+                map_page_status::ok : map_page_status::invalid;
+        }
+        if (tag == zset_wide_leaf_tag) {
+            const auto meta = static_cast<uint16_t>(prefix >> 8);
+            const auto payload = size - zset_wide_leaf_header;
+            const auto limit = codec::zset_key_inline_bytes +
+                (meta & zset_leaf_valued ? 8 : 0);
+            if (payload < zset_wide_leaf_min || payload > limit)
+                return map_page_status::invalid;
+            header = zset_wide_leaf_header;
+            return read_zset_leaf(node, meta, data + header, payload);
+        }
+        if (prefix >> 24 == set_short_tag) {
+            const auto meta = static_cast<uint16_t>(prefix >> 8);
+            header = set_short_header;
+            node.id = meta & set_short_id_mask;
+            node.key.length = set_short_min + (meta >> 14);
+            if (!node.id || size != header + node.key.length)
+                return map_page_status::invalid;
+            node.bucket = static_cast<uint8_t>(scan_bucket(data + header,
+                static_cast<size_t>(node.key.length)));
+            node.bucket_derived = true;
+            node.left = node.right = node.key.head = node.value.head = 0;
+            node.value.length = 0;
+            node.height = 1; node.elements = 1;
+            return map_page_status::ok;
+        }
+        if (prefix >> 16 != zset_short_signature) return map_page_status::invalid;
+        const auto meta = static_cast<uint16_t>(prefix);
+        header = zset_short_header;
+        if (size != header + zset_short_payload + bool(meta & zset_short_length))
+            return map_page_status::invalid;
+        return read_zset_leaf(node, meta & ~zset_short_length, data + header,
+            size - header);
+    }
     node.bucket_derived = false;
     const auto version = static_cast<uint8_t>(prefix);
     switch (version) {
+    case 20: {
+        if (size < zset_reference_header) return map_page_status::invalid;
+        const auto flags = static_cast<uint8_t>(data[4]);
+        if (flags > 2 || data[6]) return map_page_status::invalid;
+        const auto width = 2U << flags;
+        header = zset_reference_header + 5 * width;
+        if (size != header + 8) return map_page_status::invalid;
+        node.height = static_cast<uint8_t>(data[5]);
+        node.bucket = 0;
+        node.key.length = get(data, 7, 4);
+        const auto* fields = data + zset_reference_header;
+        const auto first = get(fields, 0);
+        if (flags == 0) {
+            node.id = first >> 48;
+            node.left = (first >> 32) & UINT16_MAX;
+            node.right = (first >> 16) & UINT16_MAX;
+            node.elements = first & UINT16_MAX;
+            node.key.head = get(fields, 8, 2);
+        } else if (flags == 1) {
+            const auto second = get(fields, 8);
+            node.id = first >> 32;
+            node.left = first & UINT32_MAX;
+            node.right = second >> 32;
+            node.elements = second & UINT32_MAX;
+            node.key.head = get(fields, 16, 4);
+        } else {
+            node.id = first;
+            node.left = get(fields, 8);
+            node.right = get(fields, 16);
+            node.elements = get(fields, 24);
+            node.key.head = get(fields, 32);
+        }
+        node.value.length = node.value.head = 0;
+        return valid_header(node) && node.key.head && node.key.head != node.id &&
+            node.key.length > codec::zset_key_inline_bytes + 8 &&
+            node.key.length <= codec::max_blob_bytes ?
+            map_page_status::ok : map_page_status::invalid;
+    }
+    case 19: {
+        if (size < zset_reference_header) return map_page_status::invalid;
+        const auto flags = static_cast<uint8_t>(data[4]);
+        if (flags & ~(zset_reference_wide | zset_reference_valued))
+            return map_page_status::invalid;
+        const bool wide = flags & zset_reference_wide;
+        header = zset_reference_header + (wide ? 20 : 10);
+        node.height = static_cast<uint8_t>(data[5]);
+        node.bucket = static_cast<uint8_t>(data[6]);
+        node.key.length = get(data, 7, 4);
+        node.value.length = flags & zset_reference_valued ? 8 : 0;
+        if (size != header + node.value.length ||
+            (!node.value.length && node.bucket) ||
+            node.key.length <= codec::key_inline_bytes ||
+            node.key.length > (node.value.length ? codec::max_payload_bytes : codec::max_blob_bytes))
+            return map_page_status::invalid;
+        const auto links = get(data, zset_reference_header);
+        if (wide) {
+            const auto stats = get(data, zset_reference_header + 8);
+            node.id = links >> 32;
+            node.left = links & UINT32_MAX;
+            node.right = stats >> 32;
+            node.elements = stats & UINT32_MAX;
+            node.key.head = get(data, zset_reference_header + 16, 4);
+        } else {
+            node.id = links >> 48;
+            node.left = (links >> 32) & UINT16_MAX;
+            node.right = (links >> 16) & UINT16_MAX;
+            node.elements = links & UINT16_MAX;
+            node.key.head = get(data, zset_reference_header + 8, 2);
+        }
+        node.value.head = 0;
+        return node.key.head && node.key.head != node.id && valid_header(node) ?
+            map_page_status::ok : map_page_status::invalid;
+    }
+    case 18: {
+        header = set_reference_bytes;
+        if (size != header) return map_page_status::invalid;
+        node.bucket = static_cast<uint8_t>(data[4]);
+        node.height = static_cast<uint8_t>(data[5]);
+        node.id = get(data, 6, 2);
+        node.left = get(data, 8, 2);
+        node.right = get(data, 10, 2);
+        node.elements = get(data, 12, 2);
+        node.key.head = get(data, 14, 2);
+        node.key.length = get(data, 16, 4);
+        node.value.head = node.value.length = 0;
+        return valid_header(node) && node.key.head && node.key.head != node.id &&
+            node.key.length > codec::key_inline_bytes &&
+            node.key.length <= codec::max_payload_bytes ?
+            map_page_status::ok : map_page_status::invalid;
+    }
     case 3:
     case 9: {
         const bool medium = version == 9;
@@ -253,6 +446,13 @@ map_page_status read_node_header(const std::string& bytes, Node& node,
         node.left = node.right = node.key.head = node.value.head = 0;
         node.height = 1; node.elements = 1; node.value.length = 0;
         return node.id ? map_page_status::ok : map_page_status::invalid;
+    }
+    case 17: {
+        header = zset_leaf_header;
+        if (size < header + zset_leaf_min || size > header + zset_leaf_max)
+            return map_page_status::invalid;
+        return read_zset_leaf(node, static_cast<uint16_t>(get(data, 4, 2)),
+            data + header, size - header);
     }
     case 5: {
         header = small_node_header;
@@ -402,6 +602,35 @@ map_page_status read_node_header(const std::string& bytes, Node& node,
     }
 }
 
+bool shares_zset_reference(const std::string& bytes) {
+    return static_cast<uint8_t>(bytes[0]) == zset_short_score_reference ||
+        (bytes[0] == 'P' && bytes[3] == '\24');
+}
+
+bool fits_short_zset_reference(const map_node& node, uint64_t fields, uint64_t length) {
+    return fields <= UINT16_MAX && length > map_page_codec::zset_key_inline_bytes &&
+        length <= zset_short_reference_max_length &&
+        node.height <= zset_short_reference_max_height &&
+        std::string().capacity() >= zset_short_reference_bytes;
+}
+
+map_page_status encode_short_zset_reference(const map_node& node, bool score,
+    uint64_t member_length, std::string& out) {
+    char data[zset_short_reference_bytes];
+    data[0] = static_cast<char>(score ? zset_short_score_reference : zset_short_member_reference);
+    data[1] = static_cast<char>(node.bucket);
+    put(data + 2, ((node.height - 1) << zset_short_reference_length_bits) |
+        (member_length - 1), 2);
+    put(data + 4, (node.id << 48) | (node.left << 32) | (node.right << 16) | node.elements);
+    put(data + 12, node.key.head, 2);
+    const auto& word = score ? node.key.inline_value : node.value.inline_value;
+    std::memcpy(data + zset_short_reference_header, word.data(), 8);
+    try {
+        out.assign(data, sizeof(data));
+        return map_page_status::ok;
+    } catch (const std::bad_alloc&) { return map_page_status::out_of_memory; }
+}
+
 bool valid_fragment(uint64_t id, uint64_t next, uint64_t offset, size_t size) {
     return id && next != id && size &&
         size <= map_page_codec::max_page_bytes -
@@ -520,18 +749,118 @@ map_page_status map_page_codec::encode_node(const map_node& node,
     } catch (const std::bad_alloc&) { return map_page_status::out_of_memory; }
 }
 
+map_page_status map_page_codec::encode_set_reference(const map_node& node,
+    std::string& out) {
+    if (!node.key.head || node.value.head || node.value.length ||
+        (node.id | node.left | node.right | node.elements | node.key.head) > UINT16_MAX ||
+        node.key.length > max_payload_bytes) return encode_node(node, out);
+    if (!valid(node)) return map_page_status::invalid;
+    try {
+        char data[set_reference_bytes];
+        std::memcpy(data, "PMN\22", 4);
+        data[4] = static_cast<char>(node.bucket);
+        data[5] = static_cast<char>(node.height);
+        put(data + 6, node.id, 2); put(data + 8, node.left, 2);
+        put(data + 10, node.right, 2); put(data + 12, node.elements, 2);
+        put(data + 14, node.key.head, 2); put(data + 16, node.key.length, 4);
+        std::string(data, sizeof(data)).swap(out);
+        return map_page_status::ok;
+    } catch (const std::bad_alloc&) { return map_page_status::out_of_memory; }
+}
+
 map_page_status map_page_codec::encode_packed_node(const map_node& node,
-    std::string& out, bool hashed_bucket) {
-    return encode_packed_node_impl(node, out, hashed_bucket, false);
+    std::string& out, bool hashed_bucket, bool compact_zset, bool compact_set_leaf) {
+    return encode_packed_node_impl(node, out, hashed_bucket, false,
+        compact_zset, compact_set_leaf);
 }
 
 map_page_status map_page_codec::encode_packed_node_scratch(const map_node& node,
-    std::string& out, bool hashed_bucket) {
-    return encode_packed_node_impl(node, out, hashed_bucket, true);
+    std::string& out, bool hashed_bucket, bool compact_zset) {
+    return encode_packed_node_impl(node, out, hashed_bucket, true, compact_zset, false);
 }
 
 map_page_status map_page_codec::encode_packed_node_impl(const map_node& node,
-    std::string& out, bool hashed_bucket, bool reuse_capacity) {
+    std::string& out, bool hashed_bucket, bool reuse_capacity, bool compact_zset,
+    bool compact_set_leaf) {
+    if (node.key.shares_fragments()) {
+        if (hashed_bucket || node.bucket || !valid_header(node) ||
+            node.key.head == node.id || node.key.inline_value.size() != 8 ||
+            node.key.length <= zset_key_inline_bytes + 8 ||
+            node.key.length > max_blob_bytes || node.value.head ||
+            node.value.length || !node.value.inline_value.empty())
+            return map_page_status::invalid;
+        const auto fields = node.id | node.left | node.right | node.elements | node.key.head;
+        const auto member_length = node.key.length - 8;
+        if (compact_zset && fits_short_zset_reference(node, fields, member_length))
+            return encode_short_zset_reference(node, true, member_length, out);
+        const unsigned flags = fields <= UINT16_MAX ? 0 : fields <= UINT32_MAX ? 1 : 2;
+        const auto width = 2U << flags;
+        const auto header = zset_reference_header + 5 * width;
+        char data[zset_reference_header + 5 * 8 + 8];
+        std::memcpy(data, "PMN\24", 4);
+        data[4] = static_cast<char>(flags);
+        data[5] = static_cast<char>(node.height);
+        data[6] = 0;
+        put(data + 7, node.key.length, 4);
+        auto* packed = data + zset_reference_header;
+        if (flags == 0) {
+            put(packed, (node.id << 48) | (node.left << 32) |
+                (node.right << 16) | node.elements);
+            put(packed + 8, node.key.head, 2);
+        } else if (flags == 1) {
+            put(packed, (node.id << 32) | node.left);
+            put(packed + 8, (node.right << 32) | node.elements);
+            put(packed + 16, node.key.head, 4);
+        } else {
+            put(packed, node.id);
+            put(packed + 8, node.left);
+            put(packed + 16, node.right);
+            put(packed + 24, node.elements);
+            put(packed + 32, node.key.head);
+        }
+        std::memcpy(data + header, node.key.inline_value.data(), 8);
+        try {
+            out.assign(data, header + 8);
+            return map_page_status::ok;
+        } catch (const std::bad_alloc&) { return map_page_status::out_of_memory; }
+    }
+    if (compact_zset && node.key.head && !node.value.head &&
+        (hashed_bucket ? node.value.length == 8 && node.key.length <= max_payload_bytes :
+            !node.value.length && !node.bucket)) {
+        const auto fields = node.id | node.left | node.right | node.elements | node.key.head;
+        if (fields > UINT32_MAX) return encode_node(node, out);
+        if (!valid(node)) return map_page_status::invalid;
+        if (hashed_bucket && fits_short_zset_reference(node, fields, node.key.length))
+            return encode_short_zset_reference(node, false, node.key.length, out);
+        try {
+            const bool wide = fields > UINT16_MAX;
+            const auto header = zset_reference_header + (wide ? 20 : 10);
+            char data[zset_reference_header + 5 * 4 + 8];
+            std::memcpy(data, "PMN\23", 4);
+            data[4] = static_cast<char>((wide ? zset_reference_wide : 0) |
+                (hashed_bucket ? zset_reference_valued : 0));
+            data[5] = static_cast<char>(node.height);
+            data[6] = static_cast<char>(node.bucket);
+            put(data + 7, node.key.length, 4);
+            auto* packed = data + zset_reference_header;
+            if (wide) {
+                put(packed, (node.id << 32) | node.left);
+                put(packed + 8, (node.right << 32) | node.elements);
+                put(packed + 16, node.key.head, 4);
+            } else {
+                put(packed, (node.id << 48) | (node.left << 32) |
+                    (node.right << 16) | node.elements);
+                put(packed + 8, node.key.head, 2);
+            }
+            std::memcpy(data + header, node.value.inline_value.data(), node.value.length);
+            const auto size = header + node.value.length;
+            if (size > std::string().capacity() && out.capacity() >= size && out.capacity() <= 64)
+                out.assign(data, size);
+            else
+                std::string(data, size).swap(out);
+            return map_page_status::ok;
+        } catch (const std::bad_alloc&) { return map_page_status::out_of_memory; }
+    }
     if (node.key.head || node.value.head || node.id > UINT32_MAX ||
         node.left > UINT32_MAX || node.right > UINT32_MAX ||
         node.elements > UINT32_MAX) return encode_node(node, out);
@@ -541,6 +870,56 @@ map_page_status map_page_codec::encode_packed_node_impl(const map_node& node,
         const auto values = node.value.inline_value.size();
         const bool leaf = !node.left && !node.right &&
             node.height == 1 && node.elements == 1;
+        if (compact_set_leaf && leaf && hashed_bucket && !values &&
+            keys >= set_short_min && keys <= set_short_min + 3 &&
+            node.id <= set_short_id_mask) {
+            char data[set_short_header + set_short_min + 3];
+            data[0] = static_cast<char>(set_short_tag);
+            put(data + 1, node.id | ((keys - set_short_min) << 14), 2);
+            std::memcpy(data + set_short_header, node.key.inline_value.data(), keys);
+            std::string(data, set_short_header + keys).swap(out);
+            return map_page_status::ok;
+        }
+        const auto payload = keys + values;
+        if (compact_zset && leaf && payload >= zset_wide_leaf_min &&
+            node.id <= zset_leaf_id_mask &&
+            (hashed_bucket ? values == 8 : !values && !node.bucket)) {
+            char data[zset_wide_leaf_header + zset_key_inline_bytes + 8];
+            data[0] = static_cast<char>(zset_wide_leaf_tag);
+            put(data + 1, node.id | (hashed_bucket ? zset_leaf_valued : 0), 2);
+            std::memcpy(data + zset_wide_leaf_header, node.key.inline_value.data(), keys);
+            std::memcpy(data + zset_wide_leaf_header + keys, node.value.inline_value.data(), values);
+            const auto size = zset_wide_leaf_header + payload;
+            if (out.capacity() == size) out.assign(data, size);
+            else std::string(data, size).swap(out);
+            return map_page_status::ok;
+        }
+        const bool short_header = payload > zset_leaf_max;
+        if (!reuse_capacity && compact_zset && leaf && payload >= zset_leaf_min &&
+            payload <= zset_short_payload + 1 &&
+            node.id <= (short_header ? zset_short_id_mask : zset_leaf_id_mask) &&
+            (hashed_bucket ? values == 8 : !values && !node.bucket)) {
+            char data[zset_leaf_header + zset_leaf_max];
+            const auto meta = node.id | (hashed_bucket ? zset_leaf_valued : 0);
+            const auto header = short_header ? zset_short_header : zset_leaf_header;
+            if (short_header) {
+                put(data, zset_short_signature, 2);
+                put(data + 2, meta | (payload > zset_short_payload ? zset_short_length : 0), 2);
+            } else {
+                std::memcpy(data, "PMN\21", 4);
+                put(data + 4, meta, 2);
+            }
+            std::memcpy(data + header, node.key.inline_value.data(), keys);
+            std::memcpy(data + header + keys, node.value.inline_value.data(), values);
+            const auto size = header + payload;
+            const auto local = std::string().capacity();
+            const auto limit = size <= local ? local : sizeof(data);
+            if (out.capacity() >= size && out.capacity() <= limit)
+                out.assign(data, size);
+            else
+                std::string(data, size).swap(out);
+            return map_page_status::ok;
+        }
         if (hashed_bucket && leaf && !values && node.id <= UINT16_MAX &&
             keys > short_leaf_payload && keys <= hashed_key_leaf_max) {
             char data[hashed_key_leaf_header + hashed_key_leaf_max];
@@ -772,15 +1151,17 @@ map_page_status map_page_codec::decode_node_scratch(const std::string& bytes,
     const auto result = read_node_header(bytes, node, header);
     if (result != map_page_status::ok) return result;
     try {
-        const auto keys = node.key.head ? 0 : node.key.length;
+        const auto keys = node.key.head ? (shares_zset_reference(bytes) ? 8 : 0) : node.key.length;
         const auto values = !with_value || node.value.head ? 0 : node.value.length;
-        node.key.inline_value.assign(bytes.data() + header,
-            static_cast<size_t>(keys));
-        if (values)
-            node.value.inline_value.assign(bytes.data() + header +
-                static_cast<size_t>(keys), static_cast<size_t>(values));
-        else
-            node.value.inline_value.clear();
+        const char* payload = bytes.data() + header;
+        // A constant length lets the library specialize short assignment
+        // while preserving any capacity already held by the scratch node.
+        if (keys == 8) node.key.inline_value.assign(payload, 8);
+        else if (keys) node.key.inline_value.assign(payload, static_cast<size_t>(keys));
+        else node.key.inline_value.clear();
+        if (values == 8) node.value.inline_value.assign(payload + keys, 8);
+        else if (values) node.value.inline_value.assign(payload + keys, static_cast<size_t>(values));
+        else node.value.inline_value.clear();
         return map_page_status::ok;
     } catch (const std::bad_alloc&) { return map_page_status::out_of_memory; }
 }
@@ -798,6 +1179,8 @@ map_page_status map_page_codec::decode_node_view_scratch(
     size_t header;
     const auto result = read_node_header(bytes, node, header);
     if (result != map_page_status::ok) return result;
+    node.key.shared = node.key.head && shares_zset_reference(bytes);
+    node.value.shared = false;
     node.key.data = bytes.data() + header;
     node.value.data = node.key.data + node.key.inline_size();
     return map_page_status::ok;

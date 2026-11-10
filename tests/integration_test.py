@@ -933,12 +933,50 @@ def run_lists(port):
         assert isinstance(replies[4], ErrorReply) and replies[4].startswith(b'WRONGTYPE ')
         assert replies[5:] == [0, b'set', 1]
         count += len(requests)
+        model = [b'old'] * 128
+        check(len(model), 'RPUSH', pipeline_key, *model)
+        check(1, 'PEXPIREAT', pipeline_key, deadline)
+        requests, expected = [], []
+        for i in range(12):
+            value = bytes([i, 0, 255])
+            requests.extend([('RPUSH', pipeline_key, value),
+                ('RPUSH', pipeline_key, b'temp'), ('RPOP', pipeline_key),
+                ('LSET', pipeline_key, -1, value + b'!'),
+                ('RPUSH', pipeline_key, value), ('LPUSH', pipeline_key, value),
+                ('LPOP', pipeline_key), ('RPUSH', pipeline_key, b'end')])
+            n = len(model)
+            expected.extend([n + 1, n + 2, b'temp', b'OK', n + 2, n + 3, value, n + 3])
+            model.extend([value + b'!', value, b'end'])
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        assert [c.read() for _ in requests] == expected
+        count += len(requests)
+        check(model, 'LRANGE', pipeline_key, 0, -1)
+        check(deadline, 'PEXPIRETIME', pipeline_key)
+        check(1, 'DEL', pipeline_key)
+        mixed = [bytes([i, 0]).ljust(width, b'x')
+                 for i, width in enumerate((512,) * 40 + (72, 255, 256) * 24)]
+        check(1, 'RPUSH', pipeline_key, b'initial')
+        check(1, 'PEXPIREAT', pipeline_key, deadline)
+        requests = [('RPUSH', pipeline_key, value) for value in mixed]
+        requests += [('LPUSH', pipeline_key, mixed[-1]), ('LPOP', pipeline_key),
+                     ('RPOP', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        expected = list(range(2, len(mixed) + 2)) + [len(mixed) + 2, mixed[-1], mixed[-1]]
+        assert [c.read() for _ in requests] == expected
+        count += len(requests)
+        check([b'initial'] + mixed[:-1], 'LRANGE', pipeline_key, 0, -1)
+        check(deadline, 'PEXPIRETIME', pipeline_key)
+        check(1, 'DEL', pipeline_key)
         wide = [str(i).encode().ljust(1024, b'x') for i in range(80)]
-        check(80, 'RPUSH', pipeline_key, *wide)
+        requests = [('LPUSH', pipeline_key, value) for value in wide]
+        requests += [('RPUSH', pipeline_key, b'right'), ('RPOP', pipeline_key)]
+        c.socket.sendall(b''.join(c.encode(args) for args in requests))
+        assert [c.read() for _ in requests] == list(range(1, 81)) + [81, b'right']
+        count += len(requests)
         requests = [('RPOP', pipeline_key)] * len(wide)
         requests += [('RPUSH', pipeline_key, b'new'), ('RPOP', pipeline_key)]
         c.socket.sendall(b''.join(c.encode(args) for args in requests))
-        assert [c.read() for _ in requests] == wide[::-1] + [1, b'new']
+        assert [c.read() for _ in requests] == wide + [1, b'new']
         count += len(requests)
         for width in (128, 1024):
             a, b = b'a' * width, b'b' * width
@@ -1525,7 +1563,31 @@ def run_sets(port):
         assert [c.read() for _ in requests] == [0] * 32 + [1, 0]
         count += len(requests)
         check(len(members) + 1, 'SCARD', bucketed)
+        for size in (6, 7, 32, 33):
+            absent = b'absent\0member'
+            args = [binary, *members[:size - 3], absent, binary]
+            query = ('SMISMEMBER', bucketed, *args)
+            varied = ('SMISMEMBER', bucketed, absent, *args[1:])
+            present = [1] * (size - 2) + [0, 1]
+            removed = [0, *present[1:-1], 0]
+            requests = [query, query, varied, ('SREM', bucketed, binary),
+                        query, query, ('SADD', bucketed, binary), query]
+            c.socket.sendall(b''.join(c.encode(command) for command in requests))
+            assert [c.read() for _ in requests] == [
+                present, present, [0, *present[1:]], 1, removed, removed, 1, present]
+            count += len(requests)
         check(1, 'DEL', bucketed)
+        plain = key + b':membership-tree'
+        prefix = b'fragment\0' + b'x' * 72
+        long_members = [prefix + bytes([i]) for i in range(4)]
+        plain_members = members[:188] + long_members
+        check(len(plain_members), 'SADD', plain, *plain_members)
+        probe = [long_members[3], prefix, members[7], long_members[0],
+                 long_members[3], b'absent\0member', members[0]]
+        expected = [1, 0, 1, 1, 1, 0, 1]
+        check(expected, 'SMISMEMBER', plain, *probe)
+        check(expected * 6, 'SMISMEMBER', plain, *(probe * 6))
+        check(1, 'DEL', plain)
         check(0, 'SCARD', key)
         check(0, 'SISMEMBER', key, b'')
         check([0, 0, 0], 'SMISMEMBER', key, b'', 'a', b'')
@@ -2610,6 +2672,32 @@ def run_zset_sampling(port):
         large = {('zrandom-large:%03d' % i).encode() + b'\0' * 80: str(i - 150).encode() for i in range(300)}
         check(300, 'ZADD', 'zrandom-large', *[part for m, s in large.items() for part in (s, m)])
         for count in (1, 17, 250, 300, 1000, -1, -450): sampled('zrandom-large', large, count, True)
+
+        mixed = {b'm:%02d\0' % i + b'x' * 15: b'1.5' for i in range(16)}
+        mixed[b'last\0' + b'y' * 256] = b'inf'
+        check(len(mixed), 'ZADD', 'zrandom-mixed', *(part for m, s in mixed.items() for part in (s, m)))
+        for _ in range(8):
+            sampled('zrandom-mixed', mixed, 16, True)
+            sampled('zrandom-mixed', mixed, -8, True)
+
+        key = 'zrandom-pipeline'
+        values = {b'item:%d\0' % i + b'x' * 280: str(i).encode() for i in range(8)}
+        check(8, 'ZADD', key, *(part for m, s in values.items() for part in (s, m)))
+        check(1, 'PEXPIREAT', key, 4102444800123)
+        draw = ('ZRANDMEMBER', key, 8, 'WITHSCORES')
+        updates = [(m, str(1000 + i).encode()) for i, m in enumerate(values)]
+        commands = [command for m, s in updates for command in (draw, ('ZADD', key, s, m), draw)]
+        c.socket.sendall(b''.join(c.encode(command) for command in commands))
+        for member, score in updates:
+            before = c.read()
+            assert len(before) == 16 and dict(zip(before[::2], before[1::2])) == values
+            assert c.read() == 0
+            values[member] = score
+            after = c.read()
+            assert len(after) == 16 and dict(zip(after[::2], after[1::2])) == values
+            checks += 3
+        check(4102444800123, 'PEXPIRETIME', key)
+
         for command, args in [('SET', ('value',)), ('HSET', ('f', 'v')), ('RPUSH', ('v',)), ('SADD', ('v',))]:
             c.call('DEL', 'zrandom-wrong'); c.call(command, 'zrandom-wrong', *args)
             for count in (None, 0, 1, -1):

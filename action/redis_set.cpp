@@ -43,6 +43,37 @@ bool redis_set::exec(const char* cmd, redis_coder& result) {
         else reply.set_error(data.error());
         return true;
     }
+    const bool single_member = is("SISMEMBER");
+    if (single_member || is("SMISMEMBER")) {
+        if (check_cluster_mode(true) && route_keys(cmd, result)) return true;
+        dao::paged_set data(handler_.page_pipeline_scope_);
+        auto& db = handler_.get_db();
+        auto& reply = result.create_object();
+        const auto fail = [&]() { reply.set_error(data.error()); return true; };
+        const auto& key = *obj_.argument(1);
+        const auto count = obj_.size() - 2;
+        constexpr auto limit = db::page_lock_scope::max_membership_batch;
+        if (count <= limit) {
+            const std::string* members[limit];
+            for (size_t i = 0; i < count; ++i) members[i] = obj_.argument(i + 2);
+            unsigned found;
+            if (!data.membership(db, key, members, count, found)) return fail();
+            if (single_member) reply.set_number(found);
+            else {
+                reply.set_type(REDIS_OBJ_ARRAY);
+                for (size_t i = 0; i < count; ++i)
+                    reply.create_child().set_number((found >> i) & 1U);
+            }
+            return true;
+        }
+        std::vector<long long> membership;
+        if (!data.membership(db, key, [&](size_t i) -> const std::string& {
+            return *obj_.argument(i + 2);
+        }, count, membership)) return fail();
+        reply.set_type(REDIS_OBJ_ARRAY);
+        for (auto member : membership) reply.create_child().set_number(member);
+        return true;
+    }
     const bool store = is("SUNIONSTORE") || is("SINTERSTORE") || is("SDIFFSTORE");
     const bool algebra = store || is("SUNION") || is("SINTER") || is("SDIFF");
     std::vector<std::string> keys;
@@ -61,28 +92,6 @@ bool redis_set::exec(const char* cmd, redis_coder& result) {
         long long count;
         if (!data.size(db, key, count)) return fail();
         reply.set_number(count);
-    } else if (is("SISMEMBER") || is("SMISMEMBER")) {
-        const auto count = obj_.size() - 2;
-        constexpr auto limit = db::page_lock_scope::max_membership_batch;
-        if (count <= limit) {
-            const std::string* members[limit];
-            for (size_t i = 0; i < count; ++i) members[i] = obj_.argument(i + 2);
-            unsigned found;
-            if (!data.membership(db, key, members, count, found)) return fail();
-            if (is("SISMEMBER")) reply.set_number(found);
-            else {
-                reply.set_type(REDIS_OBJ_ARRAY);
-                for (size_t i = 0; i < count; ++i)
-                    reply.create_child().set_number((found >> i) & 1U);
-            }
-            return true;
-        }
-        std::vector<std::string> values;
-        for (size_t i = 2; i < obj_.size(); ++i) values.push_back(*obj_.argument(i));
-        std::vector<long long> membership;
-        if (!data.membership(db, key, values, membership)) return fail();
-        reply.set_type(REDIS_OBJ_ARRAY);
-        for (auto member : membership) reply.create_child().set_number(member);
     } else if (is("SMOVE")) {
         bool moved;
         if (!data.move(db, key, keys[1], *obj_.argument(3), moved)) return fail();

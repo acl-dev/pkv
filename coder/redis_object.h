@@ -41,9 +41,12 @@ public:
         // Raw replies adopt fresh frames. Large argument and reply buffers
         // should also leave the worker cache when their commands finish.
         if (response_kind_ == response_kind::raw ||
-            response_kind_ == response_kind::raw_set ||
-            buf_.capacity() > 128 * 1024) std::string().swap(buf_);
-        else buf_.clear();
+            response_kind_ == response_kind::raw_set) {
+            std::string().swap(buf_);
+        } else if (buf_.capacity() >= 128 * 1024) {
+            if (strend_pos_ == 2 && status_ == redis_s_finish) recycle_bulk_buffer();
+            else std::string().swap(buf_);
+        } else buf_.clear();
         response_kind_ = response_kind::plain;
         response_protocol_ = 0;
         status_ = redis_s_begin;
@@ -95,6 +98,10 @@ public:
     redis_object& set_error(const std::string& data, bool return_parent = false);
     redis_object& set_number(long long n, bool return_parent = false);
     redis_object& set_string(const std::string& data, bool return_parent = false);
+    std::string& string_buffer() noexcept {
+        type_ = REDIS_OBJ_STRING;
+        return buf_;
+    }
     redis_object& set_raw(std::string&& data);
     redis_object& set_bulk_collection(const std::vector<std::string>& values,
         bool as_set = false);
@@ -130,7 +137,16 @@ public:
 
 private:
     friend class redis_coder;
+    friend class redis_ocache;
+    void release_idle_storage() noexcept {
+        if (objs_ && objs_->capacity() > 64) {
+            delete objs_;
+            objs_ = nullptr;
+        }
+        if (buf_.capacity() > 256) std::string().swap(buf_);
+    }
     void recycle_children();
+    void recycle_bulk_buffer() noexcept;
     int status_ = redis_s_begin;
     redis_obj_t type_ = REDIS_OBJ_UNKOWN;
 

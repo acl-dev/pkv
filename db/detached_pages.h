@@ -19,14 +19,12 @@ std::string* detached_page_value(std::unordered_map<Args...>& values, uint64_t i
 // Native root frames must roll back before this handle restores the map.
 template<class Map> class detached_pages : public db::prepared_pages {
     Map* original_;
-    std::shared_ptr<void> pin_;
     Map values_;
     std::vector<std::pair<std::string*, std::string>> replacements_;
     std::vector<uint64_t> added_, erased_;
     bool prepared_ = false, published_ = false;
 public:
-    explicit detached_pages(Map* original, std::shared_ptr<void> pin = {})
-    : original_(original), pin_(std::move(pin)) {
+    explicit detached_pages(Map* original) : original_(original) {
         static_assert(noexcept(std::declval<Map&>().swap(
             std::declval<Map&>())), "detached map swap must not throw");
         if (original_) original_->swap(values_);

@@ -1,10 +1,18 @@
 #include "page_transaction.h"
+#include "db_watcher.h"
 #include <array>
 #include <cassert>
 
 namespace pkv {
 
 const size_t page_transaction::max_value_bytes;
+
+bool page_transaction::can_edit_list() const {
+    return !failed_ && scope_ && scope_->cache_collections_ && roots_.size() == 1 &&
+        roots_.begin()->found && !roots_.begin()->clear_pages && !has_changes() &&
+        (!database_.watchers_ || !database_.watchers_->requires_page_payload());
+}
+
 
 namespace {
 constexpr uint16_t wide_position_mask = 0x0fff;

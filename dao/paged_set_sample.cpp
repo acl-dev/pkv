@@ -25,11 +25,7 @@ bool paged_set::choose(map_store& store, long long count,
         };
         return visit_members(store, std::ref(collect));
     }
-    // Sparse Fisher-Yates shuffles numeric ranks, so a small sample needs
-    // O(wanted) scratch space and never copies all members or their pointers.
-    rank_sampler ranks(size, repeat);
-    for (uint64_t i = 0; i < wanted; ++i) {
-        const auto rank = ranks.next();
+    return visit_sampled_ranks(size, wanted, repeat, [&](uint64_t rank) {
         std::string member;
         bool present;
         if (!store.select(rank, member, present)) return false;
@@ -37,8 +33,8 @@ bool paged_set::choose(map_store& store, long long count,
             read_status_ = read_status::invalid_record; return false;
         }
         out.push_back(std::move(member));
-    }
-    return true;
+        return true;
+    });
 }
 
 bool paged_set::sample(shared_db& db, const std::string& key,
@@ -47,7 +43,8 @@ bool paged_set::sample(shared_db& db, const std::string& key,
     if (count == LLONG_MIN || (remove && count < 0)) {
         read_status_ = read_status::invalid_integer; return false;
     }
-    bool ok;
+    bool ok = false;
+    bool too_large = false;
     try {
         auto tree = [&](map_store& store) {
             out.found = store.exists();
@@ -79,51 +76,57 @@ bool paged_set::sample(shared_db& db, const std::string& key,
             }
             return true;
         };
-        ok = run_callback(db, key, tree, true,
-            [&](db::batch_entry& root, const compact_set::view* packed) {
-                out.found = packed != nullptr;
-                if (!packed || !count) return true;
+        const auto compact = [&](db::batch_entry& root, const compact_set::view* packed) {
+            out.found = packed != nullptr;
+            if (!packed || !count) return true;
 
-                const auto size = packed->count();
-                const bool repeat = count < 0;
-                const auto wanted = repeat ? static_cast<uint64_t>(-count) :
-                    std::min<uint64_t>(count, size);
-                if (wanted > out.values.max_size())
-                    throw std::length_error("compact Set sample too large");
-                out.values.reserve(static_cast<size_t>(wanted));
-                compact_set::erase_mask removed;
-                if (!repeat && wanted == size) {
-                    for (unsigned i = 0; i < size; ++i)
-                        out.values.push_back(packed->at(i).str());
-                } else if (repeat || wanted == 1) {
-                    rank_sampler ranks(size, true);
-                    for (uint64_t i = 0; i < wanted; ++i) {
-                        const auto rank = ranks.next();
-                        out.values.push_back(packed->at(rank).str());
-                        if (remove) removed.set(static_cast<size_t>(rank));
-                    }
-                } else {
-                    std::array<unsigned, compact_set::max_members> ranks;
-                    std::iota(ranks.begin(), ranks.begin() + size, 0U);
-                    auto& random = set_sampling_engine();
-                    for (unsigned i = 0; i < wanted; ++i) {
-                        const auto position =
-                            std::uniform_int_distribution<unsigned>(i, size - 1)(random);
-                        std::swap(ranks[i], ranks[position]);
-                        out.values.push_back(packed->at(ranks[i]).str());
-                        if (remove) removed.set(ranks[i]);
-                    }
-                }
-                if (remove && wanted == size) {
-                    root.action = db::update_action::erase;
-                } else if (remove) {
-                    root.value = packed->without(removed, size - wanted);
-                    root.action = db::update_action::write;
-                }
+            const auto size = packed->count();
+            const bool repeat = count < 0;
+            const auto wanted = repeat ? static_cast<uint64_t>(-count) :
+                std::min<uint64_t>(count, size);
+            if (wanted > out.values.max_size()) {
+                too_large = true;
                 return true;
-            });
+            }
+            out.values.reserve(static_cast<size_t>(wanted));
+            compact_set::erase_mask removed;
+            if (!repeat && wanted == size) {
+                for (unsigned i = 0; i < size; ++i)
+                    out.values.push_back(packed->at(i).str());
+            } else if (repeat || wanted == 1) {
+                rank_sampler ranks(size, true);
+                for (uint64_t i = 0; i < wanted; ++i) {
+                    const auto rank = ranks.next();
+                    out.values.push_back(packed->at(rank).str());
+                    if (remove) removed.set(static_cast<size_t>(rank));
+                }
+            } else {
+                std::array<unsigned, compact_set::max_members> ranks;
+                std::iota(ranks.begin(), ranks.begin() + size, 0U);
+                auto& random = set_sampling_engine();
+                for (unsigned i = 0; i < wanted; ++i) {
+                    const auto position =
+                        std::uniform_int_distribution<unsigned>(i, size - 1)(random);
+                    std::swap(ranks[i], ranks[position]);
+                    out.values.push_back(packed->at(ranks[i]).str());
+                    if (remove) removed.set(ranks[i]);
+                }
+            }
+            if (remove && wanted == size) {
+                root.action = db::update_action::erase;
+            } else if (remove) {
+                root.value = packed->without(removed, size - wanted);
+                root.action = db::update_action::write;
+            }
+            return true;
+        };
+        ok = run_callback(db, key, std::ref(tree), true, std::ref(compact));
     } catch (const std::length_error&) {
-        read_status_ = read_status::sample_too_large; ok = false;
+        too_large = true;
+    }
+    if (too_large) {
+        read_status_ = read_status::sample_too_large;
+        ok = false;
     }
     if (!ok) out = set_sample_result();
     return ok;

@@ -3,6 +3,7 @@
 //
 
 #include "stdafx.h"
+#include <algorithm>
 #include <climits>
 #include <cstring>
 #include <limits>
@@ -61,6 +62,10 @@ void redis_object::recycle_children() {
         }
         objs_->clear();
     }
+}
+
+void redis_object::recycle_bulk_buffer() noexcept {
+    cache_.recycle_bulk(buf_);
 }
 
 const char* redis_object::get_cmd() const {
@@ -201,7 +206,8 @@ const char* redis_object::parse_object(const char* data, size_t& len) {
             obj_->status_ = redis_s_string;
             len -= body;
             const auto* payload = data + body - value;
-            if (value <= obj_->buf_.capacity()) {
+            if (value <= obj_->buf_.capacity() ||
+                (value >= redis_ocache::bulk_min && cache_.reuse_bulk(obj_->buf_, value))) {
                 obj_->buf_.assign(payload, value);
             } else {
                 std::string bytes(payload, value);
@@ -217,11 +223,16 @@ const char* redis_object::parse_object(const char* data, size_t& len) {
         }
         if (!obj_->finish()) return data;
         CHECK(objs_);
-        // Once half of a wide array has arrived, the last growth can use
-        // its declared count. A header alone never reserves this space.
-        if (objs_->size() >= 64 && objs_->size() == objs_->capacity() &&
-            static_cast<size_t>(cnt_) - objs_->size() <= objs_->size())
-            objs_->reserve(static_cast<size_t>(cnt_));
+        if (objs_->size() == objs_->capacity()) {
+            const size_t parsed = objs_->size();
+            const size_t count = static_cast<size_t>(cnt_);
+            // Grow medium arrays in larger steps only after parsing real
+            // children. Larger declarations keep the original growth bound.
+            if (parsed >= 16 && count >= 64 && count <= 1024)
+                objs_->reserve(std::min(count, parsed * 4));
+            else if (parsed >= 64 && count - parsed <= parsed)
+                objs_->reserve(count);
+        }
         objs_->push_back(obj_);
         obj_ = nullptr;
         if (objs_->size() == static_cast<size_t>(cnt_)) {
@@ -419,6 +430,35 @@ const char* redis_object::parse_array(const char* data, size_t& len) {
 }
 
 const char* redis_object::parse_cmdline(const char *data, size_t &len) {
+    auto append = [&](const char* word, size_t size) {
+        auto& obj = create_child();
+        obj.buf_.assign(word, size);
+        obj.type_ = REDIS_OBJ_STRING;
+    };
+
+    // Complete short alphabetic commands need neither streaming line
+    // assembly nor quote and whitespace tokenization.
+    if (buf_.empty() && !line_cr_) {
+        size_t size = 0;
+        const size_t limit = std::min(len, size_t(16));
+        while (size < limit &&
+            (static_cast<unsigned char>(data[size]) | 0x20U) - 'a' <= 'z' - 'a')
+            ++size;
+        size_t ending = 0;
+        if (size && size < len) {
+            if (data[size] == '\n') ending = 1;
+            else if (len - size >= 2 && data[size] == '\r' &&
+                data[size + 1] == '\n') ending = 2;
+        }
+        if (ending) {
+            buf_.assign(data, size);
+            len -= size + ending;
+            append(data, size);
+            status_ = redis_s_finish;
+            return data + size + ending;
+        }
+    }
+
     bool found = false;
     data = get_line(data, len, buf_, found);
     if (!found) {
@@ -428,11 +468,6 @@ const char* redis_object::parse_cmdline(const char *data, size_t &len) {
 
     if (failed()) return data;
 
-    auto append = [&](const char* word, size_t size) {
-        auto& obj = create_child();
-        obj.buf_.assign(word, size);
-        obj.type_ = REDIS_OBJ_STRING;
-    };
     static const char special[] = {'\'', '"', '\\', '\0'};
     if (buf_.find_first_of(special, 0, sizeof(special)) == std::string::npos) {
         size_t pos = 0;
@@ -461,26 +496,18 @@ const char* redis_object::get_data(const char* data, size_t& len, size_t want) {
     size_t n = buf_.size();
     assert(n < want);
 
-    want -= n;
-
-#if 1
-    if (want > len) {
-        want = len;
-	len = 0;
-    } else {
-        len -= want;
+    const auto count = std::min(want - n, len);
+    len -= count;
+    const auto received = n + count;
+    // Wait for real payload before reserving a declared length. Bounded
+    // bulk values can then finish without a final geometric reallocation.
+    if (want >= 32 * 1024 && want <= 1024 * 1024 && received > buf_.capacity()) {
+        const bool reused = want >= redis_ocache::bulk_min && received >= 32 * 1024 &&
+            cache_.reuse_bulk(buf_, want);
+        if (!reused && received >= (want + 1) / 2) buf_.reserve(want);
     }
-
-    buf_.append(data, want);
-    data += want;
-#else
-    for (size_t i = 0; i < want && len > 0; i++) {
-        buf_.push_back(*data++);
-        len--;
-    }
-#endif
-
-    return data;
+    buf_.append(data, count);
+    return data + count;
 }
 
 const char* redis_object::get_length(const char* data, size_t& len,

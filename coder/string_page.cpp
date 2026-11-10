@@ -13,6 +13,7 @@ const uint64_t string_page_codec::max_bytes;
 const uint64_t string_page_codec::write_bytes;
 
 namespace {
+constexpr size_t compact_inline_header_bytes = 4;
 constexpr size_t inline_header_bytes = 7;
 constexpr size_t expiring_inline_header_bytes = inline_header_bytes + 8;
 
@@ -89,10 +90,31 @@ string_page_status string_page_codec::encode_root(const string_root& root,
 }
 
 string_page_status string_page_codec::encode_inline(int64_t expires_at_ms,
-    const std::string& value, std::string& out) {
+    const std::string& value, std::string& out, bool compact) {
     if (expires_at_ms < -1 || value.size() > inline_bytes)
         return string_page_status::invalid;
+    if (compact && expires_at_ms == -1) {
+        const auto capacity = std::string().capacity();
+        const auto size = value.size();
+        if (size + inline_header_bytes > capacity &&
+            size + compact_inline_header_bytes <= capacity) {
+            char bytes[compact_inline_header_bytes + inline_bytes];
+            std::memcpy(bytes, "PSR\3", compact_inline_header_bytes);
+            std::memcpy(bytes + compact_inline_header_bytes, value.data(), size);
+            try {
+                out.assign(bytes, compact_inline_header_bytes + size);
+                return string_page_status::ok;
+            } catch (const std::bad_alloc&) {
+                return string_page_status::out_of_memory;
+            }
+        }
+    }
     return encode_root_bytes(expires_at_ms, value.size(), 0, value, out);
+}
+
+bool string_page_codec::compact_inline(const std::string& bytes) {
+    return bytes.compare(0, compact_inline_header_bytes, "PSR\3",
+        compact_inline_header_bytes) == 0;
 }
 
 string_page_status string_page_codec::encode_integer(int64_t expires_at_ms,
@@ -135,6 +157,15 @@ string_page_status string_page_codec::decode_header(const std::string& bytes,
     string_root_header& out) {
     if (bytes.size() < 4 || std::memcmp(bytes.data(), "PSR", 3) != 0)
         return string_page_status::invalid;
+    if (bytes[3] == 3) {
+        const auto size = bytes.size() - compact_inline_header_bytes;
+        if (size > inline_bytes) return string_page_status::invalid;
+        string_root_header root;
+        root.payload_offset = compact_inline_header_bytes;
+        root.length = size;
+        out = root;
+        return string_page_status::ok;
+    }
     if (bytes[3] == 2) {
         if (bytes.size() < inline_header_bytes) return string_page_status::invalid;
         if (bytes[4] != 0 && bytes[4] != 1) return string_page_status::unsupported;

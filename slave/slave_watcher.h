@@ -53,6 +53,7 @@ protected:
     // @override
     bool on_get(const std::string& key, const std::string& value, bool ok)
         override;
+    bool observes_reads() const override { return false; }
 
     // @override
     bool on_del(const std::string& key, bool ok) override;

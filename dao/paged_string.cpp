@@ -72,7 +72,8 @@ bool paged_string::run_callback(shared_db& db, const std::string& key,
 bool paged_string::get(shared_db& db, const std::string& key,
     std::string& out) {
     reset();
-    const auto direct = db->read_inline_string(key, out);
+    const auto direct = scope_ ? scope_->read_inline_string(*db, key, out) :
+        db->read_inline_string(key, out);
     if (direct == db::inline_status::found) {
         read_status_ = read_status::ok; return true;
     }
@@ -102,6 +103,18 @@ bool paged_string::length(shared_db& db, const std::string& key,
 bool paged_string::getrange(shared_db& db, const std::string& key,
     long long start, long long end, std::string& out) {
     out.clear();
+    if (!scope_) {
+        const auto direct = db->read_string_range(key, start, end, out);
+        if (direct != db::inline_status::fallback) {
+            reset();
+            if (direct == db::inline_status::error) {
+                read_status_ = read_status::storage_error;
+                return false;
+            }
+            read_status_ = read_status::ok;
+            return true;
+        }
+    }
     std::string value;
     const bool ok = run(db, key, [&](string_store& store) {
         return store.range(start, end, value);
@@ -124,6 +137,16 @@ bool paged_string::setrange(shared_db& db, const std::string& key,
     length = 0;
     if (offset < 0) {
         reset(); read_status_ = read_status::offset_range; return false;
+    }
+    if (!scope_) {
+        const auto direct = db->overwrite_string_range(key, static_cast<uint64_t>(offset),
+            value, length);
+        if (direct != db::inline_status::fallback) {
+            reset();
+            const bool written = direct == db::inline_status::found;
+            read_status_ = written ? read_status::ok : read_status::storage_error;
+            return written;
+        }
     }
     const bool ok = run(db, key, [&](string_store& store) {
         if (!store.write(static_cast<uint64_t>(offset), value)) return false;

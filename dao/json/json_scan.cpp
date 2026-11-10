@@ -10,7 +10,7 @@
 namespace pkv {
 namespace dao {
 namespace {
-std::string type_name(value_kind kind) {
+const char* type_name(value_kind kind) {
     switch (kind) {
     case value_kind::string: return "string";
     case value_kind::hash: return "hash";
@@ -25,23 +25,78 @@ std::string type_name(value_kind kind) {
 bool json_scan::keys(shared_db& db, const scan_options& options, scan_page& out) {
     reset(); database_.reset(); key_.clear();
     out = scan_page();
-    std::vector<std::string> candidates;
     unsigned long long next;
-    const auto status = db->scan_keys(options.cursor, options.count, candidates, next);
+    std::vector<std::string> matches;
+    const auto accept_type = [&](const record_header& header) {
+        return !options.has_type || options.type == type_name(header.kind);
+    };
+    const auto lookup = [&](const std::string& key, bool& include) {
+        include = false;
+        if (!scan_accept(key, options)) return true;
+        record_header header;
+        if (!read_header(db, key, header)) return read_status_ == read_status::missing;
+        include = accept_type(header);
+        return true;
+    };
+    std::vector<size_t> deferred;
+    auto status = db::scan_status::unsupported;
+    const auto& codec = db->value_codec();
+    constexpr size_t max_locked_pattern = 128;
+    constexpr size_t max_locked_key = 1024;
+    constexpr size_t max_locked_root = 512;
+    if (options.pattern.size() <= max_locked_pattern &&
+        &codec == default_record_codec().get()) {
+        db::key_visitor filter;
+        if (options.has_match) {
+            filter = [&](const std::string& key) {
+                // Long names are filtered after releasing native locks.
+                return key.size() > max_locked_key || scan_accept(key, options);
+            };
+        }
+        status = db->scan_root_page(options.cursor, options.count, next,
+            [&](const std::string& key, const std::string* bytes) {
+                // Limit work under a shard lock, even for legacy or corrupt roots.
+                if (key.size() <= max_locked_key && bytes && bytes->size() <= max_locked_root) {
+                    record_header header;
+                    if (!stored_header(codec, *bytes, header)) return false;
+                    if (header.expires_at_ms < 0 || header.expires_at_ms > unix_time_ms()) {
+                        if (accept_type(header)) matches.push_back(key);
+                        return true;
+                    }
+                }
+                deferred.push_back(matches.size());
+                matches.push_back(key);
+                return true;
+            }, filter);
+    }
+    if (status == db::scan_status::unsupported) {
+        std::vector<std::string> candidates;
+        status = db->scan_keys(options.cursor, options.count, candidates, next);
+        if (status == db::scan_status::ok) for (auto& key : candidates) {
+            bool include;
+            if (!lookup(key, include)) return false;
+            if (include) matches.push_back(std::move(key));
+        }
+    }
     if (status != db::scan_status::ok) {
-        read_status_ = status == db::scan_status::unsupported ? read_status::unsupported_scan : read_status::storage_error;
+        if (read_status_ == read_status::missing)
+            read_status_ = status == db::scan_status::unsupported ?
+                read_status::unsupported_scan : read_status::storage_error;
         return false;
     }
-    std::vector<std::string> matches;
-    for (const auto& key : candidates) {
-        if (!scan_accept(key, options)) continue;
-        record_header header;
-        if (!read_header(db, key, header)) {
-            if (read_status_ == read_status::missing) continue;
-            return false;
+    if (!deferred.empty()) {
+        size_t write = 0, pending = 0;
+        for (size_t i = 0; i < matches.size(); ++i) {
+            if (pending < deferred.size() && deferred[pending] == i) {
+                ++pending;
+                bool include;
+                if (!lookup(matches[i], include)) return false;
+                if (!include) continue;
+            }
+            if (write != i) matches[write] = std::move(matches[i]);
+            ++write;
         }
-        if (!options.has_type || type_name(header.kind) == options.type)
-            matches.push_back(key);
+        matches.resize(write);
     }
     out.cursor = next;
     out.values.swap(matches);

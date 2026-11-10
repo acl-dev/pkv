@@ -43,8 +43,8 @@ bool paged_string::set(shared_db& db, const std::string& key,
     return set(db, key, data, set_options(), out);
 }
 bool paged_string::write_inline_root(db::batch_entry& entry,
-    const std::string& value, int64_t expiry) {
-    if (string_page_codec::encode_inline(expiry, value, entry.value) !=
+    const std::string& value, int64_t expiry, bool compact) {
+    if (string_page_codec::encode_inline(expiry, value, entry.value, compact) !=
         string_page_status::ok) {
         read_status_ = read_status::storage_error;
         return false;
@@ -66,7 +66,7 @@ bool paged_string::set(shared_db& db, const std::string& key,
         options.keep_ttl || options.return_old;
     const bool inline_value = data.size() <= string_page_codec::inline_bytes;
     auto write_inline = [&](db::batch_entry& entry, int64_t expiry) {
-        out.applied = write_inline_root(entry, data, expiry);
+        out.applied = write_inline_root(entry, data, expiry, db->supports_compact_strings());
         return out.applied;
     };
     auto apply = [&](page_transaction& tx) {
@@ -116,9 +116,14 @@ bool paged_string::set(shared_db& db, const std::string& key,
         return write_inline(entry, -1) ? db::page_root_result::ready :
             db::page_root_result::rejected;
     };
-    const auto status = inline_value && !inspect && options.expires_at_ms == -1 ?
-        db->replace_page_root(key, std::ref(root)) :
-        db->transact_page(key, std::ref(apply));
+    db::batch_status status;
+    if (inline_value && !inspect && options.expires_at_ms == -1) {
+        status = scope_ ? scope_->replace_root(*db, key, std::ref(root)) :
+            db->replace_page_root(key, std::ref(root));
+    } else {
+        status = scope_ ? scope_->transact(*db, key, std::ref(apply)) :
+            db->transact_page(key, std::ref(apply));
+    }
     if (result(status)) return true;
     out = set_result(); return false;
 }
@@ -212,7 +217,8 @@ bool paged_string::mset(shared_db& db,
             if (data.size() <= string_page_codec::inline_bytes) {
                 // This root has no staged pages yet. Clear the old family
                 // atomically when the new inline root is published.
-                if (!write_inline_root(entry, data, -1)) return false;
+                if (!write_inline_root(entry, data, -1, db->supports_compact_strings()))
+                    return false;
                 continue;
             }
             string_store store(tx, entry.key);

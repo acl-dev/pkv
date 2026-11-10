@@ -10,6 +10,7 @@ namespace pkv {
 namespace dao {
 
 struct paged_zset::algebra_source {
+    struct input { algebra_source* source; double weight; };
     std::unique_ptr<zset_store> sorted;
     std::unique_ptr<compact_zset::view> compact;
     std::unique_ptr<map_store> set;
@@ -46,7 +47,81 @@ struct paged_zset::algebra_source {
         }
         return !legacy || legacy->set_contains(member, out.found);
     }
+
+    static bool intersect_batched(const input* inputs, size_t count,
+        long long limit, long long& cardinality);
 };
+
+bool paged_zset::algebra_source::intersect_batched(const input* inputs,
+    size_t count, long long limit, long long& cardinality) {
+    constexpr size_t capacity = zset_store::visit_batch_capacity;
+    std::array<const std::string*, capacity> pending;
+    std::array<zset_score, capacity> scores;
+    auto* lead = inputs[0].source;
+    auto probe = [&](size_t active) {
+        for (size_t i = 1; i < count && active; ++i) {
+            auto& source = *inputs[i].source;
+            if (&source == lead) continue;
+            if (source.sorted && active >= 8) {
+                if (!source.sorted->get_scores_batched(pending.data(), active,
+                        scores.data())) return false;
+            } else {
+                for (size_t j = 0; j < active; ++j)
+                    if (!source.get(*pending[j], scores[j])) return false;
+            }
+            size_t kept = 0;
+            for (size_t j = 0; j < active; ++j)
+                if (scores[j].found) pending[kept++] = pending[j];
+            active = kept;
+        }
+        cardinality += static_cast<long long>(active);
+        return true;
+    };
+    bool valid = true;
+    if (lead->sorted) {
+        // A batch cannot add more matches than its size. Respect LIMIT
+        // before visiting another member of the lead collection.
+        const auto remaining = [&]() -> size_t {
+            return limit && limit - cardinality < static_cast<long long>(capacity)
+                ? static_cast<size_t>(limit - cardinality) : capacity;
+        };
+        const bool visited = lead->sorted->visit_batches(remaining(),
+            [&](const std::string* const* members, size_t size) -> size_t {
+                std::copy_n(members, size, pending.begin());
+                valid = probe(size);
+                return valid ? remaining() : 0;
+            });
+        return visited && valid;
+    }
+
+    std::array<std::string, capacity> members;
+    size_t used = 0;
+    const auto flush = [&]() {
+        const bool ok = probe(used);
+        used = 0;
+        return ok;
+    };
+    const bool visited = lead->visit([&](const std::string& member, double) {
+        if (member.size() > map_page_codec::zset_key_inline_bytes) {
+            // Process long members during their callback instead of copying
+            // several potentially large strings into the batch.
+            if (!flush()) { valid = false; return false; }
+            pending[used++] = &member;
+            valid = flush();
+        } else {
+            members[used] = member;
+            pending[used] = &members[used];
+            ++used;
+            // Each probe can add at most one match. Do not queue entries
+            // beyond the point where this batch could satisfy LIMIT.
+            if (used == capacity ||
+                (limit && used == static_cast<uint64_t>(limit - cardinality)))
+                valid = flush();
+        }
+        return valid && (!limit || cardinality < limit);
+    });
+    return visited && valid && flush();
+}
 
 bool paged_zset::sources(shared_db& db, page_transaction& tx,
     const std::vector<std::string>& keys, source_map& out) {
@@ -147,7 +222,7 @@ bool paged_zset::algebra(shared_db& db,
         for (double weight : options.weights) if (std::isnan(weight)) {
             read_status_ = read_status::invalid_score; return false;
         }
-        struct input { algebra_source* source; double weight; };
+        using input = algebra_source::input;
         static_assert(std::is_trivially_copyable<input>::value,
             "qsort requires trivially copyable input");
         std::array<input, 4> local_inputs;
@@ -189,6 +264,13 @@ bool paged_zset::algebra(shared_db& db,
                     return true;
                 })) return source_error(snapshots);
             }
+        } else if (cardinality_only && inputs[0].source->size >= 32 &&
+            (!options.limit || options.limit >= 16) &&
+            std::any_of(inputs + 1, inputs + keys.size(), [&](const input& other) {
+                return other.source != inputs[0].source && other.source->sorted;
+            })) {
+            if (!algebra_source::intersect_batched(inputs, keys.size(),
+                    options.limit, cardinality)) return source_error(snapshots);
         } else if (inputs[0].source->size) {
             if (!inputs[0].source->visit([&](const std::string& member,
                 double score) {
@@ -228,6 +310,14 @@ bool paged_zset::algebra(shared_db& db,
             if (compact) return true;
         }
         zset_store target(tx, *destination);
+        if (values.size() >= 128) {
+            std::vector<zset_store::member_ref> members;
+            members.reserve(values.size());
+            for (const auto& value : values)
+                members.push_back({&value.first, value.second});
+            const bool built = target.build_borrowed(members, -1);
+            return finish(target) && built;
+        }
         target.initialize();
         for (const auto& value : values) {
             bool added, changed;

@@ -3,6 +3,8 @@
 //
 
 #pragma once
+#include <array>
+#include <string>
 #include <vector>
 
 namespace pkv {
@@ -25,8 +27,21 @@ public:
 
 
 private:
+    friend class redis_object;
+    static constexpr size_t bulk_min = 128 * 1024;
+    static constexpr size_t bulk_max = 256 * 1024;
+    bool reuse_bulk(std::string& value, size_t wanted);
+    void recycle_bulk(std::string& value) noexcept;
+    redis_object* take_cached(redis_object* object) noexcept;
+    void retain_payload(redis_object& object) noexcept;
+
+    // Large request storage is bounded independently of the object cache.
+    std::array<std::string, 4> bulk_buffers_;
+    size_t next_bulk_buffer_ = 0;
     size_t max_;
     unsigned long long generation_ = 0, observed_generation_ = 0;
+    bool idle_storage_released_ = false;
+    size_t retained_payload_bytes_ = 0;
 #ifdef USE_VECTOR
     std::vector<redis_object*> cache_;
 #else

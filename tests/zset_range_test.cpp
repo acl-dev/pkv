@@ -321,6 +321,19 @@ static void test_batched_range() {
                     return false;
             return true;
         }),"batched range, fragments, ties and signed zero");
+        require(operation(database,key,[&](zset_store& store) {
+            std::vector<zset_member> visited;
+            if (!store.visit_range(query, [&](const std::string& member, double score) {
+                visited.push_back({member, score});
+                return true;
+            }, true) || !same(reference, visited)) return false;
+            size_t count = 0;
+            return store.visit_range(query, [&](const std::string& member, double score) {
+                require(member == reference[count].member &&
+                    score == reference[count].score, "streamed range stop order");
+                return ++count < 2;
+            }) && count == 2;
+        }), "batched stream and early stop");
     }
     std::string member;
     require(database->transact_page(key,[&](page_transaction& tx) {
@@ -353,6 +366,59 @@ static void test_batched_range() {
                 "batch rejects inconsistent score");
             return true;
         }), "batch corruption abort");
+        require(!operation(database, key, [&](zset_store& store) {
+            require(!store.visit_range(query, [](const std::string&, double) {
+                return true;
+            }, true) && store.error() == zset_store::status::invalid,
+                "stream rejects inconsistent score");
+            return true;
+        }), "stream batch corruption abort");
+    }
+}
+
+static void test_score_prefix_stream() {
+    auto database = memory();
+    const std::string key = "score-prefix";
+    values expected{{"minus-inf", -INFINITY}, {"plus-inf", INFINITY}, {"negative-zero", -0.0}};
+    for (unsigned i = 0; i < 192; ++i) {
+        auto member = std::to_string(i);
+        if (i % 13 == 0) member.append(150, '\0');
+        expected.emplace(std::move(member), i % 5);
+    }
+    seed(database, key, expected);
+    const double bounds[] = {-INFINITY, -0.0, 1, 3, INFINITY};
+    for (double lower : bounds) for (double upper : bounds) {
+        for (bool exclusive_min : {false, true}) for (bool exclusive_max : {false, true}) {
+            zset_query query;
+            query.mode = zrange_mode::score;
+            query.min_score.value = lower;
+            query.min_score.exclusive = exclusive_min;
+            query.max_score.value = upper;
+            query.max_score.exclusive = exclusive_max;
+            for (bool reverse : {false, true}) {
+                query.reverse = reverse;
+                std::vector<zset_member> reference;
+                select_zset(expected, query, reference);
+                require(operation(database, key, [&](zset_store& store) {
+                    std::vector<zset_member> actual;
+                    if (!store.visit_range(query, [&](const std::string& member, double score) {
+                        actual.push_back({member, score});
+                        return true;
+                    }, true) || !same(reference, actual)) return false;
+                    for (size_t i = 0; i < actual.size(); ++i)
+                        if (std::signbit(actual[i].score) != std::signbit(reference[i].score))
+                            return false;
+                    size_t stopped = 0;
+                    return store.visit_range(query, [&](const std::string& member, double score) {
+                        require(!reference.empty() && member == reference.front().member &&
+                            score == reference.front().score,
+                            "score prefix stop order");
+                        ++stopped;
+                        return false;
+                    }) && stopped == (reference.empty() ? 0U : 1U);
+                }), "score prefix range boundaries, fragments and early stop");
+            }
+        }
     }
 }
 
@@ -451,16 +517,77 @@ static void test_extreme_ranges() {
         "invalid query changed data");
 }
 
+static void test_infinite_metadata_bounds() {
+    auto database = memory();
+    const std::string key = "infinite-bounds";
+    const values expected = {{"a", -INFINITY}, {"b", -INFINITY},
+        {"c", -2}, {"d", 0}, {"e", 7}, {"f", INFINITY}, {"g", INFINITY}};
+    seed(database, key, expected);
+    value_record record;
+    record.header.kind = value_kind::zset;
+    record.header.expires_at_ms = deadline;
+    record.zset_value = expected;
+    json_record_codec codec;
+    std::string encoded, before, after;
+    std::unique_ptr<record_view> reference;
+    require(codec.encode(record, encoded) == codec_status::ok &&
+        codec.decode(encoded, reference) == codec_status::ok &&
+        database->get(key, before), "infinite bounds reference");
+    std::vector<watch_token> tokens;
+    require(database->watch({key}, tokens) == db::batch_status::ok &&
+        tokens.size() == 1, "infinite bounds WATCH");
+    for (double low : {-double(INFINITY), 0.0, double(INFINITY)})
+        for (double high : {-double(INFINITY), 0.0, double(INFINITY)})
+            for (bool exclude_low : {false, true})
+                for (bool exclude_high : {false, true})
+                    for (bool reverse : {false, true})
+                        for (long long offset : {0LL, 1LL, LLONG_MAX})
+                            for (long long limit : {-1LL, 0LL, 2LL}) {
+                                zset_query query;
+                                query.mode = zrange_mode::score;
+                                query.min_score.value = low;
+                                query.max_score.value = high;
+                                query.min_score.exclusive = exclude_low;
+                                query.max_score.exclusive = exclude_high;
+                                query.reverse = reverse;
+                                query.offset = offset; query.limit = limit;
+                                std::vector<zset_member> wanted, actual;
+                                long long wanted_count, count;
+                                require(reference->zset_select(query, wanted) &&
+                                    reference->zset_count(query, wanted_count),
+                                    "infinite bounds reference query");
+                                require(operation(database, key, [&](zset_store& store) {
+                                    return store.count(query, count) &&
+                                        store.range(query, actual);
+                                }) && count == wanted_count && same(actual, wanted),
+                                    "infinite bounds rank/count/limit mismatch");
+                            }
+    require(database->get(key, after) && before == after && tokens[0]->valid(0),
+        "infinite bounds read changed root/TTL/WATCH");
+    require(operation(database, key, [&](zset_store& store) {
+        zset_query query; query.mode = zrange_mode::score;
+        query.min_score.value = -INFINITY; query.max_score.value = INFINITY;
+        long long count; bool added, changed, removed;
+        return store.put("staged", INFINITY, added, changed) && added && changed &&
+            store.count(query, count) && count == 8 &&
+            store.erase("staged", removed) && removed &&
+            store.count(query, count) && count == 7;
+    }) && !tokens[0]->valid(0) && contents(database, key) == expected,
+        "infinite bounds ignored staged cardinality");
+}
+
 int main() {
     acl::acl_cpp_init();
+    test_infinite_metadata_bounds();
     test_ranges(); test_clone(); test_clone_faults(); test_locality();
     test_corrupt_clone(); test_extreme_ranges(); test_batched_range();
-    test_score_range_order();
+    test_score_prefix_stream(); test_score_range_order();
 #if defined(HAS_TBB)
     use_tbb = true;
+    test_infinite_metadata_bounds();
     test_ranges(); test_clone(); test_clone_faults();
     test_corrupt_clone(); test_extreme_ranges(); test_batched_range();
-    test_score_range_order();
+    test_score_prefix_stream(); test_score_range_order();
 #endif
     std::cout << "Native ZSet range seeks and independent transfers passed\n";
 }

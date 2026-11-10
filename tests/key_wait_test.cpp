@@ -348,6 +348,14 @@ static void failed_commit() {
 }
 int main(int argc, char** argv) {
     acl::acl_cpp_init();
+#ifdef __APPLE__
+    // Match server startup: publish ACL's kqueue hooks before worker creation.
+    std::thread runtime([] {
+        go[] { acl::fiber::delay(1); };
+        acl::fiber::schedule();
+    });
+    runtime.join();
+#endif
     if (argc == 3) {
         const std::string backend(argv[1]);
         shared_db source;

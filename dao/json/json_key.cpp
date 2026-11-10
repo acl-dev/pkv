@@ -1,3 +1,4 @@
+#include "coder/packed_hash.h"
 #include "coder/compact_zset.h"
 #include "coder/compact_set.h"
 #include "coder/compact_hash.h"
@@ -288,6 +289,17 @@ bool json_key::encode_expiry(shared_db& db, std::string& bytes,
             } catch (const std::runtime_error&) {
                 read_status_ = read_status::invalid_record; return false;
             }
+        }
+        if (packed_hash::matches(bytes)) {
+            packed_hash::root root;
+            if (packed_hash::decode_root(bytes, root) != map_page_status::ok) {
+                read_status_ = read_status::invalid_record; return false;
+            }
+            root.expires_at_ms = deadline;
+            if (packed_hash::encode_root(root, bytes) != map_page_status::ok) {
+                read_status_ = read_status::storage_error; return false;
+            }
+            preserve_pages = true; return true;
         }
         map_root root;
         if (map_page_codec::decode_root(bytes, root) != map_page_status::ok) {

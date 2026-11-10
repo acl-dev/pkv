@@ -10,6 +10,8 @@
 #include <unordered_set>
 
 namespace pkv {
+class packed_hash_store;
+struct zset_member;
 
 // Ordered native field/member index. AVL nodes, large keys and large values
 // are independent bounded pages. Context lifetime is one logical-key callback.
@@ -50,9 +52,9 @@ public:
         std::function<bool(const std::string*, bool exceeded, std::string&)>;
     bool transform_hash_field(const std::string& key, uint64_t old_limit,
         const hash_transform& fn);
-    // The member pointers borrow the live request arguments.
+    // Cached member pointers borrow arguments for the whole Pipeline scope.
     bool set_membership(const std::string* const* members, size_t count,
-        unsigned& found);
+        unsigned& found, bool cache = true);
     // Repeated probes on one read-only Set context can reuse its directory.
     bool probe_set_member(const std::string& member, bool& found);
     // Zero-based order statistic; retrieves one member without full traversal.
@@ -74,7 +76,9 @@ public:
     bool build_set(const set_member_at& member_at, size_t count, long long& added);
     using hash_field_refs =
         std::vector<std::pair<const std::string*, const std::string*>>;
+    // Native-only: fallback paths must not recreate a packed representation.
     bool build_hash(const hash_field_refs& fields, int& added);
+    bool build_hash_auto(const hash_field_refs& fields, int& added);
     bool erase(const std::string& key, bool& removed);
     bool insert_grouped_set(const set_member_at& member_at, size_t count,
         long long& added);
@@ -104,6 +108,8 @@ public:
     // pack_set is a terminal reduction: no further operations on this store.
     // The caller must hold a backend capability for compact Set roots.
     bool finish(bool pack_set = false);
+    // Terminal Hash command finalization, including eligible contraction.
+    bool finish_hash();
 
 private:
     friend class zset_store;
@@ -116,9 +122,12 @@ private:
     map_root root_;
     status error_ = status::ok;
     bool dirty_ = false;
+    bool hash_created_ = false, hash_shrank_ = false;
+    bool packed_metadata_valid_ = false;
     map_root* embedded_ = nullptr;
     uint64_t* sequence_ = nullptr;
     bool lexical_ = false;
+    bool crc_buckets_ = false;
     bool adaptive_ = false;
     bool probe_directory_ready_ = false;
     unsigned probe_groups_ = 0;
@@ -126,8 +135,26 @@ private:
     detail::map_index_workspace index_;
     // Encoded nodes are decoded into owning values before the next read.
     detail::node_read_workspace node_bytes_;
+    bool has_packed_hash() const {
+        return kind_ == map_kind::hash && !embedded_ && entry_ &&
+            entry_->action != db::update_action::erase &&
+            entry_->value.compare(0, 4, "PMR\14", 4) == 0;
+    }
+    using packed_operation = std::function<bool(packed_hash_store&)>;
+    bool packed_callback(const packed_operation& callback);
+    template<class Callback> bool with_packed(Callback&& callback) {
+        const packed_operation view(std::ref(callback));
+        return packed_callback(view);
+    }
+    bool refresh_packed_hash();
+    bool clone_packed_hash(map_store& destination, bool& copied);
+    bool reduce_hash(bool& changed);
     uint64_t last_id() const;
     unsigned bucket(const std::string& key) const;
+    unsigned bucket(const char* data, size_t size) const;
+    static constexpr size_t crc_bucket_min = 1024;
+    bool uses_crc_bucket(size_t size) const { return crc_buckets_ && size >= crc_bucket_min; }
+    static uint32_t update_crc_bucket(uint32_t crc, const char* data, size_t size);
     bool reuse_node_keys(const std::string& key) const;
 
     class blob_reader {
@@ -168,10 +195,12 @@ private:
     };
     struct clone_state {
         std::unordered_set<uint64_t> visited;
+        std::unordered_set<uint64_t> shareable_heads;
         map_blob previous;
         unsigned bucket = 0;
         uint64_t elements = 0;
         uint64_t limit = 0;
+        bool track_shared_fragments = false;
     };
     bool clone_node(uint64_t id, map_store& destination, clone_state& state,
         unsigned depth);
@@ -206,6 +235,10 @@ private:
     using lookup_visitor = bool (*)(void*, size_t, const map_blob&);
     bool find_many(lookup_request* first, lookup_request* last,
         lookup_visitor visit, void* context);
+    bool find_set_members(const std::string* const* members, size_t count,
+        unsigned& found);
+    bool find_grouped_set_members(const std::string* const* members, size_t count,
+        unsigned& found);
     template<class Node>
     bool validate_node(uint64_t id, const Node& node, const char* key,
         size_t key_size) const;
@@ -214,6 +247,9 @@ private:
         detail::node_key_workspace left, right;
         uint64_t retired_id = 0;
         uint64_t retired_key_head = 0;
+        uint64_t key_head = 0;
+        uint64_t shared_key_head = 0;
+        map_blob* deferred_key = nullptr;
         explicit node_children(bool reuse) : left(reuse), right(reuse) {}
         bool reuse() const { return left.enabled(); }
     };
@@ -286,11 +322,39 @@ private:
     bool select_score_key(uint64_t rank, std::string& key, bool& found);
     bool select_score_path(uint64_t id, uint64_t rank, std::string& key,
         node_children& children, unsigned depth);
+    struct score_rank_request { uint64_t rank; size_t index; };
+    struct score_rank_node {
+        node_summary summary;
+        uint64_t left, right;
+        bool fragmented, has_value;
+        size_t key_size;
+        std::array<char, map_page_codec::zset_key_inline_bytes> key;
+    };
+    bool select_score_members(score_rank_request* first, score_rank_request* last,
+        zset_member* members, bool& fragmented);
+    bool load_score_rank_node(uint64_t id, uint64_t first_rank, score_rank_node& node);
+    bool select_score_paths(const score_rank_node& node, uint64_t base,
+        const score_rank_request* first, const score_rank_request* last,
+        const score_rank_node* lower, const score_rank_node* upper,
+        zset_member* members,
+        bool& fragmented);
     bool visit_score_range(uint64_t first, uint64_t last, bool reverse,
         const visitor& callback);
     bool visit_score_path(const map_node& node, uint64_t first, uint64_t last,
-        bool reverse, const std::string* lower, const std::string* upper,
+        bool reverse, const map_blob* lower, const map_blob* upper,
         const visitor& callback);
+    struct score_prefix_bound {
+        std::string prefix;
+        bool exclusive;
+    };
+    bool visit_score_interval(const score_prefix_bound& min,
+        const score_prefix_bound& max, bool reverse, const visitor& callback);
+    bool visit_score_interval_path(const map_node& node, const score_prefix_bound* min,
+        const score_prefix_bound* max, bool reverse, const map_blob* lower,
+        const map_blob* upper, const visitor& callback);
+    bool check_score_order(const map_blob& key, const map_blob* lower,
+        const map_blob* upper);
+    bool visit_score_key(const map_node& node, const visitor& callback);
     bool bucket_bound(const std::string& key, bool upper, uint64_t& rank);
     bool bucket_range(uint64_t first, uint64_t count, bool reverse,
         const visitor& callback, bool with_values);
@@ -315,26 +379,40 @@ private:
         blob.length = input.size();
         return true;
     }
+    bool writes_compact_set_reference(const map_node& node) const {
+        return node.key.head && kind_ == map_kind::set &&
+            transaction_.database_.supports_compact_set_fragments();
+    }
+    bool writes_compact_zset_node(const map_node& node) const {
+        return (node.key.head || (!node.left && !node.right)) && embedded_ &&
+            bound_bucket_ == 256 && transaction_.database_.supports_compact_zsets();
+    }
     template<class Fill>
     bool build_tree_from(size_t first, size_t count, uint64_t& tree,
-        uint32_t& height, map_node& node, const Fill& fill) {
+        uint32_t& height, map_node& node, const Fill& fill,
+        bool compact_set_leaf = false) {
         tree = 0; height = 0;
         if (!count) return true;
         const auto middle = count / 2;
         uint64_t left_id, right_id;
         uint32_t left, right;
-        if (!build_tree_from(first, middle, left_id, left, node, fill) ||
+        if (!build_tree_from(first, middle, left_id, left, node, fill, compact_set_leaf) ||
             !build_tree_from(first + middle + 1, count - middle - 1,
-                right_id, right, node, fill)) return false;
+                right_id, right, node, fill, compact_set_leaf)) return false;
         node.left = left_id;
         node.right = right_id;
         node.height = std::max(left, right) + 1;
         node.elements = count;
-        if (!allocate(node.id) || !fill(first + middle, node)) return false;
+        // The payload may allocate fragment pages. Write them before the
+        // node so every new page can append to the sorted staging vector.
+        if (!fill(first + middle, node) || !allocate(node.id)) return false;
         // Only ordered appends can encode directly into the final page.
         if (auto* bytes = transaction_.append_sorted_page(entry_, node.id)) {
-            if (!decoded(map_page_codec::encode_packed_node(node, *bytes, !lexical_)))
-                return false;
+            const auto status = writes_compact_set_reference(node) ?
+                map_page_codec::encode_set_reference(node, *bytes) :
+                map_page_codec::encode_packed_node(node, *bytes, !lexical_,
+                    writes_compact_zset_node(node), compact_set_leaf);
+            if (!decoded(status)) return false;
         } else if (!write(node)) return false;
         tree = node.id; height = node.height;
         return true;
@@ -372,21 +450,24 @@ private:
     static constexpr size_t hash_partition_size = 129;
     static constexpr size_t set_partition_size = 257;
     bool find(const std::string& key, map_node& node, bool& found);
-    bool compare(const map_blob& key, const std::string& input, int& order);
+    bool find_in_bucket(const std::string& key, unsigned bucket, map_node& node,
+        bool& found);
+    bool compare(const map_blob& key, const std::string& input, int& order,
+        bool* matched_single_fragment = nullptr);
     bool prefix_order(const map_blob& key, const std::string& input,
         int& order);
     using fragment_visitor = std::function<bool(const map_fragment_view&)>;
     bool visit_blob(const map_blob& blob, const fragment_visitor& callback);
     bool store_blob(const std::string& input, size_t limit, map_blob& out,
         uint64_t retired_head = 0);
-    bool read_blob(const map_blob& blob, std::string& out);
+    bool read_blob(const map_blob& blob, std::string& out, bool take = false);
     bool pack_set_root(bool& packed);
     bool collect_packed_set(std::vector<std::string>& members,
         std::unordered_set<uint64_t>& seen, size_t& payload, bool& eligible);
     bool erase_blob(const map_blob& blob) { return update_fragments(blob, nullptr); }
     bool update_fragments(const map_blob& blob, const std::string* replacement);
     bool make_node(const std::string& key, const std::string& value,
-        unsigned bucket, uint64_t& id, const node_children& children);
+        unsigned bucket, uint64_t& id, node_children& children);
     // Synchronous old-value check before replacement or deletion.
     // The callback may read another tree but must not mutate this context.
     // Returning false aborts the transaction; replace=false is a no-op.
@@ -402,9 +483,11 @@ private:
     bool update_inline(const std::string& key, const std::string& value,
         const value_gate& gate, bool& handled);
     bool put_checked(const std::string& key, const std::string& value,
-        bool only_missing, bool& added, const value_gate* gate);
+        bool only_missing, bool& added, const value_gate* gate,
+        uint64_t* key_head = nullptr, uint64_t shared_key_head = 0);
     bool put_in_tree(const std::string& key, const std::string& value,
-        unsigned bucket, bool only_missing, bool& added, const value_gate* gate);
+        unsigned bucket, bool only_missing, bool& added, const value_gate* gate,
+        uint64_t* key_head = nullptr, uint64_t shared_key_head = 0);
     // updated is consumed only when a new entry was added successfully.
     bool insert(uint64_t& id, const std::string& key, const std::string& value,
         bool only_missing, bool& added, unsigned bucket, unsigned depth,
@@ -415,8 +498,9 @@ private:
         const value_gate* gate = nullptr);
     bool erase_value(const std::string& key, bool& removed,
         std::string* value, const value_gate* gate = nullptr,
-        unsigned key_bucket = 256);
-    bool replace_score_key(const std::string& old_key, const std::string& new_key);
+        unsigned key_bucket = 256, map_blob* deferred_key = nullptr);
+    bool replace_score_key(const std::string& old_key, const std::string& new_key,
+        uint64_t shared_key_head = 0);
     bool replace_score_path(uint64_t& id, const std::string& old_key,
         const std::string& new_key, unsigned depth, node_children& children,
         node_summary& updated);
@@ -435,7 +519,7 @@ private:
         unsigned depth, node_children& children, node_summary& updated);
     bool remove_node(map_node& node, uint64_t& id, unsigned depth,
         node_children& children, node_summary left, node_summary right,
-        node_summary& updated);
+        node_summary& updated, bool matched_single_fragment = false);
     template<bool Maximum>
     bool remove_edge(uint64_t& id, map_node& edge, unsigned depth,
         node_children& children, node_summary& updated,

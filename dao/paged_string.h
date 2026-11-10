@@ -90,7 +90,7 @@ private:
     bool import(string_store& store);
     bool stored(string_store& store);
     bool write_inline_root(db::batch_entry& entry, const std::string& value,
-        int64_t expiry);
+        int64_t expiry, bool compact);
     bool result(db::batch_status status);
     bool matches(page_transaction& tx, const std::string& key,
         const std::string& expected, bool& equal);

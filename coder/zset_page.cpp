@@ -76,7 +76,7 @@ map_page_status zset_page_codec::encode_root(const zset_root& root,
     try {
         if (root.last_id <= UINT16_MAX) {
             char bytes[compact_expiring_root_bytes];
-            std::memcpy(bytes, "PZR\2", 4);
+            std::memcpy(bytes, root.crc_member_buckets ? "PZR\6" : "PZR\2", 4);
             const bool expiring = root.expires_at_ms >= 0;
             bytes[4] = expiring;
             put_short(bytes + 5, root.elements);
@@ -88,7 +88,7 @@ map_page_status zset_page_codec::encode_root(const zset_root& root,
             return map_page_status::ok;
         }
         char bytes[root_bytes] = {};
-        std::memcpy(bytes, "PZR\1", 4);
+        std::memcpy(bytes, root.crc_member_buckets ? "PZR\7" : "PZR\1", 4);
         put(bytes + 8, static_cast<uint64_t>(root.expires_at_ms));
         put(bytes + 16, root.elements);
         put(bytes + 24, root.members);
@@ -104,15 +104,16 @@ map_page_status zset_page_codec::decode_root(const std::string& bytes,
     if (bytes.size() < 4 || std::memcmp(bytes.data(), "PZR", 3) != 0)
         return map_page_status::invalid;
     zset_root root;
+    root.crc_member_buckets = bytes[3] == 6 || bytes[3] == 7;
     uint64_t expiry = UINT64_MAX;
-    if (bytes[3] == 1) {
+    if (bytes[3] == 1 || bytes[3] == 7) {
         if (bytes.size() != root_bytes || bytes[4] || bytes[5] || bytes[6] ||
             bytes[7] || get(bytes, 48) || get(bytes, 56))
             return map_page_status::invalid;
         expiry = get(bytes, 8);
         root.elements = get(bytes, 16); root.members = get(bytes, 24);
         root.scores = get(bytes, 32); root.last_id = get(bytes, 40);
-    } else if (bytes[3] == 2) {
+    } else if (bytes[3] == 2 || bytes[3] == 6) {
         if (bytes.size() < compact_root_bytes || (bytes[4] != 0 && bytes[4] != 1))
             return map_page_status::invalid;
         const bool expiring = bytes[4] == 1;
@@ -170,8 +171,13 @@ static bool decode_score_word(uint64_t bits, double& out) {
 }
 
 bool zset_page_codec::decode_score_prefix(const std::string& key, double& out) {
+    return decode_score_prefix(key.data(), key.size(), out);
+}
+
+bool zset_page_codec::decode_score_prefix(const char* bytes, size_t length,
+    double& out) {
     double score;
-    if (key.size() < 8 || !decode_score_word(get(key, 0), score) ||
+    if (length < 8 || !decode_score_word(get(bytes), score) ||
         (score == 0 && std::signbit(score))) return false;
     out = score;
     return true;

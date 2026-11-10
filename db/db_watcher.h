@@ -46,6 +46,9 @@ public:
     virtual bool on_get(const std::string& key, const std::string& value, bool
         ok) = 0;
     virtual bool on_del(const std::string& key, bool ok) = 0;
+
+    // A false result permits native reads to bypass this watcher's on_get.
+    virtual bool observes_reads() const { return true; }
 };
 
 class db_watchers {
@@ -56,9 +59,11 @@ public:
     bool on_set(const std::string& key, const std::string& value, bool ok);
     bool on_get(const std::string& key, const std::string& value, bool ok);
     bool on_del(const std::string& key, bool ok);
+    bool observes_reads() const;
 
     bool supports_pages() const;
     bool requires_page_payload() const;
+    bool can_overwrite_string(size_t key_size) const;
     bool can_pages(const std::vector<db::batch_entry>& roots,
         const std::vector<page_change>& pages) const;
     bool on_pages(const std::vector<db::batch_entry>& roots,
@@ -72,6 +77,7 @@ public:
         const family_move& move, std::unique_ptr<family_publication>& out);
 
 private:
+    bool small_page_update_fits(size_t key_size) const;
     unsigned database_;
     std::mutex lock_;
     std::vector<db_watcher*> watchers_;

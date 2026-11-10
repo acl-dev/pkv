@@ -23,6 +23,8 @@ public:
     const string_root& metadata() const { return root_; }
     status error() const { return error_; }
     bool assign(const std::string& value);
+    // Adopt a value that occupies exactly one data page, retaining its TTL.
+    bool assign_page(std::string&& value);
     using chunk_source = std::function<bool(uint64_t, size_t, std::string&)>;
     // Produce chunks in increasing page order. The producer may read old
     // inputs at the current offset, including this owner, before its page is
@@ -57,7 +59,7 @@ private:
     bool fail(status value);
     bool decoded(string_page_status value);
     bool read_page(uint64_t index, std::string& out);
-    bool write_page(uint64_t index, const std::string& value);
+    bool write_page(uint64_t index, std::string&& value);
     bool scan_bits(uint64_t first, uint64_t last, int bit, long long& out);
     bool write_limit(uint64_t offset, const std::string& value, uint64_t limit);
 };

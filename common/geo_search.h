@@ -1,10 +1,16 @@
 #pragma once
 #include "redis_geo.h"
+#include "zset_value.h"
 #include <array>
+#include <functional>
 #include <vector>
 
 namespace pkv {
 namespace geo {
+struct search_source {
+    bool exists;
+    std::function<bool(const std::string&, zset_score&)> get;
+};
 struct shape {
     point center;
     double conversion = 1, radius = 0, width = 0, height = 0;

@@ -28,18 +28,17 @@ bool paged_hash::choose(map_store& store, long long count, bool with_values,
         }
         return true;
     }
-    rank_sampler ranks(size, repeat);
-    for (uint64_t i = 0; i < wanted; ++i) {
+    return visit_sampled_ranks(size, wanted, repeat, [&](uint64_t rank) {
         std::pair<std::string, std::string> field;
         bool found;
-        if (!store.select(ranks.next(), field.first, found,
+        if (!store.select(rank, field.first, found,
             with_values ? &field.second : nullptr)) return false;
         if (!found) {
             read_status_ = read_status::invalid_record; return false;
         }
         out.push_back(std::move(field));
-    }
-    return true;
+        return true;
+    });
 }
 
 bool paged_hash::sample(shared_db& db, const std::string& key, long long count,
@@ -48,20 +47,23 @@ bool paged_hash::sample(shared_db& db, const std::string& key, long long count,
     if (count == LLONG_MIN) {
         read_status_ = read_status::invalid_integer; return false;
     }
-    bool ok;
+    bool ok = false;
+    bool too_large = false;
     try {
         const auto tree = [&](map_store& store) {
             return choose(store, count, with_values, out);
         };
-        ok = run_callback(db, key, tree,
+        ok = run_packed(db, key, tree,
             [&](db::batch_entry&, const compact_hash::view* packed) {
                 if (!packed || !count) return true;
                 const auto size = packed->count();
                 const bool repeat = count < 0;
                 const auto wanted = repeat ? static_cast<uint64_t>(-count) :
                     std::min<uint64_t>(count, size);
-                if (wanted > out.max_size())
-                    throw std::length_error("compact Hash sample too large");
+                if (wanted > out.max_size()) {
+                    too_large = true;
+                    return true;
+                }
                 out.reserve(static_cast<size_t>(wanted));
                 const auto append = [&](unsigned rank) {
                     const auto item = packed->at(rank);
@@ -87,7 +89,11 @@ bool paged_hash::sample(shared_db& db, const std::string& key, long long count,
                 return true;
             });
     } catch (const std::length_error&) {
-        read_status_ = read_status::sample_too_large; ok = false;
+        too_large = true;
+    }
+    if (too_large) {
+        read_status_ = read_status::sample_too_large;
+        ok = false;
     }
     if (!ok) out.clear();
     return ok;

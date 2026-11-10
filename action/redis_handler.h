@@ -42,6 +42,10 @@ public:
 
     bool handle();
     int read(char* data, size_t capacity);
+    bool wait_for_receive(std::unique_ptr<char[]>& buffer, size_t& capacity,
+        size_t idle_capacity);
+    bool direct_input_ready() const;
+    bool direct_input_pending(size_t minimum) const;
     void promote_input();
     bool input_closed() const;
     bool may_block() const { return executing_ == nullptr; }

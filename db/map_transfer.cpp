@@ -8,14 +8,19 @@ bool map_store::clone_blob(const map_blob& blob, map_store& destination,
         if (bucket) *bucket = this->bucket(blob.inline_value);
         return true;
     }
-    uint64_t hash = 14695981039346656037ULL;
+    if (blob.shares_fragments()) {
+        if (!lexical_ || !state.shareable_heads.erase(blob.head))
+            return fail(status::invalid);
+        if (bucket) *bucket = 0;
+        return visit_blob(blob, [](const map_fragment_view&) { return true; });
+    }
+    const bool crc = uses_crc_bucket(blob.length);
+    auto hash = crc ? 0 : detail::scan_bucket_seed;
     const bool ok = visit_blob(blob, [&](const map_fragment_view& page) {
         if (!state.visited.insert(page.id).second) return fail(status::invalid);
-        if (bucket && !lexical_) {
-            for (size_t i = 0; i < page.size; ++i) {
-                hash ^= static_cast<unsigned char>(page.data[i]); hash *= 1099511628211ULL;
-            }
-        }
+        if (bucket && !lexical_)
+            hash = crc ? update_crc_bucket(hash, page.data, page.size) :
+                detail::scan_bucket_update(page.data, page.size, hash);
         std::string bytes;
         if (!destination.decoded(map_page_codec::encode_fragment(
             page.id, page.next, page.offset, page.data, page.size, bytes)))
@@ -47,6 +52,8 @@ bool map_store::clone_node(uint64_t id, map_store& destination,
     unsigned bucket;
     if (!clone_blob(node.key, destination, state, &bucket)) return false;
     if (bucket != node.bucket) return fail(status::invalid);
+    if (state.track_shared_fragments && !lexical_ && node.key.head)
+        state.shareable_heads.insert(node.key.head);
     if (!clone_blob(node.value, destination, state)) return false;
     state.previous = node.key; state.bucket = node.bucket;
     if (++state.elements > state.limit) return fail(status::invalid);
@@ -73,6 +80,7 @@ bool map_store::clone_to(map_store& destination, bool& copied) {
         return fail(status::wrong_kind);
     }
     if (!root_.elements) return true;
+    if (has_packed_hash()) return clone_packed_hash(destination,copied);
     if (root_.bucketed) return bucket_clone(destination, copied);
     if (!check_root()) { destination.transaction_.abort(); return false; }
     destination.initialize(root_.expires_at_ms);

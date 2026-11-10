@@ -37,7 +37,8 @@ public:
     static string_page_status encode_root(const string_root& root,
         std::string& out);
     static string_page_status encode_inline(int64_t expires_at_ms,
-        const std::string& value, std::string& out);
+        const std::string& value, std::string& out, bool compact = false);
+    static bool compact_inline(const std::string& bytes);
     // Canonical decimal String root, without an intermediate owning payload.
     static string_page_status encode_integer(int64_t expires_at_ms,
         long long value, std::string& out);

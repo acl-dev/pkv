@@ -21,6 +21,8 @@ uint64_t hash(const std::string& value);
 uint8_t get(const std::string& value, size_t index);
 void put(std::string& value, size_t index, uint8_t count);
 bool merge(const std::string& value, registers& into);
+// Replace the payload of an HLL header with packed six-bit registers.
+void pack_dense(std::string& value, const registers& from);
 bool dense(std::string& value);
 bool set(std::string& value, size_t index, uint8_t count, bool& changed);
 bool add(std::string& value, const std::string& element, bool& changed);

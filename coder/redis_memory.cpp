@@ -2,6 +2,10 @@
 #include "common/client_memory.h"
 
 namespace pkv {
+void redis_coder::trim_idle_input() noexcept {
+    if (curr_->get_status() == redis_s_begin) curr_->release_idle_storage();
+}
+
 void redis_object::memory(redis_memory& out) const {
     out.bytes += buf_.size();
     out.spare += buf_.capacity() - buf_.size();

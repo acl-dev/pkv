@@ -166,6 +166,44 @@ static void legacy_and_limits(bool tbb) {
         "BITFIELD limits changed TTL");
 }
 
+static void native_field_window(bool tbb) {
+    auto database = memory(tbb);
+    dao::paged_string data;
+    const std::string key = "field-window";
+    const std::string initial(20000, '\0');
+    require(data.set(database, key, initial), "native field window seed");
+    const auto offset = string_page_codec::page_bytes * 8 - 3;
+    const auto write = field(field_command::set, 64, true, offset, LLONG_MIN);
+    const std::vector<bitfield_operation> operations{
+        write, field(field_command::get, 64, true, offset),
+        field(field_command::set, 1, false, offset, 2, field_overflow::fail)};
+    std::vector<watch_token> tokens;
+    std::vector<bitfield_reply> out;
+    require(database->watch({key}, tokens) == db::batch_status::ok && tokens.size() == 1,
+        "native field window WATCH");
+    allocation_budget = 0;
+    const bool failed = !data.bitfield(database, key, operations, false, out);
+    allocation_budget = -1;
+    std::string bytes;
+    require(failed && out.empty() && tokens[0]->valid(unix_time_ms()) &&
+        data.get(database, key, bytes) && bytes == initial,
+        "field reply allocation failure changed data or WATCH");
+
+    allocation_limit = 1024;
+    const bool written = data.bitfield(database, key, operations, false, out);
+    allocation_limit = SIZE_MAX;
+    auto expected = initial;
+    model_write(expected, write, LLONG_MIN);
+    require(written && out.size() == 3 && out[0].value == 0 &&
+        out[1].value == LLONG_MIN && out[2].null && !tokens[0]->valid(unix_time_ms()) &&
+        data.get(database, key, bytes) && bytes == expected,
+        "native field window allocated a page or lost operation order");
+    tokens.clear();
+    require(database->watch({key}, tokens) == db::batch_status::ok && tokens.size() == 1 &&
+        data.bitfield(database, key, operations, false, out) && out[0].value == LLONG_MIN &&
+        out[2].null && tokens[0]->valid(unix_time_ms()), "field no-op invalidated WATCH");
+}
+
 static void rollback(bool tbb, bool legacy) {
     bool success = false;
     unsigned failures = 0;
@@ -384,6 +422,7 @@ int main(int argc, char** argv) {
         if (tbb) continue;
 #endif
         byte_model(tbb); legacy_and_limits(tbb); field_tail(memory(tbb));
+        native_field_window(tbb);
         rollback(tbb, false); rollback(tbb, true); concurrent(tbb);
     }
     locality();

@@ -20,12 +20,11 @@ struct scan_page {
     std::vector<std::string> values;
 };
 
-// Stable buckets retain members' locations while surrounding members change.
-// These cursors are implementation-specific and independent of cluster slots.
-inline size_t scan_bucket(const char* data, size_t size) {
+namespace detail {
+constexpr uint32_t scan_bucket_seed = 0x25;
+inline uint32_t scan_bucket_bytes(const char* data, size_t size, uint32_t hash) {
     // Only the low byte is observable. The low bytes of the FNV offset
     // and prime reproduce that byte without 64-bit arithmetic.
-    uint32_t hash = 0x25;
     constexpr uint32_t prime = 0xb3;
     while (size >= 8) {
         hash = (hash ^ static_cast<unsigned char>(data[0])) * prime;
@@ -49,7 +48,19 @@ inline size_t scan_bucket(const char* data, size_t size) {
     }
     for (size_t i = 0; i < size; ++i)
         hash = (hash ^ static_cast<unsigned char>(data[i])) * prime;
-    return static_cast<size_t>(hash & 255);
+    return hash;
+}
+uint32_t scan_bucket_wide(const char* data, size_t size, uint32_t hash);
+inline uint32_t scan_bucket_update(const char* data, size_t size, uint32_t hash) {
+    return size >= 1024 ? scan_bucket_wide(data, size, hash) :
+        scan_bucket_bytes(data, size, hash);
+}
+}
+
+// Stable buckets retain members' locations while surrounding members change.
+// These cursors are implementation-specific and independent of cluster slots.
+inline size_t scan_bucket(const char* data, size_t size) {
+    return detail::scan_bucket_update(data, size, detail::scan_bucket_seed) & 255;
 }
 inline size_t scan_bucket(const std::string& value) {
     return scan_bucket(value.data(), value.size());

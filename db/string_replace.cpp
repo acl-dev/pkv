@@ -2,11 +2,25 @@
 
 namespace pkv {
 
+bool string_store::assign_page(std::string&& value) {
+    if (error_ != status::ok) return false;
+    const auto length = value.size();
+    if (length <= string_page_codec::inline_bytes ||
+        length > string_page_codec::page_bytes)
+        return fail(status::invalid_argument);
+    initialize(root_.expires_at_ms);
+    if (error_ != status::ok) return false;
+    root_.length = length;
+    root_.pages = 1;
+    return transaction_.put_bound(entry_, 1, std::move(value)) ||
+        fail(status::storage);
+}
+
 bool string_store::replace_chunks(uint64_t length, const chunk_source& source) {
     if (error_ != status::ok) return false;
     if (!entry_ || !source) return fail(status::invalid_argument);
     if (length > string_page_codec::max_bytes) return fail(status::too_large);
-    if (length <= string_page_codec::inline_bytes) {
+    if (length <= string_page_codec::page_bytes) {
         std::string bytes;
         if (!source(0, static_cast<size_t>(length), bytes))
             return fail(status::storage);
@@ -14,6 +28,13 @@ bool string_store::replace_chunks(uint64_t length, const chunk_source& source) {
         initialize();
         if (error_ != status::ok) return false;
         root_.length = length;
+        if (length > string_page_codec::inline_bytes) {
+            // The sole chunk was produced before clearing the old pages.
+            // Move it directly into the transaction's first page slot.
+            root_.pages = 1;
+            return transaction_.put_bound(entry_, 1, std::move(bytes)) ||
+                fail(status::storage);
+        }
         root_.inline_value.swap(bytes);
         return true;
     }

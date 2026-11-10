@@ -187,11 +187,49 @@ field-wise JSON migration, metadata-only TTL and independent COPY/RENAME. See
 `MAP_STORAGE.md`. Set uses native membership pages; ZSet uses coordinated
 member/score pages. See `SET_STORAGE.md` and `ZSET_STORAGE.md`.
 
+### Experimental grouped Hash roots
+
+C37 and later experimental memory-backed Hash creation can use `PMR\x0c`
+(version 12). This is independent of the JSON codec version and PKV transport
+version. Older binaries do not recognize this root; matching transport versions
+alone do not establish record-format compatibility.
+
+| Offset | Content |
+| --- | --- |
+| 0–3 | `PMR\x0c` |
+| 4 | Low three bits: group bits 4, 5 or 6; bit 7: deadline present; other bits zero |
+| 5–6 | Big-endian field count, 1–512 |
+| 7–14, when present | Big-endian nonnegative deadline, at most `INT64_MAX` |
+| 7 or 15 onward | One count byte per group; 16, 32 or 64 bytes |
+
+The counts sum to the field count, and each is at most 16. A nonempty group `g`
+owns physical page `g + 1`; empty groups have no live page. Leaves use the existing
+`PMR\x07` compact Hash codec without a leaf deadline. Each field/value is at most
+64 bytes, and the existing 2048-byte compact payload limit still applies.
+Routing uses the low group bits of the stable eight-bit SCAN hash. Leaf validation
+checks ordering, lengths, count and every field's routing against the root.
+Root length is exactly `7 + groups` or `15 + groups`, at most 79 bytes.
+
+Automatic creation initially selects 16/32/64 groups for 64–128/129–256/257–512
+fields and declines packing when the chosen groups exceed their limits. Growing
+an existing grouped Hash can retry with more group bits, then atomically convert
+to native Map pages when needed. Large items and growth beyond 512 fields use
+native pages. Deletion can retain a smaller grouped root; eligible results of at
+most 63 fields contract to the old compact Hash format. TTL belongs to the root,
+and root-only expiry edits preserve all group pages.
+
+C38 reuses validated metadata only within one synchronous MapStore context.
+Every new context validates its root again; this changes no stored bytes.
+The format remains experimental: performance tradeoffs and format-specific replay
+coverage are tracked in [performance progress](PERFORMANCE_STATUS.md).
+
 
 ## Native String command storage
 
 Default String commands store PSR v2 roots with up to 1024 inline bytes,
-or a 32-byte PSR v1 root plus deterministic owned 16-KiB chunks. TYPE, TTL, COPY,
+or a 32-byte PSR v1 root plus deterministic owned 16-KiB chunks. MDB and oneTBB
+SET and MSET can store eligible short values as PSR v3 and export them as v2
+for replication. TYPE, TTL, COPY,
 RENAME, SCAN TYPE and PKV2 understand these roots. Old JSON values migrate
 atomically on single-key access; MGET reads old/native values without migration.
 Small v0/v1 compatibility events are bounded exports from inline roots. Full

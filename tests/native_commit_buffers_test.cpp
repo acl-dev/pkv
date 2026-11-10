@@ -1,8 +1,12 @@
 #include "stdafx.h"
 #include "db/mdb/mdb.h"
+#if defined(HAS_TBB)
+#include "db/mdb/mdb_tbb.h"
+#endif
 #include "db/page_transaction.h"
 #include "db/mdb/replacement_workspace.h"
 #include "coder/list_page.h"
+#include "coder/map_page.h"
 #include <functional>
 #include <cstdlib>
 #include <iostream>
@@ -509,6 +513,24 @@ static void test_spill_shrink() {
     for (uint64_t id = 2; id <= 4; ++id)
         require(db.page_capacity("shrink", id) <= fresh.capacity(),
             "spill published oversized cached capacity");
+
+    const auto inline_capacity = std::string().capacity();
+    ready_call ready;
+    ready.run = [](pkv::db::prepared_batch& batch) {
+        batch.publish();
+        return pkv::db::batch_status::ok;
+    };
+    for (auto size : {inline_capacity + 7, inline_capacity + 8, inline_capacity}) {
+        for (auto& page : pages) page.value.assign(size, 'i');
+        require(db.prepare_pages(roots, pages, ready) == pkv::db::batch_status::ok,
+            "prepared inline page commit");
+    }
+    for (uint64_t id = 1; id <= 4; ++id) {
+        std::string bytes;
+        require(db.page_capacity("shrink", id) == inline_capacity &&
+            db.page("shrink", id, bytes) && bytes == pages[id - 1].value,
+            "prepared commit retained heap capacity for an inline page");
+    }
 }
 
 static void test_spill_bounds() {
@@ -594,20 +616,29 @@ static void test_root_only_commit(bool equal_clear) {
         "missing root fallback lost key index");
 }
 
-static void test_adopt_family_rollback(bool multiple_roots) {
+template<class Engine>
+static void test_adopt_family_rollback(bool multiple_roots, bool set_family = false) {
     using database = pkv::db;
-    pkv::mdb db(4);
+    Engine db(4);
     const std::string key = "adopt-family";
     const std::string payload(36, 'p');
+    std::string replacement("replacement");
+    if (set_family) {
+        pkv::map_root root;
+        root.kind = pkv::map_kind::set;
+        root.tree = root.elements = root.last_id = 48;
+        require(pkv::map_page_codec::encode_root(root, replacement) ==
+            pkv::map_page_status::ok, "Set adoption root");
+    }
     require(db.open(""), "adopt family engine open");
     const database::page_callback replace = [&](pkv::page_transaction& tx) {
         auto* root = tx.roots().find(key);
-        root->value = "replacement";
+        root->value = replacement;
         root->action = database::update_action::write;
         if (!tx.reset_pages(key)) return false;
         for (uint64_t id = 1; id <= 48; ++id) {
             std::string bytes(payload);
-            if (id == 48) bytes.reserve(1024);
+            if (!set_family && id == 48) bytes.reserve(1024);
             if (!tx.put(key, id, std::move(bytes))) return false;
         }
         return true;
@@ -632,7 +663,7 @@ static void test_adopt_family_rollback(bool multiple_roots) {
         require(db.transact_page(key, [&](pkv::page_transaction& tx) {
             const auto* root = tx.roots().find(key);
             std::string bytes;
-            require(root->value == (committed ? "replacement" : "original"),
+            require(root->value == (committed ? replacement : "original"),
                 "adopt family root publication");
             require(tx.lookup(key, 99, bytes) == (committed ?
                 database::lookup_status::missing : database::lookup_status::found),
@@ -714,6 +745,10 @@ int main() {
     test_spill_bounds();
     test_root_only_commit(false);
     test_root_only_commit(true);
-    test_adopt_family_rollback(false);
-    test_adopt_family_rollback(true);
+    test_adopt_family_rollback<pkv::mdb>(false);
+    test_adopt_family_rollback<pkv::mdb>(true);
+#if defined(HAS_TBB)
+    test_adopt_family_rollback<pkv::mdb_tbb>(false, true);
+    test_adopt_family_rollback<pkv::mdb_tbb>(true, true);
+#endif
 }

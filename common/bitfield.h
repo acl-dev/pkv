@@ -22,10 +22,16 @@ bool parse_field_type(const std::string& text, bool& sign, unsigned& bits);
 bool parse_field_offset(const std::string& text, unsigned bits, uint64_t& out);
 bool valid_bitfield(const bitfield_operation& operation);
 long long field_decode(uint64_t raw, unsigned bits, bool sign);
-long long field_read(const std::string& bytes, unsigned skip, unsigned bits,
-    bool sign);
-void field_write(std::string& bytes, unsigned skip, unsigned bits,
-    uint64_t raw);
+long long field_read(const char* bytes, unsigned skip, unsigned bits, bool sign);
+void field_write(char* bytes, unsigned skip, unsigned bits, uint64_t raw);
+inline long long field_read(const std::string& bytes, unsigned skip,
+    unsigned bits, bool sign) {
+    return field_read(bytes.data(), skip, bits, sign);
+}
+inline void field_write(std::string& bytes, unsigned skip, unsigned bits,
+    uint64_t raw) {
+    field_write(&bytes[0], skip, bits, raw);
+}
 // False means an OVERFLOW FAIL suboperation, not a failed transaction.
 bool field_update(const bitfield_operation& operation, long long old,
     long long& value);

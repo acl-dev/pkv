@@ -167,7 +167,17 @@ ctest --test-dir build --output-on-failure
 
 ## 深入阅读与贡献
 
-持续性能对照、当前负样本和内存优化范围见[性能进度](doc/PERFORMANCE_STATUS.md)；[已保留版本默认21项P1/P64对照](doc/benchmarks/performance-default-node-encode-reuse-2026-11-08.md)记录编码暂存缓冲复用修改；最新[已撤回LRANGE整帧候选默认21项对照](doc/benchmarks/performance-default-list-range-stream-2026-11-08.md)包含未采用候选的负样本和p99。六轮复核及内存范围见性能进度。
+[性能进度](doc/PERFORMANCE_STATUS.md)记录当前数据及历史实验。[变更型命令基线](doc/benchmarks/performance-mutation-matrix-2026-11-09.md)给出 24 个写入场景的 P1/P64、延迟与内存。累计有 126/188 条注册顶层命令具备命名性能场景。[位图单页复制专项](doc/benchmarks/performance-bitmap-page-write-2026-11-09.md)记录等值 SETBIT、BITOP 与混合写入内存。[密集 PFMERGE 写回](doc/benchmarks/performance-hll-merge-write-2026-11-09.md)的单工作线程 P64 等值写入在独立长测中达到隔离 Redis 的约 91%。
+
+[Set 与 ZSet 运算矩阵](doc/benchmarks/performance-set-algebra-matrix-2026-11-09.md)覆盖交并差集、基数查询、结果存储和范围删除，包含三阶段内存和本机压测客户端的 Pipeline 计数诊断。
+
+[紧凑 ZSet 单成员弹出](doc/benchmarks/performance-compact-zset-single-pop-2026-11-09.md)给出 MDB、oneTBB 与 Redis 的 P1/P64、四工作线程和写后内存对照。单工作线程 P64 顺序 32 成员 `ZPOPMAX` 的 MDB 吞吐为 Redis 的约 53%。
+
+[分页 ZSet 批量弹出](doc/benchmarks/performance-zset-pop-remainder-2026-11-09.md)覆盖 `ZPOPMAX`、`ZMPOP` 和超长成员回退。192 成员形态每键弹出 96 个后，MDB 的堆增量约为父版的 27%。
+
+同一父版上的[扩展 100 场景对照](doc/benchmarks/performance-expanded-command-matrix-2026-11-09.md)和[默认 21 场景对照](doc/benchmarks/performance-default-native-list-prepend-2026-11-09.md)合计覆盖 188 条注册顶层命令中的 85 条，另有上方的 PFMERGE 专项。[22 种形态的逐类型内存与 List 专项](doc/benchmarks/performance-native-list-prepend-2026-11-09.md)保留 LPUSH/RPUSH、GET 对照和内存数据。其余命令、各命令选项及大集合内存仍需验证和优化。
+历史 C41 的[MDB分页目录实验](doc/benchmarks/performance-mdb-small-page-directory-2026-11-09.md)保留内存收益与GET回退记录；C42 [小型记录桶原型](doc/benchmarks/performance-mdb-record-bucket-rejected-2026-11-09.md)因大键空间GET回退已撤回。C39 的[Hash查找](doc/benchmarks/performance-hash-single-lookup-2026-11-09.md)与 C40 的[List已知TTL提交](doc/benchmarks/performance-list-known-deadline-2026-11-09.md)亦保留各自测量范围。上述 C32 表是历史已验收版本，C46仍是局部实验性改进。
+历史 C43 的[List整数写入实验及构建审计](doc/benchmarks/performance-list-endian-writes-rejected-2026-11-09.md)因端到端收益不足已撤回：指令数减少并未解决List管线差距，最终源码、目标文件和程序均恢复至C41基线。
 新增 [oneTBB 分片内存及 P1/P64/P1024 专项](doc/benchmarks/performance-tbb-shard-memory-2026-11-08.md)：内存收益与吞吐回退并存，默认分片数暂未调整。 后续[扫描索引压缩实验](doc/benchmarks/performance-tbb-scan-index-2026-11-08.md)因吞吐负样本已撤回。
 
 先阅读[软件架构](doc/ARCHITECTURE.md)和[文档导航](doc/README.md)，再根据修改范围运行相关 CTest。提交变更时说明后端、构建模式、行为变化及验证范围；涉及存储格式、复制或恢复时，同时更新边界与迁移说明。
@@ -194,6 +204,14 @@ ctest --test-dir build --output-on-failure
 
 [2026-11-08 Hash表示边界：96项内存、288项P1/P64与实际页面结构](doc/benchmarks/performance-hash-representation-boundary-2026-11-08.md)
 
-[2026-11-08 紧凑Hash等长覆盖候选：144项DAO与180项P1/P64，待多线程和全命令验收](doc/benchmarks/performance-hash-owned-overwrite-2026-11-08.md)
+[2026-11-08 保留紧凑Hash等长覆盖：144项DAO、804项网络与全部复核](doc/benchmarks/performance-hash-owned-overwrite-2026-11-08.md)
 
-[2026-11-08 最新候选默认21项P1/P64及p99：378项对照，保留全部负样本](doc/benchmarks/performance-default-hash-owned-overwrite-2026-11-08.md)
+[2026-11-08 历史C31默认21项P1/P64及p99：378项对照，保留全部负样本](doc/benchmarks/performance-default-hash-owned-overwrite-2026-11-08.md)
+
+[2026-11-08 保留Hash同步回调引用：360项DAO、1104项网络，含默认、多线程与控制项代价](doc/benchmarks/performance-hash-callback-borrow-only-2026-11-08.md)
+
+[2026-11-08 单根512字段Hash实验否决：720项DAO，空间收益与点操作回退](doc/benchmarks/performance-hash-wide-root-prototype-2026-11-08.md)
+
+[2026-11-08 自适应分组Hash实验及根/页编码器基础：命令路径尚未启用](doc/benchmarks/performance-hash-grouped-pages-prototype-2026-11-08.md)
+
+[2026-11-08 分组Hash事务接口：增长、删除、回退、SCAN及1536项DAO验证，命令分流待接通](doc/benchmarks/implementation-packed-hash-store-2026-11-08.md)

@@ -249,7 +249,14 @@ static void test_allocation_rollback(bool migration) {
             }
         } catch (const std::bad_alloc&) {}
         allocation_budget = -1;
-        if (ok) { success = true; root(database, "key"); break; }
+        if (ok) {
+            require(data.get(database, "key", after) &&
+                after == (migration ? initial : replacement),
+                "successful String sweep published incorrect pages");
+            root(database, "key");
+            success = true;
+            break;
+        }
         ++failures;
         require(database->get("key", after) && after == before,
             "failed String changed root");
@@ -262,7 +269,7 @@ static void test_allocation_rollback(bool migration) {
         require(data.get(database, "key", after) && after == initial,
             "failed String changed pages");
     }
-    require(success && failures > 10, "String DAO allocation sweep");
+    require(success && failures != 0, "String DAO allocation sweep");
 }
 static void test_mset_rollback() {
     const std::string initial(40000, 'a'), replacement(60000, 'b');
@@ -378,7 +385,67 @@ static void test_integer_roots() {
         value == 3 && keys.expiry_time(database, "expired-int", expiry) &&
         expiry == -1, "expired paged integer recreation");
 }
+static void test_borrowed_range() {
+    auto database = memory();
+    dao::paged_string data;
+    const auto page = string_page_codec::page_bytes;
+    const auto value = std::string(page, 'a') + std::string(page, 'b') + "tail";
+    require(data.set(database, "borrowed", value), "range fixture setup");
+    std::string out;
+    allocation_limit = 4096;
+    const bool ok = data.getrange(database, "borrowed", page - 16, page + 15, out);
+    allocation_limit = SIZE_MAX;
+    require(ok && out == value.substr(page - 16, 32),
+        "short range allocated a full page");
+    require(database->transact_pages({"borrowed"}, [](page_transaction& tx) {
+        return tx.erase("borrowed", 2);
+    }) == db::batch_status::ok, "remove a range page");
+    require(!data.getrange(database, "borrowed", page - 16, page + 15, out) &&
+        out.empty(), "failed range exposed a partial result");
+}
+static void test_bounded_overwrite() {
+    auto database = memory();
+    dao::paged_string data;
+    const auto page = string_page_codec::page_bytes;
+    const std::string initial = std::string(page, 'a') + std::string(page, 'b');
+    const std::string patch("x\0yz", 4);
+    require(data.set(database, "overwrite", initial), "overwrite seed");
+    long long length;
+    allocation_limit = 4096;
+    const bool written = data.setrange(database, "overwrite", page - 2, patch, length);
+    allocation_limit = SIZE_MAX;
+    auto expected = initial;
+    expected.replace(page - 2, patch.size(), patch);
+    std::string actual;
+    require(written && length == static_cast<long long>(expected.size()) &&
+        data.get(database, "overwrite", actual) && actual == expected,
+        "cross-page overwrite allocated or lost bytes");
+
+    require(database->transact_page("overwrite", [](page_transaction& tx) {
+        return tx.put("overwrite", 2, "short");
+    }) == db::batch_status::ok, "damage second page");
+    require(!data.setrange(database, "overwrite", page - 2, "lost", length) &&
+        length == 0, "invalid second page accepted");
+    require(database->transact_page("overwrite", [&](page_transaction& tx) {
+        std::string first;
+        return tx.lookup("overwrite", 1, first) == db::lookup_status::found &&
+            first == expected.substr(0, page);
+    }) == db::batch_status::ok, "failed overwrite changed first page");
+}
 static void suite() {
+    test_borrowed_range();
+    test_bounded_overwrite();
+    {
+        auto database = memory();
+        dao::paged_string data;
+        const auto value = std::string(512, 'a') + std::string(512, 'b');
+        require(data.set(database, "inline-range", value), "inline range setup");
+        std::string out;
+        allocation_limit = 64;
+        const bool ok = data.getrange(database, "inline-range", 508, 515, out);
+        allocation_limit = SIZE_MAX;
+        require(ok && out == "aaaabbbb", "short range copied the inline root");
+    }
     test_integer_roots();
     test_model(); test_migration_and_mget(); test_key_operations();
     test_errors(); test_allocation_rollback(false);

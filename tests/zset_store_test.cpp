@@ -12,6 +12,7 @@
 #include <new>
 #include <random>
 #include <thread>
+#include <zlib.h>
 
 static thread_local long allocation_budget = -1;
 void* operator new(std::size_t size) {
@@ -201,25 +202,45 @@ static void test_score_codec() {
         && bytes.size() == 64 && bytes[3] == 1 &&
         zset_page_codec::decode_root(bytes, decoded) == map_page_status::ok
         && decoded.last_id == root.last_id, "wide root counter");
+    root.crc_member_buckets = true;
+    for (uint64_t id : {uint64_t(UINT16_MAX), uint64_t(UINT16_MAX) + 1}) {
+        root.last_id = id;
+        for (int64_t expires : {int64_t(-1), int64_t(deadline)}) {
+            root.expires_at_ms = expires;
+            require(zset_page_codec::encode_root(root, bytes) == map_page_status::ok &&
+                bytes[3] == (id == UINT16_MAX ? 6 : 7) &&
+                zset_page_codec::decode_root(bytes, decoded) == map_page_status::ok &&
+                decoded.crc_member_buckets && decoded.last_id == id &&
+                decoded.expires_at_ms == expires, "CRC root round trip");
+            for (size_t size = 0; size < bytes.size(); ++size)
+                require(zset_page_codec::decode_root(bytes.substr(0, size), decoded) !=
+                    map_page_status::ok, "truncated CRC root accepted");
+        }
+    }
 }
 
 struct audit {
     page_transaction& tx;
+    bool crc_member_buckets;
     std::set<uint64_t> visited;
-    explicit audit(page_transaction& view) : tx(view) {}
+    std::set<uint64_t> member_heads;
+    explicit audit(page_transaction& view, bool crc = false) : tx(view), crc_member_buckets(crc) {}
     std::string blob(const map_blob& blob) {
         if (!blob.head) return blob.inline_value;
-        std::string result;
+        const bool shared = blob.shares_fragments();
+        if (shared) require(member_heads.erase(blob.head) == 1, "missing member fragment owner");
+        std::string result = blob.inline_value;
         uint64_t id = blob.head;
         while (id) {
-            require(visited.insert(id).second, "shared fragment/cycle");
+            require(shared ? visited.count(id) != 0 : visited.insert(id).second,
+                "invalid fragment ownership");
             std::string bytes;
             map_fragment page;
             require(tx.lookup("zset", id, bytes) == db::lookup_status::found
                 && bytes.size() <= 16384 &&
                 map_page_codec::decode_fragment(bytes, page) ==
                     map_page_status::ok && page.id == id &&
-                page.offset == result.size(), "fragment");
+                page.offset == result.size() - blob.inline_value.size(), "fragment");
             result += page.bytes; id = page.next;
         }
         require(result.size() == blob.length, "fragment length");
@@ -235,8 +256,14 @@ struct audit {
             bytes.size() <= 16384 && map_page_codec::decode_node(bytes, node)
                 == map_page_status::ok && node.id == id, "node");
         auto left = tree(node.left, lexical, out);
+        require(lexical || !node.key.shares_fragments(), "member borrowed a fragment");
         const auto key = blob(node.key), value = blob(node.value);
-        require(node.bucket == (lexical ? 0 : scan_bucket(key)), "bucket");
+        if (!lexical && node.key.head) member_heads.insert(node.key.head);
+        auto bucket = lexical ? 0 : scan_bucket(key);
+        if (!lexical && crc_member_buckets && key.size() >= 1024)
+            bucket = ::crc32(0, reinterpret_cast<const Bytef*>(key.data()),
+                static_cast<uInt>(key.size())) & 255;
+        require(node.bucket == bucket, "bucket");
         out.emplace_back(key, value);
         auto right = tree(node.right, lexical, out);
         require(node.elements == left.first + right.first + 1 &&
@@ -256,7 +283,7 @@ static void inspect(shared_db database, const values& expected) {
         require(zset_page_codec::decode_root(entry.value, root) ==
             map_page_status::ok && root.elements == expected.size() &&
             root.expires_at_ms == deadline, "root metadata");
-        audit check(tx);
+        audit check(tx, root.crc_member_buckets);
         std::vector<std::pair<std::string, std::string>> members, scores;
         check.tree(root.members, false, members);
         check.tree(root.scores, true, scores);
@@ -400,6 +427,37 @@ static std::map<uint64_t, std::string> raw_pages(shared_db database,
         return true;
     }) == db::batch_status::ok, "snapshot pages");
     return result;
+}
+
+static void test_fragment_page_boundary() {
+    auto database = memory();
+    constexpr auto full = map_page_codec::max_page_bytes -
+        map_page_codec::fragment_header_bytes;
+    for (size_t width : {full, full + 1, 2 * full - 2, 2 * full - 1, 2 * full, 2 * full + 1}) {
+        const auto key = std::to_string(width);
+        const std::string bytes(width, '\xff');
+        seed(database, key, {{bytes, 2}});
+        const auto pages = raw_pages(database, key);
+        zset_root root;
+        map_node member;
+        require(zset_page_codec::decode_root(pages.at(0), root) == map_page_status::ok &&
+            map_page_codec::decode_node(pages.at(root.members), member) == map_page_status::ok,
+            "fragment boundary fixture");
+        size_t count = 0, offset = 0;
+        for (auto id = member.key.head; id; ++count) {
+            map_fragment_view page;
+            require(map_page_codec::decode_fragment_view(pages.at(id), page) == map_page_status::ok &&
+                page.offset == offset && count < 3, "fragment boundary chain");
+#if defined(__APPLE__) && !defined(HAS_JEMALLOC)
+            if (!count) require(page.size == full - (width % full != 0),
+                "fragment crossed the smaller allocation class");
+#endif
+            offset += page.size;
+            id = page.next;
+        }
+        require(count == 1 + (width - 1) / full && offset == width &&
+            contents(database, key) == values{{bytes, 2}}, "fragment split changed count or bytes");
+    }
 }
 
 static void test_checked_update() {
@@ -593,10 +651,16 @@ class tracking_db : public mdb {
 public:
     tracking_db() : mdb(4) {}
     size_t reads = 0, writes = 0, largest = 0;
+    std::array<uint64_t, 2> tracked_fragments{};
+    std::array<unsigned, 2> fragment_reads{};
+    bool compact = true;
 protected:
+    bool dbinline_strings() const override { return compact; }
     lookup_status dblookup_page(const std::string& key, uint64_t id,
         std::string& bytes) override {
         ++reads;
+        for (size_t i = 0; i < tracked_fragments.size(); ++i)
+            if (id == tracked_fragments[i]) ++fragment_reads[i];
         return mdb::dblookup_page(key, id, bytes);
     }
     batch_status dbapply_pages(const std::vector<batch_entry>& roots,
@@ -608,6 +672,112 @@ protected:
     }
 };
 
+static void test_pop_fragment_reads(size_t width) {
+    auto database = std::make_shared<tracking_db>();
+    database->compact = false;
+    require(database->open(""), "fragment tracking open");
+    const std::string key = "zset", member(width, 'x');
+    seed(database, key, {{member, 2}});
+    const auto before = raw_pages(database);
+    zset_root root;
+    map_node member_node, score_node;
+    require(zset_page_codec::decode_root(before.at(0), root) == map_page_status::ok &&
+        map_page_codec::decode_node(before.at(root.members), member_node) == map_page_status::ok &&
+        map_page_codec::decode_node(before.at(root.scores), score_node) == map_page_status::ok &&
+        member_node.key.head && score_node.key.head, "fragment tracking fixture");
+    map_fragment first;
+    require(map_page_codec::decode_fragment(before.at(score_node.key.head), first) ==
+        map_page_status::ok, "score fragment fixture");
+    if (first.next) {
+        map_fragment tail;
+        require(map_page_codec::decode_fragment(before.at(first.next), tail) ==
+            map_page_status::ok, "score fragment tail fixture");
+        ++tail.offset;
+        std::string damaged;
+        require(map_page_codec::encode_fragment(tail, damaged) == map_page_status::ok,
+            "damage fragment offset");
+        const auto overwrite = [&](const std::string& bytes) {
+            return database->transact_page(key, [&](page_transaction& tx) {
+                return tx.put(key, tail.id, bytes);
+            }) == db::batch_status::ok;
+        };
+        require(overwrite(damaged), "write damaged tail");
+        const auto corrupt = raw_pages(database);
+        require(!operation(database, key, [&](zset_store& store) {
+            zset_member popped{"sentinel", -1};
+            require(!store.pop_edge(true, popped) && popped.member == "sentinel" &&
+                popped.score == -1 && store.error() == zset_store::status::invalid,
+                "pop accepted a damaged tail");
+            return true;
+        }) && raw_pages(database) == corrupt, "invalid tail committed fragment deletion");
+        require(overwrite(before.at(tail.id)), "restore fragment tail");
+    }
+    database->tracked_fragments = {member_node.key.head, score_node.key.head};
+    require(operation(database, key, [&](zset_store& store) {
+        zset_member popped;
+        return store.pop_edge(true, popped) && popped.member == member && popped.score == 2;
+    }) && database->fragment_reads[0] == (first.next ? 2U : 1U) &&
+        database->fragment_reads[1] == 1, "unexpected fragment reread during pop");
+    inspect(database, {});
+}
+
+static void test_shared_score_fragments(bool mixed) {
+    std::shared_ptr<tracking_db> tracked;
+    shared_db database;
+    if (mixed) {
+        tracked = std::make_shared<tracking_db>();
+        tracked->compact = false;
+        require(tracked->open(""), "mixed shared-score database");
+        database = tracked;
+    } else {
+        database = memory();
+    }
+    const std::string key = "zset", wide(20000, 'z');
+    values expected{{wide, 2}};
+    seed(database, key, expected);
+    const auto pages = raw_pages(database);
+    zset_root root;
+    map_node member, score;
+    require(zset_page_codec::decode_root(pages.at(0), root) == map_page_status::ok &&
+        map_page_codec::decode_node(pages.at(root.members), member) == map_page_status::ok &&
+        map_page_codec::decode_node(pages.at(root.scores), score) == map_page_status::ok,
+        "shared score fixture");
+    const bool compact = database->supports_compact_zsets();
+    require(root.crc_member_buckets == compact && score.key.shares_fragments() == compact &&
+        (member.key.head == score.key.head) == compact &&
+        pages.size() == (compact ? 5U : 7U), "shared score owns duplicate fragment pages");
+    if (tracked) tracked->compact = true;
+    const std::string low(255, 'a'), mid(mixed ? 1024 : 255, 'm');
+    require(operation(database, key, [&](zset_store& store) {
+        bool added, changed;
+        return store.put(low, 2, added, changed) && added && changed &&
+            store.put(mid, 2, added, changed) && added && changed &&
+            store.metadata().crc_member_buckets == compact;
+    }), "shared score insertion");
+    expected.emplace(low, 2);
+    expected.emplace(mid, 2);
+    inspect(database, expected);
+    require(database->transact_pages({key, "copy"}, [&](page_transaction& tx) {
+        zset_store source(tx, key), destination(tx, "copy");
+        bool copied;
+        return source.open() && destination.open() &&
+            source.clone_to(destination, copied) && copied &&
+            source.finish() && destination.finish();
+    }) == db::batch_status::ok && contents(database, "copy") == expected,
+        "copy shared and independent score fragments");
+    require(operation(database, key, [&](zset_store& store) {
+        zset_rank rank;
+        bool added, changed, removed;
+        zset_member popped;
+        return store.rank(mid, rank) && rank.found && rank.rank == 1 &&
+            store.put(wide, -2, added, changed) && !added && changed &&
+            store.erase(mid, removed) && removed &&
+            store.pop_edge(false, popped) && popped.member == wide && popped.score == -2;
+    }), "shared score rank, move, erase and pop");
+    inspect(database, {{low, 2}});
+    require(contents(database, "copy") == expected, "copy aliases shared member data");
+}
+
 static void test_large_and_locality() {
     auto tracked = std::make_shared<tracking_db>();
     require(tracked->open(""), "tracking open");
@@ -616,6 +786,26 @@ static void test_large_and_locality() {
     for (unsigned i = 0; i < 10000; ++i)
         expected[std::to_string(i)] = static_cast<double>(i % 50);
     seed(database, "zset", expected);
+    const std::array<uint64_t, 8> ranks{{9999, 0, 413, 413, 8273, 5, 9999, 98}};
+    std::array<zset_member, ranks.size()> scalar, batch;
+    tracked->reads = 0;
+    require(operation(database, "zset", [&](zset_store& store) {
+        for (size_t i = 0; i < ranks.size(); ++i) {
+            bool found;
+            if (!store.select(ranks[i], scalar[i], found) || !found) return false;
+        }
+        return true;
+    }), "scalar rank selection");
+    const auto scalar_reads = tracked->reads;
+    tracked->reads = 0;
+    require(operation(database, "zset", [&](zset_store& store) {
+        bool fallback;
+        return store.select_many(ranks.data(), ranks.size(), batch.data(), fallback) &&
+            !fallback;
+    }) && tracked->reads < scalar_reads, "rank batch did not reuse page reads");
+    for (size_t i = 0; i < ranks.size(); ++i)
+        require(batch[i].member == scalar[i].member && batch[i].score == scalar[i].score,
+            "rank batch lost order, score or duplicate");
     tracked->reads = tracked->writes = 0;
     require(operation(database, "zset", [&](zset_store& store) {
         bool added, changed;
@@ -634,8 +824,11 @@ static void test_large_and_locality() {
     require(operation(database, "large", [&](zset_store& store) {
         zset_score score;
         zset_member member;
-        bool found;
+        bool found, fallback;
+        const uint64_t large_ranks[] = {0, 0};
+        zset_member large_batch[2];
         return store.get(large, score) && score.found &&
+            store.select_many(large_ranks, 2, large_batch, fallback) && fallback &&
             store.select(0, member, found) && found && member.member == large
             && member.score == INFINITY;
     }), "large member roundtrip");
@@ -834,6 +1027,47 @@ static void test_abandoned_and_corrupt_contexts() {
             "selection accepted a nonempty score-index value");
         return true;
     }) == db::batch_status::aborted, "selection corruption did not abort");
+    require(database->transact_pages({"zset"}, [&](page_transaction& tx) {
+        zset_store store(tx, "zset");
+        const uint64_t ranks[] = {2, 0, 1, 0};
+        zset_member members[4];
+        bool fallback;
+        require(store.open() && !store.select_many(ranks, 4, members, fallback) &&
+            !fallback &&
+            store.error() == zset_store::status::invalid,
+            "rank batch accepted a nonempty score-index value");
+        return true;
+    }) == db::batch_status::aborted, "rank batch corruption did not abort");
+    for (bool left : {false, true}) {
+        seed(database, "zset", initial);
+        require(database->transact_pages({"zset"}, [&](page_transaction& tx) {
+            zset_root root;
+            if (zset_page_codec::decode_root(tx.roots().find("zset")->value,
+                root) != map_page_status::ok) return false;
+            std::string bytes;
+            map_node parent, sibling;
+            if (tx.lookup("zset", root.scores, bytes) != db::lookup_status::found ||
+                map_page_codec::decode_node(bytes, parent) != map_page_status::ok ||
+                tx.lookup("zset", left ? parent.left : parent.right, bytes) !=
+                    db::lookup_status::found ||
+                map_page_codec::decode_node(bytes, sibling) != map_page_status::ok)
+                return false;
+            sibling.elements = 2;
+            return map_page_codec::encode_node(sibling, bytes) == map_page_status::ok &&
+                tx.put("zset", sibling.id, bytes);
+        }) == db::batch_status::ok, "damage unselected score subtree summary");
+        require(database->transact_pages({"zset"}, [&](page_transaction& tx) {
+            zset_store store(tx, "zset");
+            const uint64_t rank = left ? 2 : 0;
+            const uint64_t ranks[] = {rank, rank, rank, rank};
+            zset_member members[4];
+            bool fallback;
+            require(store.open() && !store.select_many(ranks, 4, members, fallback) &&
+                !fallback && store.error() == zset_store::status::invalid,
+                "rank batch accepted an inconsistent sibling summary");
+            return true;
+        }) == db::batch_status::aborted, "sibling summary corruption did not abort");
+    }
     seed(database, "zset", initial);
     require(database->transact_pages({"zset"}, [&](page_transaction& tx) {
         auto& root = *tx.roots().find("zset");
@@ -856,17 +1090,44 @@ static void test_abandoned_and_corrupt_contexts() {
         contents(database, "zset") == initial, "ID exhaustion lost indexes");
 }
 
-static void test_wide_pop() {
+static void test_wide_pop(bool crc_case = false) {
     auto database = memory();
     const std::string key = "wide-pop";
     values expected;
-    std::vector<std::string> by_score(4096);
+    std::vector<std::string> by_score(crc_case ? 1024 : 4096);
     for (unsigned i = 0; i < by_score.size(); ++i) {
         const auto score = (i * 4051) % by_score.size();
         by_score[score] = "member:" + std::to_string(10000 + i);
+        if (crc_case && i % 3) by_score[score].resize(i % 3 == 1 ? 1023 : 1024,
+            static_cast<char>(i));
         expected.emplace(by_score[score], score);
     }
-    seed(database, key, expected);
+    if (crc_case) {
+        std::vector<zset_member> input;
+        for (const auto& item : expected) input.push_back({item.first, item.second});
+        require(operation(database, key, [&](zset_store& store) {
+            return store.build(input, deadline) && store.metadata().crc_member_buckets ==
+                database->supports_compact_zsets();
+        }), "bulk build of mixed CRC members");
+        values seen;
+        scan_options options;
+        options.count = 37;
+        do {
+            scan_page page;
+            require(operation(database, key, [&](zset_store& store) {
+                return store.scan(options, page);
+            }), "CRC member scan");
+            for (size_t i = 0; i < page.values.size(); i += 2) {
+                double score;
+                require(parse_redis_double(page.values[i + 1], score) &&
+                    seen.emplace(page.values[i], score).second, "CRC scan score or duplicate");
+            }
+            options.cursor = page.cursor;
+        } while (options.cursor);
+        require(seen == expected, "CRC scan missed members");
+    } else {
+        seed(database, key, expected);
+    }
     bool staged = false;
     require(!operation(database, key, [&](zset_store& store) {
         std::vector<zset_member> popped;
@@ -891,8 +1152,49 @@ static void test_wide_pop() {
     }
 }
 
+static void test_scoped_score_invalidation() {
+    auto database = memory();
+    const std::string key = "scoped-score", member = "member";
+    seed(database, key, {{member, 1}, {"other", 3}});
+
+    execution_guard admission;
+    db::page_lock_scope scope(*database, key);
+    const auto transact = [&](const std::function<bool(zset_store&)>& callback) {
+        return scope.transact(*database, key, [&](page_transaction& tx) {
+            zset_store store(tx, key);
+            return store.open() && callback(store) && store.finish();
+        }) == db::batch_status::ok;
+    };
+    const auto expect_score = [&](bool found, double score) {
+        scope.cache_repeated_map_read(&member);
+        require(transact([&](zset_store& store) {
+            zset_score result;
+            return store.get(member, result) && result.found == found &&
+                (!found || result.score == score);
+        }), "scoped score returned stale data");
+    };
+    expect_score(true, 1);
+    expect_score(true, 1);
+    expect_score(true, 1);
+    require(transact([&](zset_store& store) {
+        bool added, changed;
+        return store.put(member, 2, added, changed) && !added && changed;
+    }), "scoped score update");
+    expect_score(true, 2);
+    require(scope.transact(*database, key, [&](page_transaction& tx) {
+        tx.roots().find(key)->action = db::update_action::erase;
+        return true;
+    }) == db::batch_status::ok, "scoped score root removal");
+    expect_score(false, 0);
+    require(transact([&](zset_store& store) {
+        bool added, changed;
+        return store.put(member, 4, added, changed) && added && changed;
+    }), "scoped score recreation");
+    expect_score(true, 4);
+}
+
 static void test_rank_key_boundaries() {
-    for (size_t width : {56U, 57U, 119U, 120U}) {
+    for (size_t width : {56U, 57U, 119U, 120U, 255U, 256U, 257U}) {
         auto database = memory();
         const std::string key = "rank-boundary";
         values expected;
@@ -924,7 +1226,7 @@ static void test_rank_key_boundaries() {
             }) == db::batch_status::ok, "scoped rank missing member");
         };
         check_ranks();
-        if (width == 120) continue; // The score keys already use fragments.
+        if (width > 119) continue; // The legacy encoder below has a 127-byte key limit.
         zset_root root;
         map_node node;
         std::string original;
@@ -982,8 +1284,8 @@ static void test_rank_key_boundaries() {
 
 static void test_mixed_key_widths() {
     auto name = [](unsigned id) {
-        const size_t widths[] = {20, 112, 120, 160};
-        std::string member(widths[id % 4], 'm');
+        const size_t widths[] = {20, 112, 120, 256, 160, 257};
+        std::string member(widths[id % 6], 'm');
         member[8] = '\0'; member[9] = static_cast<char>(0x80);
         const auto suffix = std::to_string(id);
         member.replace(member.size() - suffix.size(), suffix.size(), suffix);
@@ -1054,6 +1356,7 @@ int main() {
     test_single_fragment_codec();
     test_wide_inline_key_codec();
     test_model();
+    test_fragment_page_boundary();
     test_checked_update();
     test_tree_construction_failure();
     test_abandoned_and_corrupt_contexts();
@@ -1061,14 +1364,24 @@ int main() {
     test_yielding_transactions();
     test_failure_rollback();
     test_large_and_locality();
+    test_pop_fragment_reads(255);
+    test_pop_fragment_reads(20000);
+    test_shared_score_fragments(false);
+    test_shared_score_fragments(true);
     test_wide_pop();
+    test_wide_pop(true);
+    test_scoped_score_invalidation();
     test_rank_key_boundaries();
     test_mixed_key_widths();
 #if defined(HAS_TBB)
     use_tbb = true;
+    test_wide_pop(true);
+    test_shared_score_fragments(false);
+    test_scoped_score_invalidation();
     test_mixed_key_widths();
     test_rank_key_boundaries();
     test_model();
+    test_fragment_page_boundary();
     test_checked_update();
     test_tree_construction_failure();
     test_abandoned_and_corrupt_contexts();

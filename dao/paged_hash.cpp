@@ -44,26 +44,34 @@ bool paged_hash::run_callback(shared_db& db, const std::string& key,
     const operation& callback, const packed_operation& packed,
     const promotion_operation& promote) {
     reset(); fields_.clear();
+    bool promote_packed = false;
+    auto edit_root = [&](db::batch_entry& root) {
+        using choice = db::page_root_result;
+        try {
+            if (!root.found)
+                return packed(root, nullptr) ? choice::ready : choice::fallback;
+            if (!compact_hash::matches(root.value)) return choice::fallback;
+            const compact_hash::view value(root.value);
+            const auto deadline = value.deadline();
+            if (deadline >= 0 && deadline <= unix_time_ms()) return choice::fallback;
+            if (packed(root, &value)) return choice::ready;
+            promote_packed = bool(promote);
+            return choice::fallback;
+        } catch (const std::runtime_error&) {
+            read_status_ = read_status::invalid_record;
+            return choice::rejected;
+        }
+    };
     auto apply = [&](page_transaction& tx) {
-        if (packed) {
-            auto& root = *tx.roots().find(key);
+        if (promote_packed) {
             try {
-                if (!root.found && packed(root, nullptr)) return true;
-                if (root.found && compact_hash::matches(root.value)) {
-                    const compact_hash::view value(root.value);
-                    const auto deadline = value.deadline();
-                    if (deadline < 0 || deadline > unix_time_ms()) {
-                        if (packed(root, &value)) return true;
-                        if (promote) {
-                            map_store store(tx, key);
-                            if (!promote(store, value)) {
-                                store_result(store);
-                                return false;
-                            }
-                            return store.finish() || store_result(store);
-                        }
-                    }
+                const compact_hash::view value(tx.roots().find(key)->value);
+                map_store store(tx, key);
+                if (!promote(store, value)) {
+                    store_result(store);
+                    return false;
                 }
+                return store.finish_hash() || store_result(store);
             } catch (const std::runtime_error&) {
                 read_status_ = read_status::invalid_record;
                 return false;
@@ -75,10 +83,13 @@ bool paged_hash::run_callback(shared_db& db, const std::string& key,
             if (store.error() != map_store::status::ok) store_result(store);
             return false;
         }
-        return store.finish() || store_result(store);
+        return store.finish_hash() || store_result(store);
     };
-    const auto result = scope_ ? scope_->transact(*db, key, std::ref(apply)) :
-        db->transact_page(key, std::ref(apply));
+    const db::page_root_callback edit(std::ref(edit_root));
+    const auto result = scope_ ? scope_->transact(*db, key, std::ref(apply),
+        packed ? &edit : nullptr) : packed ?
+            db->transact_page(key, std::ref(apply), edit) :
+            db->transact_page(key, std::ref(apply));
     if (result == db::batch_status::error)
         read_status_ = read_status::storage_error;
     else if (result == db::batch_status::unsupported)
@@ -176,7 +187,7 @@ static bool promote_hash_fields(map_store& store, const compact_hash::view& pack
     combined.insert(combined.end(), fields, fields + size);
     store.initialize(packed.deadline());
     if (store.error() != map_store::status::ok ||
-        !store.build_hash(combined, count)) return false;
+        !store.build_hash_auto(combined, count)) return false;
     count -= static_cast<int>(packed.count());
     return true;
 }
@@ -196,7 +207,7 @@ int paged_hash::hmset_pair(shared_db& db, const std::string& key,
         return put_hash_fields(store, fields, 2, count);
     };
     const bool ok = db->supports_compact_hashes() ?
-        run_callback(db, key, tree,
+        run_packed(db, key, tree,
             [&](db::batch_entry& root, const compact_hash::view* packed) {
                 return put_compact_fields(root, packed, fields, 2, count);
             }, [&](map_store& store, const compact_hash::view& packed) {
@@ -209,8 +220,8 @@ int paged_hash::hmset(shared_db& db, const std::string& key,
     map_store::hash_field_refs fields) {
     int count = 0;
     auto tree = [&](map_store& store) {
-        if (fields.size() >= 128 && !store.exists())
-            return store.build_hash(fields, count);
+        if (fields.size() >= 64 && !store.exists())
+            return store.build_hash_auto(fields, count);
         using field_ref = map_store::hash_field_refs::value_type;
         // Sort from the last request pair to the first, preserving that order
         // for equal fields so duplicate removal keeps the last supplied value.
@@ -223,7 +234,7 @@ int paged_hash::hmset(shared_db& db, const std::string& key,
         return put_hash_fields(store, fields.data(), fields.size(), count);
     };
     const bool ok = db->supports_compact_hashes() && fields.size() <= compact_hash::max_fields ?
-        run_callback(db, key, tree,
+        run_packed(db, key, tree,
             [&](db::batch_entry& root, const compact_hash::view* packed) {
                 return put_compact_fields(root, packed, fields.data(), fields.size(), count);
             }, [&](map_store& store, const compact_hash::view& packed) {
@@ -246,7 +257,7 @@ bool paged_hash::hset(shared_db& db, const std::string& key,
         return store.put(name, value, false, inserted);
     };
     const bool ok = db->supports_compact_hashes() ?
-        run_callback(db, key, tree,
+        run_packed(db, key, tree,
             [&](db::batch_entry& root, const compact_hash::view* packed) {
                 return put_compact_field(root, packed, name, value, inserted);
             }) : run(db, key, tree);
@@ -262,7 +273,7 @@ bool paged_hash::hget(shared_db& db, const std::string& key,
         uint64_t bytes;
         return store.hash_field(name, &result, bytes, found);
     };
-    if (!run_callback(db, key, tree, [&](db::batch_entry&, const compact_hash::view* packed) {
+    if (!run_packed(db, key, tree, [&](db::batch_entry&, const compact_hash::view* packed) {
         found = packed && packed->get(name, result);
         return true;
     })) return false;
@@ -282,7 +293,7 @@ int paged_hash::hdel(shared_db& db, const std::string& key,
         }
         return true;
     };
-    const bool ok = run_callback(db, key, tree,
+    const bool ok = run_packed(db, key, tree,
         [&](db::batch_entry& root, const compact_hash::view* packed) {
             if (!packed) return true;
             uint64_t removed = 0;
@@ -320,7 +331,7 @@ bool paged_hash::hmget(shared_db& db, const std::string& key,
     auto tree = [&](map_store& store) {
         return store.hash_fields(fields, count, values, found);
     };
-    return run_callback(db, key, tree,
+    return run_packed(db, key, tree,
         [&](db::batch_entry&, const compact_hash::view* packed) {
             if (count > db::page_lock_scope::max_hash_batch) return false;
             found = 0;
@@ -349,7 +360,7 @@ bool paged_hash::read_fields(shared_db& db, const std::string& key,
         return visit(std::cref(read));
     };
     bool completed = true;
-    const bool ok = run_callback(db, key, tree,
+    const bool ok = run_packed(db, key, tree,
         [&](db::batch_entry&, const compact_hash::view* packed) {
             const auto read = [&](const std::string& field, std::string& value,
                 bool& found) {
@@ -399,7 +410,7 @@ bool paged_hash::hgetall(shared_db& db, const std::string& key,
         }
         return true;
     };
-    return run_callback(db, key, tree,
+    return run_packed(db, key, tree,
         [&](db::batch_entry&, const compact_hash::view* packed) {
             if (packed)
                 for (unsigned i = 0; i < packed->count(); ++i) {
@@ -434,7 +445,7 @@ bool paged_hash::hgetall(shared_db& db, const std::string& key,
         read_status_ = read_status::invalid_record;
         return false;
     };
-    const bool ok = run_callback(db, key, tree,
+    const bool ok = run_packed(db, key, tree,
         [&](db::batch_entry&, const compact_hash::view* packed) {
             if (packed) {
                 out.reserve(packed->count());
@@ -458,7 +469,7 @@ bool paged_hash::hsetnx(shared_db& db, const std::string& key,
     };
     const bool ok = db->supports_compact_hashes() &&
         value.size() <= map_page_codec::max_payload_bytes ?
-        run_callback(db, key, tree,
+        run_packed(db, key, tree,
             [&](db::batch_entry& root, const compact_hash::view* packed) {
                 compact_hash::member_view current;
                 if (packed && packed->lookup(name, current)) return true;
@@ -476,7 +487,7 @@ bool paged_hash::transform_field(shared_db& db, const std::string& key,
     };
     if (!db->supports_compact_hashes()) return run(db, key, tree);
     bool transformed = true;
-    const bool ok = run_callback(db, key, tree,
+    const bool ok = run_packed(db, key, tree,
         [&](db::batch_entry& root, const compact_hash::view* packed) {
             compact_hash::member_view previous;
             const bool found = packed && packed->lookup(name, previous);
@@ -525,7 +536,7 @@ bool paged_hash::hlen(shared_db& db, const std::string& key,
         length = static_cast<long long>(store.metadata().elements);
         return true;
     };
-    const bool ok = run_callback(db, key, tree,
+    const bool ok = run_packed(db, key, tree,
         [&](db::batch_entry&, const compact_hash::view* packed) {
             length = packed ? packed->count() : 0;
             return true;
@@ -543,7 +554,7 @@ bool paged_hash::hstrlen(shared_db& db, const std::string& key,
         length = static_cast<long long>(bytes);
         return true;
     };
-    const bool ok = run_callback(db, key, tree,
+    const bool ok = run_packed(db, key, tree,
         [&](db::batch_entry&, const compact_hash::view* packed) {
             compact_hash::member_view value;
             exists = packed && packed->lookup(name, value);

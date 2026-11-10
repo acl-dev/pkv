@@ -1,4 +1,6 @@
 #include "zset_store.h"
+#include "coder/compact_zset.h"
+#include <unordered_map>
 #include "common/redis_double.h"
 #include <algorithm>
 
@@ -71,6 +73,18 @@ bool zset_store::select(uint64_t rank, zset_member& out, bool& found) {
     return true;
 }
 
+bool zset_store::select_many(const uint64_t* ranks, size_t count, zset_member* out,
+    bool& fallback) {
+    fallback = false;
+    if (error_ != status::ok || !members_ || !scores_) return false;
+    if (!count || count > sample_rank_batch) return fail(status::invalid);
+    std::array<map_store::score_rank_request, sample_rank_batch> requests;
+    for (size_t i = 0; i < count; ++i) requests[i] = {ranks[i], i};
+    if (!scores_->select_score_members(requests.data(), requests.data() + count,
+        out, fallback)) return fallback || tree_error();
+    return validate_score_members(out, count);
+}
+
 bool zset_store::visit(const visitor& callback) {
     if (error_ != status::ok || !members_) return false;
     bool valid = true;
@@ -86,6 +100,52 @@ bool zset_store::visit(const visitor& callback) {
     });
     if (!visited) return tree_error();
     return valid;
+}
+
+bool zset_store::visit_batches(size_t batch_size, const batch_visitor& callback) {
+    if (error_ != status::ok || !members_) return false;
+    if (!batch_size) return true;
+    std::array<std::string, visit_batch_capacity> members;
+    std::array<const std::string*, visit_batch_capacity> keys;
+    std::array<double, visit_batch_capacity> expected;
+    std::array<zset_score, visit_batch_capacity> checked;
+    size_t used = 0;
+    const auto flush = [&]() {
+        if (!used) return true;
+        if (used == 1) {
+            if (!get(*keys[0], checked[0])) return false;
+        } else if (!get_scores_batched(keys.data(), used, checked.data())) return false;
+        for (size_t i = 0; i < used; ++i) {
+            if (!checked[i].found || checked[i].score != expected[i])
+                return fail(status::invalid);
+        }
+        batch_size = callback(keys.data(), used);
+        used = 0;
+        return true;
+    };
+    bool valid = true;
+    const bool visited = members_->visit([&](const std::string& member,
+        const std::string& bytes) {
+        double score;
+        if (!zset_page_codec::decode_value(bytes, score)) {
+            valid = false;
+            return fail(status::invalid);
+        }
+        const bool large = member.size() > map_page_codec::zset_key_inline_bytes;
+        if (large) {
+            valid = flush();
+            if (!valid || !batch_size) return false;
+            keys[used] = &member;
+        } else {
+            members[used] = member;
+            keys[used] = &members[used];
+        }
+        expected[used++] = score;
+        if (large || used == members.size() || used == batch_size) valid = flush();
+        return valid && batch_size;
+    });
+    if (!visited) return tree_error();
+    return valid && flush();
 }
 
 bool zset_store::visit_ordered(const visitor& callback) {
@@ -136,7 +196,7 @@ bool zset_store::collect_all(std::vector<zset_member>& values) {
 }
 
 bool zset_store::pop_rebuild(uint64_t count, bool maximum,
-    std::vector<zset_member>& out) {
+    std::vector<zset_member>& out, bool compact_remainder) {
     if (error_ != status::ok || !scores_) return false;
     if (count > root_.elements) return fail(status::invalid);
     std::vector<zset_member> values;
@@ -145,9 +205,30 @@ bool zset_store::pop_rebuild(uint64_t count, bool maximum,
     if (count == values.size()) {
         if (!values.empty() && !clear()) return false;
     } else {
-        if (!rebuild_remainder(values, static_cast<size_t>(count), maximum,
-            root_.expires_at_ms))
-            return false;
+        const auto remaining = values.size() - static_cast<size_t>(count);
+        std::string packed;
+        if (compact_remainder && remaining <= compact_zset::max_members &&
+            transaction_.database_.supports_compact_zsets()) {
+            std::array<compact_zset::entry_view, compact_zset::max_members> entries;
+            for (size_t i = 0; i < remaining; ++i) {
+                const auto& item = values[static_cast<size_t>(count) + i];
+                entries[i] = {item.member, item.score};
+            }
+            packed = compact_zset::try_encode(entries.data(), remaining,
+                root_.expires_at_ms);
+        }
+        if (packed.empty()) {
+            if (!rebuild_remainder(values, static_cast<size_t>(count), maximum,
+                root_.expires_at_ms)) return false;
+        } else {
+            // Keep clear_pages set while replacing the paged root. Finish
+            // the empty embedded stores without encoding an empty ZSet.
+            if (!clear()) return false;
+            if (!members_->finish() || !scores_->finish()) return tree_error();
+            entry_->value = std::move(packed);
+            entry_->maintenance_only = false;
+            dirty_ = false;
+        }
         values.resize(static_cast<size_t>(count));
     }
     out.swap(values);
@@ -181,13 +262,23 @@ bool zset_store::build_indexes(size_t remaining, int64_t expires_at_ms,
     const MemberAt& at) {
     initialize(expires_at_ms);
     if (error_ != status::ok) return false;
+    // Match ordinary insertion for keys just beyond the legacy inline limit.
+    const bool compact = transaction_.database_.supports_compact_zsets();
+    const auto key_limit = compact ?
+        map_page_codec::zset_key_inline_bytes : map_page_codec::key_inline_bytes;
     uint32_t height;
+    std::unordered_map<const std::string*, uint64_t> member_fragments;
     {
         struct bucketed_member { member_ref value; unsigned bucket; };
         std::vector<bucketed_member> ordered;
         ordered.reserve(remaining);
         for (size_t i = 0; i < remaining; ++i) {
             const auto value = at(i);
+            if (value.member->size() > map_page_codec::max_payload_bytes)
+                return fail(status::too_large);
+            if (compact && !root_.crc_member_buckets &&
+                value.member->size() >= map_store::crc_bucket_min)
+                use_crc_member_buckets(true);
             ordered.push_back({value, members_->bucket(*value.member)});
         }
         const auto by_key = [](const bucketed_member& a,
@@ -207,8 +298,11 @@ bool zset_store::build_indexes(size_t remaining, int64_t expires_at_ms,
             if (!zset_page_codec::encode_value(member.value.score, current.value.inline_value))
                 return fail(status::invalid);
             current.value.length = current.value.inline_value.size();
-            return members_->store_bulk_blob(*member.value.member,
-                map_page_codec::key_inline_bytes, current.key);
+            if (!members_->store_bulk_blob(*member.value.member, key_limit, current.key))
+                return false;
+            if (compact && current.key.head)
+                member_fragments.emplace(member.value.member, current.key.head);
+            return true;
         };
         if (!members_->build_tree_from(0, remaining, members_->root_.tree, height,
             member_node, fill_member))
@@ -221,10 +315,19 @@ bool zset_store::build_indexes(size_t remaining, int64_t expires_at_ms,
     std::string fragment_key;
     auto fill_score = [&](size_t i, map_node& current) {
         const auto value = at(i);
-        if (value.member->size() > map_page_codec::key_inline_bytes - 8) {
+        if (compact && value.member->size() > key_limit) {
+            const auto found = member_fragments.find(value.member);
+            if (found == member_fragments.end() ||
+                !zset_page_codec::score_key(value.score, "", current.key.inline_value))
+                return fail(status::invalid);
+            current.key.length = value.member->size() + 8;
+            current.key.head = found->second;
+            return true;
+        }
+        if (value.member->size() > key_limit - 8) {
             if (!zset_page_codec::score_key(value.score, *value.member, fragment_key))
                 return fail(status::invalid);
-            return scores_->store_blob(fragment_key, map_page_codec::key_inline_bytes, current.key);
+            return scores_->store_blob(fragment_key, key_limit, current.key);
         }
         if (!zset_page_codec::score_key(value.score, *value.member, current.key.inline_value))
             return fail(status::invalid);

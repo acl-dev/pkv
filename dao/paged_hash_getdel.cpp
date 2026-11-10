@@ -19,7 +19,7 @@ bool paged_hash::hgetdel(shared_db& db, const std::string& key,
                     return false;
             return true;
         };
-        ok = run_callback(db, key, tree,
+        ok = run_packed(db, key, tree,
             [&](db::batch_entry& root, const compact_hash::view* packed) {
                 std::vector<std::string> names;
                 parsed = parse(names);

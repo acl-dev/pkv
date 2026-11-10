@@ -145,6 +145,17 @@ static void test_extended_root() {
             status::ok && decoded.last_id == 99,
             "truncated extended root changed output");
     }
+    bool preserves_deadline = false;
+    ++root.elements;
+    require(codec::encode_root(root, bytes, &preserves_deadline) == status::ok &&
+        preserves_deadline, "native count change lost persistent deadline");
+    root.expires_at_ms = 4102444800123;
+    require(codec::encode_root(root, bytes, &preserves_deadline) == status::ok &&
+        !preserves_deadline, "new deadline reported as preserved");
+    --root.elements;
+    require(codec::encode_root(root, bytes, &preserves_deadline) == status::ok &&
+        preserves_deadline, "native count change lost existing deadline");
+    bytes = original;
     bytes[47] = 0;
     require(codec::decode_root(bytes, decoded) == status::invalid,
         "zero-counter extended root accepted");
@@ -456,6 +467,44 @@ static void test_encoded_pop() {
     }
 }
 
+static void test_native_fragment_pop() {
+    list_page page;
+    page.id = 7;
+    page.previous = 9;
+    page.fragments = {fragment("suffix", 4090, 4096),
+        fragment(std::string(4097, 'x'))};
+    std::string bytes;
+    require(codec::encode_page(page, bytes) == status::ok, "fragment pop fixture");
+    const auto original = bytes;
+    list_page_update reference, update;
+    require(codec::pop_end(bytes, false, 4097, reference) == status::ok &&
+        reference.applied, "fragment pop reference");
+    pkv::list_page_edit plan;
+    update.value.reserve(4097);
+    allocation_budget = 0;
+    const auto prepared = codec::pop_end(bytes, false, 4097, update, &plan);
+    allocation_budget = -1;
+    require(prepared == status::ok && plan.id == page.id &&
+        plan.length_bytes == codec::fragment_header_bytes &&
+        update.applied && update.bytes.empty() && update.value == reference.value,
+        "fragment pop plan did not reuse the output buffer");
+    auto wrong = plan;
+    ++wrong.right_stride;
+    require(codec::apply_edit(bytes, wrong) == status::invalid && bytes == original,
+        "wrong fragment span changed the page");
+    bytes.reserve(bytes.size() * 2);
+    allocation_budget = 0;
+    const auto failed = codec::apply_edit(bytes, plan);
+    allocation_budget = -1;
+    require(failed == status::out_of_memory && bytes == original,
+        "fragment shrink failure changed the page");
+    require(codec::apply_edit(bytes, plan) == status::ok && bytes == reference.bytes,
+        "native fragment pop changed the surviving encoding");
+    pkv::list_page_edit fallback;
+    require(codec::pop_end(bytes, false, 4097, update, &fallback) == status::ok &&
+        !update.applied && !fallback.id, "cross-page fragment did not defer");
+}
+
 static void test_encoded_pop_failures() {
     list_page page;
     page.id = 7;
@@ -727,7 +776,286 @@ static void test_compact_length_width() {
         decoded.fragments[2].bytes == wide, "wide packed pages still round-trip");
 }
 
+static void test_native_append_plan() {
+    list_page page;
+    page.id = 0x0102030405060708ULL;
+    page.previous = 7;
+    for (unsigned i = 0; i < 8; ++i) {
+        list_fragment item;
+        item.bytes.assign(i % 4, static_cast<char>(i));
+        item.total_bytes = item.bytes.size();
+        page.fragments.push_back(std::move(item));
+    }
+    std::string bytes;
+    require(codec::encode_packed_page(page, bytes) == status::ok, "append seed");
+    {
+        pkv::list_page_edit cold;
+        list_page_update update;
+        require(codec::plan_append(bytes, "prime", 512, codec::max_page_bytes,
+            update, cold, true) == status::ok && !cold.id && !update.applied,
+            "cold append must defer without changing the page");
+        require(codec::push_end(bytes, {"prime"}, false, 512, update) ==
+            status::ok && update.applied, "prime complete writer cache");
+        bytes = std::move(update.bytes);
+        pkv::list_page_edit hot;
+        require(codec::plan_append(bytes, "next", 512, codec::max_page_bytes,
+            update, hot, true) == status::ok && hot.id == page.id,
+            "validated hot page must allow native append");
+        auto damaged = bytes;
+        damaged[codec::page_header_bytes] = '\xff';
+        pkv::list_page_edit rejected;
+        require(codec::plan_append(damaged, "next", 512, codec::max_page_bytes,
+            update, rejected, true) == status::ok && !rejected.id,
+            "changed page must defer to the full writer");
+        require(codec::push_end(damaged, {"next"}, false, 512, update) ==
+            status::invalid, "cold fallback must still reject corrupt bytes");
+    }
+    for (unsigned step = 0; step < 128; ++step) {
+        const std::string value(step % 20, static_cast<char>(step));
+        pkv::list_page_edit plan;
+        list_page_update update, ordinary;
+        require(codec::plan_append(bytes, value, 512, codec::max_page_bytes,
+            update, plan) == status::ok && plan.id == page.id,
+            "native append planning");
+        require(codec::push_end(bytes, {value}, false, 512, ordinary) == status::ok &&
+            ordinary.applied, "append reference writer");
+        const auto original = bytes;
+        for (unsigned bad = 0; bad < 4; ++bad) {
+            auto invalid = plan;
+            if (bad == 0) ++invalid.expected_bytes;
+            if (bad == 1) ++invalid.expected_count;
+            if (bad == 2) ++invalid.id;
+            if (bad == 3) invalid.suffix[0] ^= 0x40;
+            require(codec::apply_append(bytes, invalid) == status::invalid &&
+                bytes == original, "bad append changed stored page");
+        }
+        auto damaged = bytes;
+        damaged[codec::page_header_bytes] = '\xff';
+        pkv::list_page_edit rejected;
+        require(codec::plan_append(damaged, value, 512, codec::max_page_bytes,
+            update, rejected) == status::invalid && !rejected.id,
+            "append skipped full byte validation");
+        require(codec::apply_append(bytes, plan) == status::ok &&
+            bytes == ordinary.bytes, "append bytes differ from full writer");
+    }
+    // Force an allocation boundary; failure must preserve every logical byte.
+    bool saw_failure = false;
+    for (unsigned count = 1; count < 20 && !saw_failure; ++count) {
+        page.fragments.resize(count);
+        for (auto& item : page.fragments) { item.bytes.clear(); item.total_bytes = 0; }
+        std::string source;
+        require(codec::encode_packed_page(page, source) == status::ok, "append OOM seed");
+        std::string cold(source.data(), source.size());
+        pkv::list_page_edit plan;
+        list_page_update update;
+        require(codec::plan_append(cold, std::string(19, 'z'), 512,
+            codec::max_page_bytes, update, plan) == status::ok && plan.id,
+            "append OOM plan");
+        if (cold.capacity() >= cold.size() + plan.suffix.size()) continue;
+        allocation_budget = 0;
+        const auto result = codec::apply_append(cold, plan);
+        allocation_budget = -1;
+        require(result == status::out_of_memory && cold == source,
+            "append reserve failure published bytes");
+        saw_failure = true;
+    }
+    require(saw_failure, "append allocation failure not exercised");
+}
+
+static void test_native_wide_push() {
+    list_page page;
+    page.id = 0x564321;
+    const size_t widths[] = {255, 256, 1024, 4096, 4097, codec::wide_member_bytes};
+    for (size_t width : widths) {
+        const auto count = width == codec::wide_member_bytes ? 1 : width >= 4096 ? 2 : 8;
+        page.fragments.assign(count, fragment(std::string(width, 'x')));
+        std::string source;
+        require(codec::encode_packed_page(page, source) == status::ok &&
+            source.size() > 2048, "wide push seed exceeds validation cache");
+        const std::string value(width, '\0');
+        for (bool left : {false, true}) {
+            pkv::list_page_edit plan;
+            list_page_update update;
+            require(codec::plan_push(source, value, left, width,
+                codec::max_page_bytes, update, plan, true) == status::ok && !plan.id,
+                "wide push must miss the validation cache");
+            require(codec::plan_push(source, value, left, width,
+                codec::max_page_bytes, update, plan) == status::ok && plan.id == page.id,
+                "wide push can plan from validated page bytes");
+            require(codec::push_end(source, {value}, left, width, update) == status::ok &&
+                update.applied, "wide push reference encoding");
+            require(plan.length_bytes == (width <= 255 ? 1 : 4),
+                "native push length encoding");
+            auto stored = source;
+            auto invalid = plan;
+            invalid.length_bytes = plan.length_bytes == 1 ? 4 : 1;
+            require(codec::apply_edit(stored, invalid) == status::invalid &&
+                stored == source, "mismatched push width changed bytes");
+            invalid = plan;
+            invalid.suffix.resize(plan.length_bytes - 1);
+            require(codec::apply_edit(stored, invalid) == status::invalid &&
+                stored == source, "truncated push length changed bytes");
+            require(codec::apply_edit(stored, plan) == status::ok &&
+                stored == update.bytes, "owned wide push differs from writer");
+            plan.suffix.clear();
+            plan.borrowed_value = &value;
+            const bool planned = width == 256 || width == 1024;
+            if (planned) plan.fill_limit = codec::max_page_bytes;
+            stored = std::string(source.data(), source.size());
+            require(stored.capacity() < stored.size() + plan.added_bytes(),
+                "wide push reserve failure requires allocation");
+            allocation_budget = 0;
+            const auto failed = codec::apply_edit(stored, plan);
+            allocation_budget = -1;
+            require(failed == status::out_of_memory && stored == source,
+                "borrowed wide push reserve failure changed bytes");
+            require(codec::apply_edit(stored, plan) == status::ok &&
+                stored == update.bytes, "borrowed wide push differs from writer");
+            if (planned) {
+                const auto members = (codec::max_page_bytes - codec::page_header_bytes) /
+                    (codec::fragment_header_bytes + width);
+                require(stored.capacity() >= codec::page_header_bytes + members * (4 + width),
+                    "wide push did not reserve planned members");
+            }
+        }
+    }
+}
+
+static void test_native_right_pop() {
+    for (size_t width : {72, 512, 1024, 4096, 4097, 5400}) {
+        list_page page;
+        page.id = 21;
+        page.previous = 20;
+        for (char byte = 'a'; byte <= (width >= 4096 ? 'c' : 'd'); ++byte)
+            page.fragments.push_back(fragment(std::string(width, byte)));
+        std::string bytes;
+        require(codec::encode_packed_page(page, bytes) == status::ok, "right pop seed");
+        bytes.reserve(bytes.size() * 2);
+        const auto capacity = bytes.capacity();
+        const auto original = bytes;
+        list_page_update update, reference;
+        pkv::list_page_edit plan;
+        update.value.reserve(width);
+        const auto* reply_buffer = update.value.data();
+        allocation_budget = 0;
+        const auto planned = codec::plan_uniform_pop_right(bytes, width, 0, update, plan);
+        allocation_budget = -1;
+        require(planned == status::ok && update.value.data() == reply_buffer &&
+            plan.id == page.id && update.value == page.fragments.back().bytes,
+            "right pop plan must reuse the reply buffer and return the final member");
+        require(codec::pop_end(bytes, false, width, reference) == status::ok && reference.applied,
+            "right pop reference encoding");
+        require(plan.length_bytes == (width <= 255 ? 1 : 4), "right pop length encoding");
+        auto stale = plan;
+        stale.length_bytes = plan.length_bytes == 1 ? 4 : 1;
+        require(codec::apply_edit(bytes, stale) == status::invalid && bytes == original,
+            "wrong right pop length encoding changed the page");
+        stale = plan;
+        ++stale.expected_count;
+        require(codec::apply_edit(bytes, stale) == status::invalid && bytes == original,
+            "stale right pop plan changed the page");
+        allocation_budget = 0;
+        const auto failed = codec::apply_edit(bytes, plan);
+        allocation_budget = -1;
+        require(failed == status::out_of_memory && bytes == original,
+            "right pop shrink failure changed the page");
+        require(codec::apply_edit(bytes, plan) == status::ok && bytes == reference.bytes &&
+            bytes.capacity() < capacity, "right pop must publish a smaller allocation");
+        pkv::list_page_edit next;
+        const auto count = static_cast<uint16_t>(page.fragments.size() - 1);
+        require(codec::plan_uniform_pop_right(bytes, width, count, update, next) == status::ok &&
+            next.id == page.id && update.value == page.fragments[count - 1].bytes,
+            "right pop should reuse the committed count");
+
+        page.fragments.back() = fragment("mixed");
+        require(codec::encode_packed_page(page, bytes) == status::ok, "mixed right pop seed");
+        pkv::list_page_edit mixed;
+        require(codec::plan_uniform_pop_right(bytes, width, 0, update, mixed) == status::ok &&
+            !mixed.id, "mixed width page must use the ordinary writer");
+    }
+}
+
+static void test_native_push_both_ends() {
+    list_page page;
+    page.id = 0x334455667788ULL;
+    std::vector<std::string> model(8, "seed");
+    for (const auto& value : model) page.fragments.push_back(fragment(value));
+    std::string bytes;
+    require(codec::encode_packed_page(page, bytes) == status::ok, "push seed");
+    list_page_update update;
+    require(codec::push_end(bytes, {"warm"}, false, 512, update) == status::ok &&
+        update.applied, "push validation prime");
+    bytes = std::move(update.bytes);
+    model.push_back("warm");
+    for (unsigned step = 0; step < 180; ++step) {
+        const bool left = step % 3 != 0;
+        const std::string value(step % 20, static_cast<char>(step));
+        pkv::list_page_edit plan;
+        require(codec::plan_push(bytes, value, left, 512, codec::max_page_bytes,
+            update, plan, true) == status::ok && plan.id == page.id &&
+            plan.left == left, "cached endpoint push planning");
+        list_page_update reference;
+        require(codec::push_end(bytes, {value}, left, 512, reference) ==
+            status::ok && reference.applied, "push reference encoding");
+        const auto original = bytes;
+        for (unsigned bad = 0; bad < 4; ++bad) {
+            auto invalid = plan;
+            if (bad == 0) ++invalid.expected_bytes;
+            if (bad == 1) ++invalid.expected_count;
+            if (bad == 2) ++invalid.id;
+            if (bad == 3) invalid.suffix[0] ^= 0x40;
+            require(codec::apply_edit(bytes, invalid) == status::invalid &&
+                bytes == original, "invalid push changed bytes");
+        }
+        require(codec::apply_edit(bytes, plan) == status::ok &&
+            bytes == reference.bytes, "native endpoint push differs from writer");
+        if (left) model.insert(model.begin(), value);
+        else model.push_back(value);
+        list_page decoded;
+        require(codec::decode_page(bytes, decoded) == status::ok &&
+            decoded.fragments.size() == model.size(), "push decode count");
+        for (size_t i = 0; i < model.size(); ++i)
+            require(decoded.fragments[i].bytes == model[i], "push decode model");
+        if (step % 16 == 0) {
+            list_page_update popped, restored;
+            require(codec::pop_end(bytes, false, 512, popped) == status::ok &&
+                popped.applied && popped.value == model.back(),
+                "prepend cached last-fragment position");
+            require(codec::push_end(popped.bytes, {popped.value}, false, 512,
+                restored) == status::ok && restored.applied &&
+                restored.bytes == bytes, "restore right endpoint validation");
+        }
+    }
+    for (bool left : {false, true}) {
+        page.fragments.assign(1, fragment(""));
+        require(codec::encode_packed_page(page, bytes) == status::ok,
+            "push reserve failure seed");
+        std::string cold(bytes.data(), bytes.size());
+        pkv::list_page_edit plan;
+        require(codec::plan_push(cold, std::string(19, 'x'), left, 512,
+            codec::max_page_bytes, update, plan) == status::ok && plan.id,
+            "push reserve failure plan");
+        require(cold.capacity() < cold.size() + plan.suffix.size(),
+            "push reserve failure requires allocation");
+        allocation_budget = 0;
+        const auto result = codec::apply_edit(cold, plan);
+        allocation_budget = -1;
+        require(result == status::out_of_memory && cold == bytes,
+            "push reserve failure changed bytes");
+    }
+    page.previous = 17;
+    require(codec::encode_packed_page(page, bytes) == status::ok, "linked push seed");
+    pkv::list_page_edit rejected;
+    require(codec::plan_push(bytes, "x", true, 512, codec::max_page_bytes,
+        update, rejected) == status::invalid && !rejected.id,
+        "left push accepted non-endpoint page");
+}
+
 int main() {
+    test_native_push_both_ends();
+    test_native_wide_push();
+    test_native_right_pop();
+    test_native_append_plan();
     test_validation_workspace();
     test_validation_threads_and_shutdown();
     test_compact_validation_reuse();
@@ -744,6 +1072,7 @@ int main() {
     test_encoded_push();
     test_encoded_push_failures();
     test_encoded_pop();
+    test_native_fragment_pop();
     test_encoded_pop_failures();
     std::cout << "Bounded List page codec tests passed\n";
 }

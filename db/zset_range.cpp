@@ -5,6 +5,8 @@
 
 namespace pkv {
 namespace {
+constexpr size_t score_members_batch = 64;
+
 void slice(const zset_query& query, uint64_t& first, uint64_t& last) {
     const auto skip = std::min(last - first,
         static_cast<uint64_t>(query.offset));
@@ -59,29 +61,82 @@ bool zset_store::bounds(const zset_query& query, uint64_t& first,
         }
         return true;
     };
-    if (!boundary(query.min_score.value, query.min_score.exclusive, first,
-            scope ? &scope->lower_boundary_ : nullptr) ||
-        !boundary(query.max_score.value, !query.max_score.exclusive, last,
-            scope ? &scope->upper_boundary_ : nullptr)) return false;
+    // Inclusive infinities cover the complete rank domain. Like a rank-range
+    // query, use the validated root cardinality instead of walking the tree.
+    // Exclusive infinities may exclude stored infinite scores and still need
+    // the ordinary boundary search.
+    if (query.min_score.value == -INFINITY && !query.min_score.exclusive) {
+        first = 0;
+    } else if (!boundary(query.min_score.value, query.min_score.exclusive,
+        first, scope ? &scope->lower_boundary_ : nullptr)) return false;
+    if (query.max_score.value == INFINITY && !query.max_score.exclusive) {
+        last = root_.elements;
+    } else if (!boundary(query.max_score.value, !query.max_score.exclusive,
+        last, scope ? &scope->upper_boundary_ : nullptr)) return false;
     if (last < first) return fail(status::invalid);
     slice(query, first, last);
     return true;
 }
 
 bool zset_store::visit_range(const zset_query& query,
-    const visitor& callback) {
+    const visitor& callback, bool batch_members) {
     if (query.mode == zrange_mode::lex) return fail(status::invalid);
-    uint64_t first, last;
-    if (!bounds(query, first, last)) return false;
-    if (first == last) return true;
-    bool valid = true;
-    if (!scores_->visit_rank(query.reverse ? last - 1 : first, last - first,
-        query.reverse, [&](const std::string& key, const std::string&) {
+    const bool by_prefix = query.mode == zrange_mode::score &&
+        query.offset == 0 && query.limit < 0;
+    uint64_t first = 0, last = 0;
+    map_store::score_prefix_bound min{{}, query.min_score.exclusive};
+    map_store::score_prefix_bound max{{}, query.max_score.exclusive};
+    if (by_prefix) {
+        if (error_ != status::ok || !scores_) return false;
+        if (!zset_page_codec::encode_score(query.min_score.value, min.prefix) ||
+            !zset_page_codec::encode_score(query.max_score.value, max.prefix))
+            return fail(status::invalid);
+        if (zscore_empty(query) || !root_.elements) return true;
+    } else {
+        if (!bounds(query, first, last)) return false;
+        if (first == last) return true;
+    }
+    const auto walk = [&](const map_store::visitor& emit) {
+        return by_prefix ? scores_->visit_score_interval(min, max, query.reverse, emit) :
+            scores_->visit_score_range(first, last, query.reverse, emit);
+    };
+    bool stopped = false;
+    const auto scalar = [&](const std::string& key, const std::string&) {
         zset_member value;
-        if (!ordered_member(key, value)) { valid = false; return false; }
-        return callback(value.member, value.score);
-    }, false)) return tree_error();
-    return valid;
+        if (!ordered_member(key, value, true)) return false;
+        stopped = !callback(value.member, value.score);
+        return !stopped;
+    };
+    if (!batch_members || (!by_prefix && last - first < 4)) {
+        const bool visited = walk(scalar);
+        return visited || stopped || tree_error();
+    }
+
+    std::array<zset_member, 32> members;
+    size_t used = 0;
+    const auto flush = [&] {
+        if (!validate_score_members(members.data(), used)) return false;
+        for (size_t i = 0; i < used; ++i) {
+            const auto& item = members[i];
+            if (!callback(item.member, item.score)) {
+                stopped = true;
+                return false;
+            }
+        }
+        used = 0;
+        return true;
+    };
+    const bool visited = walk([&](const std::string& key, const std::string& bytes) {
+            if (key.size() > map_page_codec::zset_key_inline_bytes)
+                return flush() && scalar(key, bytes);
+            auto& item = members[used++];
+            if (!zset_page_codec::decode_score_prefix(key, item.score))
+                return fail(status::invalid);
+            item.member.assign(key, 8, std::string::npos);
+            return used != members.size() || flush();
+        });
+    if (!visited) return stopped || tree_error();
+    return flush() || stopped;
 }
 
 bool zset_store::range(const zset_query& query,
@@ -131,48 +186,49 @@ bool zset_store::range(const zset_query& query,
     return true;
 }
 
+bool zset_store::validate_score_members(zset_member* members, size_t count) {
+    if (!count) return true;
+    struct validation {
+        zset_store& store;
+        zset_member* members;
+        size_t matched;
+    } state{*this, members, 0};
+    const auto member_found = [](void* raw, size_t index, const map_blob& value) {
+        auto& job = *static_cast<validation*>(raw);
+        auto& item = job.members[index];
+        double score;
+        if (value.head || !zset_page_codec::decode_value(value.inline_value, score) ||
+            score != item.score)
+            return job.store.fail(status::invalid);
+        item.score = score;
+        ++job.matched;
+        return true;
+    };
+    std::array<map_store::lookup_request, score_members_batch> requests;
+    for (size_t i = 0; i < count; ++i)
+        requests[i] = {&members[i].member, i, 0};
+    if (!members_->find_many(requests.data(), requests.data() + count,
+            member_found, &state)) return tree_error();
+    return state.matched == count || fail(status::invalid);
+}
+
 bool zset_store::collect(uint64_t first, uint64_t last, bool reverse,
     std::vector<zset_member>& out) {
     if (first == last) return true;
     const auto count = last - first;
-    if (count >= 64 && count >= root_.elements - count) {
+    if (count >= score_members_batch && count >= root_.elements - count) {
         if (!collect_all(out)) return false;
         out.resize(static_cast<size_t>(last));
         if (first) out.erase(out.begin(), out.begin() + first);
         if (reverse) std::reverse(out.begin(), out.end());
         return true;
     }
-    constexpr size_t batch_capacity = 64;
     if (count >= 4) {
-        struct validation {
-            zset_store& store;
-            std::vector<zset_member>& out;
-            size_t start;
-            size_t matched;
-        } state{*this, out, 0, 0};
-        auto member_found = [](void* raw, size_t index, const map_blob& value) {
-            auto& job = *static_cast<validation*>(raw);
-            auto& item = job.out[job.start + index];
-            std::string bytes;
-            if (value.head && !job.store.members_->read_blob(value, bytes))
-                return job.store.tree_error();
-            const auto& encoded = value.head ? bytes : value.inline_value;
-            double score;
-            if (!zset_page_codec::decode_value(encoded, score) || score != item.score)
-                return job.store.fail(status::invalid);
-            item.score = score;
-            ++job.matched;
-            return true;
-        };
-        std::array<map_store::lookup_request, batch_capacity> requests;
-        auto validate = [&](size_t size) {
-            for (size_t i = 0; i < size; ++i)
-                requests[i] = {&out[state.start + i].member, i, 0};
-            state.matched = 0;
-            if (!members_->find_many(requests.data(), requests.data() + size,
-                    member_found, &state)) return tree_error();
-            if (state.matched != size) return fail(status::invalid);
-            state.start += size;
+        size_t start = 0;
+        const auto validate = [&] {
+            if (start == out.size()) return true;
+            if (!validate_score_members(out.data() + start, out.size() - start)) return false;
+            start = out.size();
             return true;
         };
         const bool visited = scores_->visit_score_range(first, last, reverse,
@@ -182,11 +238,10 @@ bool zset_store::collect(uint64_t first, uint64_t last, bool reverse,
                     return fail(status::invalid);
                 item.member.assign(key, 8, std::string::npos);
                 out.push_back(std::move(item));
-                return out.size() - state.start != batch_capacity ||
-                    validate(batch_capacity);
+                return out.size() - start != score_members_batch || validate();
             });
         if (!visited) return tree_error();
-        return validate(out.size() - state.start);
+        return validate();
     }
     bool valid = true;
     const bool visited = scores_->visit_rank(reverse ? last - 1 : first,

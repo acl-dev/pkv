@@ -59,7 +59,7 @@ def envelope(entries):
 def view(client, kind, key):
     if kind == 'string':
         return client.call('GET', key)
-    if kind == 'hash':
+    if kind in ('hash', 'grouped_hash'):
         result = client.call('HGETALL', key)
         return sorted(zip(result[::2], result[1::2]))
     if kind == 'list':
@@ -71,6 +71,11 @@ def view(client, kind, key):
 
 def commands(kind, key):
     blob = b'v' * 70000
+    if kind == 'grouped_hash':
+        fields = [part for index in range(129)
+                  for part in ('field:%013d' % index, 'val')]
+        return (('HSET', key, *fields),
+                ('HSET', key, 'field:%013d' % 31, 'next'))
     if kind == 'string':
         return ('SET', key, blob), ('SETRANGE', key, 16000, 'changed')
     if kind == 'hash':
@@ -103,7 +108,7 @@ def greeting(listener):
 
 
 def run(binary, backend):
-    kinds = ('string', 'hash', 'list', 'set', 'zset')
+    kinds = ('string', 'hash', 'grouped_hash', 'list', 'set', 'zset')
     with socket.socket() as listener, contextlib.ExitStack() as sockets:
         listener.bind(('127.0.0.1', 0))
         listener.listen(2)
@@ -123,6 +128,8 @@ def run(binary, backend):
                     assert source.call(*create) is not None
                     initial = batch(peer)
                     root = root_after(initial, key)
+                    if kind == 'grouped_hash':
+                        assert root[:4] == b'PMR\x0c', root[:4]
                     before[kind] = view(source, kind, key)
                     upstream.sendall(b''.join(encoded(initial)))
                     wait_value(target, kind, key, before[kind])
@@ -176,7 +183,7 @@ def run(binary, backend):
                 source.close()
                 target.close()
                 peer.socket.close()
-    print('Negotiated PKV4 fragmented mixed replay preserves five types',
+    print('Negotiated PKV4 mixed replay preserves five types and grouped Hash',
           backend)
 
 

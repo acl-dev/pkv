@@ -51,8 +51,8 @@ bool string_store::read_page(uint64_t index, std::string& out) {
     return out.size() == string_page_codec::page_size(root_, index) ||
         fail(status::invalid);
 }
-bool string_store::write_page(uint64_t index, const std::string& value) {
-    return transaction_.put_bound(entry_, index + 1, value) ||
+bool string_store::write_page(uint64_t index, std::string&& value) {
+    return transaction_.put_bound(entry_, index + 1, std::move(value)) ||
         fail(status::storage);
 }
 
@@ -70,12 +70,14 @@ bool string_store::assign(const std::string& value) {
     root_.length = input->size();
     root_.pages = string_page_codec::pages_for(root_.length);
     if (!root_.pages) { root_.inline_value = *input; return true; }
+    // A whole single-key write stages a fresh, consecutive page range.
+    if (root_.pages > 1 && transaction_.roots().size() == 1)
+        transaction_.reserve_sorted_pages(entry_, static_cast<size_t>(root_.pages));
     for (uint64_t i = 0; i < root_.pages; ++i) {
         const auto offset = static_cast<size_t>(i) *
             string_page_codec::page_bytes;
-        const auto bytes = input->substr(offset,
-            string_page_codec::page_size(root_, i));
-        if (!write_page(i, bytes)) return false;
+        if (!write_page(i, input->substr(offset,
+                string_page_codec::page_size(root_, i)))) return false;
     }
     return true;
 }
@@ -125,13 +127,27 @@ bool string_store::write_limit(uint64_t offset, const std::string& value,
         last = pages - 1;
     }
     for (uint64_t i = first; i <= last; ++i) {
-        std::string bytes;
-        if (root_.pages && i < root_.pages) {
-            if (!read_page(i, bytes)) return false;
-        } else if (!root_.pages && i == 0) bytes = root_.inline_value;
         const auto begin = i * string_page_codec::page_bytes;
         const auto size = std::min<uint64_t>(string_page_codec::page_bytes,
             length - begin);
+        std::string bytes;
+        if (i < root_.pages) {
+            const auto old_size = string_page_codec::page_size(root_, i);
+            std::string scratch;
+            const bool growing = size > old_size;
+            if (growing) bytes.reserve(static_cast<size_t>(size));
+            const auto copy = [](void* raw, const std::string& page) {
+                auto& target = *static_cast<std::string*>(raw);
+                if (&target != &page) target = page;
+            };
+            // Reserve from empty before copying a growing page, so moving the
+            // result does not retain capacity doubled from its previous size.
+            if (!inspect_chunk(begin, old_size, growing ? scratch : bytes,
+                    copy, &bytes)) return false;
+        } else if (!root_.pages && i == 0) {
+            bytes.reserve(static_cast<size_t>(size));
+            bytes = root_.inline_value;
+        }
         bytes.resize(static_cast<size_t>(size), '\0');
         const auto left = std::max(begin, offset);
         const auto right = std::min(begin + size, end);
@@ -140,7 +156,7 @@ bool string_store::write_limit(uint64_t offset, const std::string& value,
                 static_cast<size_t>(right - left), value,
                 static_cast<size_t>(left - offset),
                 static_cast<size_t>(right - left));
-        if (!write_page(i, bytes)) return false;
+        if (!write_page(i, std::move(bytes))) return false;
     }
     root_.length = length; root_.pages = pages; root_.inline_value.clear();
     return true;
@@ -198,13 +214,24 @@ bool string_store::range(long long start, long long end, std::string& out) {
     }
     std::string result;
     result.reserve(count);
+    std::string scratch;
+    struct slice {
+        std::string& result;
+        size_t position;
+        size_t count;
+    };
+    const auto append = [](void* context, const std::string& bytes) {
+        auto& part = *static_cast<slice*>(context);
+        part.result.append(bytes.data() + part.position, part.count);
+    };
     while (count) {
         const auto index = offset / string_page_codec::page_bytes;
         const auto position = offset % string_page_codec::page_bytes;
-        std::string bytes;
-        if (!read_page(index, bytes)) return false;
-        const auto size = std::min(count, bytes.size() - position);
-        result.append(bytes, position, size);
+        const auto page_size = string_page_codec::page_size(root_, index);
+        const auto size = std::min(count, page_size - position);
+        slice part{result, position, size};
+        if (!inspect_chunk(offset - position, page_size, scratch, append, &part))
+            return false;
         offset += size; count -= size;
     }
     out.swap(result);

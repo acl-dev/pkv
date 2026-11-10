@@ -1,6 +1,10 @@
 #include "stdafx.h"
 #include "expiry_service.h"
 #include "database_pool.h"
+#ifdef HAS_TBB
+#include "mdb/mdb_tbb.h"
+#endif
+#include <chrono>
 #include <stdexcept>
 
 namespace pkv {
@@ -12,10 +16,9 @@ expiry_service::expiry_service(std::shared_ptr<database_pool> databases,
         throw std::invalid_argument("invalid active expiry configuration");
     thread_ = std::thread([this] {
         try {
-            go[this] { run(); };
-            acl::fiber::schedule();
+            run();
         } catch (const std::exception& error) {
-            logger_error("expiry scheduler failed: %s", error.what());
+            logger_error("expiry worker failed: %s", error.what());
         }
     });
 }
@@ -26,12 +29,20 @@ expiry_service::~expiry_service() {
 bool expiry_service::tick() {
     failed_ = false;
     auto databases = databases_->opened();
+#ifdef HAS_TBB
+    const auto now = std::chrono::duration_cast<std::chrono::milliseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count();
+#endif
     size_t remaining = batch_;
     bool busy = false;
     for (size_t i = 0; i < databases.size() && remaining && !stop_.load();
         ++i) {
         if (cursor_ >= databases.size()) cursor_ = 0;
         auto& database = databases[cursor_++];
+#ifdef HAS_TBB
+        if (auto* native = dynamic_cast<mdb_tbb*>(database.get()))
+            native->trim_idle_storage(static_cast<uint64_t>(now));
+#endif
         if (unsupported_.count(database.get())) continue;
         const auto progress = database->expire_step(remaining);
         if (!progress.supported) {
@@ -53,7 +64,8 @@ void expiry_service::run() {
             logger_error("active expiry deferred: %s", error.what());
         }
         if (!stop_.load())
-            acl::fiber::delay(failed_ ? 1000 : busy ? 1 : interval_);
+            std::this_thread::sleep_for(std::chrono::milliseconds(
+                failed_ ? 1000 : busy ? 1 : interval_));
     }
 }
 } // namespace pkv

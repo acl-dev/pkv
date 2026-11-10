@@ -135,10 +135,48 @@ static void failures(bool tbb) {
     std::cout << "HLL allocation budgets: " << (tbb ? "tbb" : "mdb")
         << " failed=" << failed << " succeeded=" << succeeded << '\n';
 }
+
+static void cached_dense_prefix(bool tbb) {
+    auto database = tbb ? db::create_mdb_tbb(4) : db::create_mdb(4);
+    require(database && database->open(""), "cached dense HLL DB open");
+    dao::paged_string data;
+    auto value = hll::empty();
+    require(hll::dense(value), "dense HLL encoding");
+    hll::cache(value, 91);
+    const std::vector<std::string> keys{"dense"};
+    require(data.set(database, keys.front(), value), "dense HLL seed");
+    std::vector<watch_token> watched;
+    require(database->watch(keys, watched) == db::batch_status::ok &&
+        watched.size() == 1, "dense HLL WATCH");
+    long long count;
+    largest = 1024;
+    const bool ok = data.pfcount(database, keys, count);
+    largest = SIZE_MAX;
+    std::string after;
+    require(ok && count == 91 && data.get(database, keys.front(), after) &&
+        after == value && watched[0]->valid(unix_time_ms()),
+        "cached dense PFCOUNT copied the body or changed the value");
+    const std::vector<std::string> sources{"dense", "dense-copy"};
+    require(data.set(database, sources.back(), value), "second dense HLL seed");
+    largest = 1024;
+    const bool merged = data.pfcount(database, sources, count);
+    largest = SIZE_MAX;
+    require(merged && count == 0 && watched[0]->valid(unix_time_ms()),
+        "dense union PFCOUNT copied a register page or changed WATCH");
+    for (size_t size : {hll::header_size, hll::dense_size - 1, hll::dense_size + 1}) {
+        auto malformed = value;
+        malformed.resize(size);
+        require(data.set(database, keys.front(), malformed) &&
+            !data.pfcount(database, keys, count) && count == 0 &&
+            data.status() == dao::dao_base::read_status::invalid_hll,
+            "cached dense PFCOUNT accepted the wrong logical length");
+    }
+}
+
 int main() {
-    bounds(); failures(false);
+    bounds(); cached_dense_prefix(false); failures(false);
 #ifdef HAS_TBB
-    failures(true);
+    cached_dense_prefix(true); failures(true);
 #endif
     std::cout << "HLL bounded input reads and allocation rollback passed\n";
 }

@@ -1,6 +1,5 @@
 #pragma once
 #include "coder/redis_object.h"
-#include "db/zset_store.h"
 #include "common/geo_search.h"
 #include "common/geo_radius.h"
 
@@ -8,7 +7,7 @@ namespace pkv {
 class geo_search_parser {
 public:
     geo_search_parser(const redis_object& object, const char* command);
-    bool parse(zset_store& source, geo::search_options& options);
+    bool parse(const geo::search_source& source, geo::search_options& options);
     const std::string& error() const { return error_; }
 private:
     const redis_object& object_;
@@ -19,6 +18,6 @@ private:
     bool fail(std::string text) { error_ = std::move(text); return false; }
     bool coordinates(size_t first, geo::point& out);
     bool dimensions(size_t first, bool box, geo::shape& out);
-    bool member(zset_store& source, const std::string& name, geo::point& out);
+    bool member(const geo::search_source& source, const std::string& name, geo::point& out);
 };
 } // namespace pkv

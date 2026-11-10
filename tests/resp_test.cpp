@@ -59,7 +59,8 @@ static void inline_frame(const std::string& wire,
 
 static void inline_cases() {
     std::vector<std::string> lines = {
-        "PING", "  \tPING\t  ", "", " \t  ", "SET key value",
+        "PING", "pInG", "ABCDEFGHIJKLMNOP", "ABCDEFGHIJKLMNOPQ",
+        "  \tPING\t  ", "", " \t  ", "SET key value",
         "SET 'key space' \"value space\"", "CMD a\\ b c\\td",
         "CMD '' \"\"", "CMD a'b c'd", "CMD 'unterminated",
         std::string("CMD ") + '\\', std::string("CMD a") + '\\',

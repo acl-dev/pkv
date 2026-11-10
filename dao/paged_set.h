@@ -25,6 +25,9 @@ public:
     bool membership(shared_db& db, const std::string& key,
         const std::vector<std::string>& members,
         std::vector<long long>& out) override;
+    bool membership(shared_db& db, const std::string& key,
+        const map_store::set_member_at& member_at, size_t count,
+        std::vector<long long>& out);
     bool members(shared_db& db, const std::string& key,
         std::set<std::string>& out) override;
     using member_visitor = std::function<void(uint64_t, const std::string&)>;

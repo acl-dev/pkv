@@ -93,6 +93,27 @@ public:
             // Optional acceleration cannot make a valid operation fail.
         }
     }
+    // The caller validated before and the inserted bytes, and supplied the
+    // resulting metadata. Keep the ordinary full-byte guard for future reads.
+    void remember_inserted(const std::string& before,
+        const std::string& suffix, size_t insertion, size_t offset, const char* patch,
+        size_t patch_bytes, uint64_t bound, const View& view) noexcept {
+        if (!active_ || !active_->valid ||
+            before.size() > max_bytes || suffix.size() > max_bytes - before.size() ||
+            insertion > before.size() || offset > before.size() ||
+            patch_bytes > before.size() - offset ||
+            active_->bytes != before) return;
+        active_->valid = false;
+        try {
+            if (insertion == before.size()) active_->bytes.append(suffix);
+            else active_->bytes.insert(insertion, suffix);
+            for (size_t i = 0; i < patch_bytes; ++i)
+                active_->bytes[offset + i] = patch[i];
+            active_->view = view;
+            active_->bound = bound;
+            active_->valid = true;
+        } catch (...) { /* Optional cache failure leaves an invalid entry. */ }
+    }
     static size_t retained_capacity() {
         auto& value = local();
         return value.state == 1 ? contents(value).bytes.capacity() : 0;

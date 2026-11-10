@@ -9,6 +9,7 @@ struct zset_root {
     uint64_t members = 0;
     uint64_t scores = 0;
     uint64_t last_id = 0;
+    bool crc_member_buckets = false;
 };
 
 class zset_page_codec {
@@ -23,6 +24,7 @@ public:
     static bool encode_score(double score, std::string& out);
     static bool decode_score(const std::string& bytes, double& out);
     static bool decode_score_prefix(const std::string& key, double& out);
+    static bool decode_score_prefix(const char* bytes, size_t length, double& out);
     // Member payloads preserve signed zero; sorting keys normalize it.
     static bool encode_value(double score, std::string& out);
     static bool append_value(double score, std::string& out);

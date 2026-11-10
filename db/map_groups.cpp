@@ -158,6 +158,7 @@ bool map_store::write_groups() {
         index_->top.buckets[i].elements = metadata.elements;
     }
     index_->group_index = 16;
+    if (!root_.tree && !allocate(root_.tree)) return false;
     return write_group_page(root_, 256, index_->top);
 }
 } // namespace pkv

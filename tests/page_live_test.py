@@ -123,11 +123,59 @@ def receive_group(peer):
 
 
 def test_subscriber(port):
-    peer = socket.create_connection(('127.0.0.1', port + 10000), timeout=3)
     client = Client(port)
+    peer = None
     try:
+        short = b'0123456789abcdef'
+        assert client.call('SET', 'subscriber:short', short) == b'OK'
+        paged = bytes(range(256)) * 273 + b'tail'
+        deadline = 4102444800123
+        assert client.call('SET', 'subscriber:paged', paged, 'PXAT', deadline) == b'OK'
+        peer = socket.create_connection(('127.0.0.1', port + 10000), timeout=3)
         peer.sendall(b'PKV-REPL 2\r\nPKV-REPL 2\r\n')
         assert receive(peer) == (4, 0, b'', b'')
+        assert client.call('COPY', 'subscriber:short', 'subscriber:copy') == 1
+        roots, pages = receive_group(peer)
+        assert len(roots) == 1 and roots[0][2] == b'subscriber:copy' and not pages
+        assert roots[0][3] == b'PSR\2\0\0\x10' + short
+        copied = b'subscriber:paged-copy'
+        assert client.call('COPY', 'subscriber:paged', copied) == 1
+        roots, pages = receive_group(peer)
+        assert roots == [(12, 0, copied,
+                          struct.pack('!4sIQQQ', b'PSR\1', 0, deadline, len(paged), 5))]
+        assert pages == [(9, 0, copied, struct.pack('!Q', i + 1) + paged[offset:offset + 16384])
+                         for i, offset in enumerate(range(0, len(paged), 16384))]
+        assert client.call('GET', copied) == paged
+        assert client.call('SETRANGE', copied, 0, b'X\0') == len(paged)
+        updated = b'X\0' + paged[2:]
+        roots, pages = receive_group(peer)
+        assert roots == [(7, 0, copied,
+                          struct.pack('!4sIQQQ', b'PSR\1', 0, deadline, len(updated), 5))]
+        assert pages == [(9, 0, copied, struct.pack('!Q', 1) + updated[:16384])]
+        assert client.call('APPEND', copied, b'\0Y') == len(updated) + 2
+        updated += b'\0Y'
+        roots, pages = receive_group(peer)
+        assert roots == [(7, 0, copied,
+                          struct.pack('!4sIQQQ', b'PSR\1', 0, deadline, len(updated), 5))]
+        assert pages == [(9, 0, copied, struct.pack('!Q', 5) + updated[65536:])]
+        assert client.call('GET', copied) == updated
+        assert client.call('SETBIT', copied, 0, 1) == 0
+        updated = bytes([updated[0] | 0x80]) + updated[1:]
+        roots, pages = receive_group(peer)
+        root = struct.pack('!4sIQQQ', b'PSR\1', 0, deadline, len(updated), 5)
+        assert roots == [(7, 0, copied, root)]
+        assert pages == [(9, 0, copied, struct.pack('!Q', 1) + updated[:16384])]
+        boundary = 16383
+        old = int.from_bytes(updated[boundary:boundary+3], 'big') >> 4 & 0xffff
+        assert client.call('BITFIELD', copied, 'SET', 'u16', boundary * 8 + 4,
+                           0xffff) == [old]
+        patch = bytes([updated[boundary] | 0x0f, 0xff, updated[boundary+2] | 0xf0])
+        updated = updated[:boundary] + patch + updated[boundary+3:]
+        roots, pages = receive_group(peer)
+        assert roots == [(7, 0, copied, root)]
+        assert pages == [(9, 0, copied, struct.pack('!Q', 1) + updated[:16384]),
+                         (9, 0, copied, struct.pack('!Q', 2) + updated[16384:32768])]
+        assert client.call('GET', copied) == updated
         assert client.call('SELECT', 7) == b'OK'
         assert client.call('SET', 'subscriber:marker', 'new') == b'OK'
         roots, pages = receive_group(peer)
@@ -222,7 +270,8 @@ def test_subscriber(port):
         peer.sendall(b'PKV-REPL 1\r\n')
         closed(peer)
     finally:
-        peer.close()
+        if peer is not None:
+            peer.close()
         client.close()
 
 
@@ -315,7 +364,7 @@ def run(binary):
                 finally:
                     assert client.call('CONFIG', 'SET', 'replica-read-only',
                                        'yes') == b'OK'
-                checks += 4
+                checks += 5
                 assert client.call('PING') == b'PONG'
                 checks += 1
             finally:

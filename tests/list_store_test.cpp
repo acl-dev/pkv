@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "db/list_store.h"
 #include "db/mdb/mdb.h"
+#include <algorithm>
 #include <cstdlib>
 #include <deque>
 #include <iostream>
@@ -670,12 +671,13 @@ static void test_yielding_transactions() {
         "concurrent endpoints lost original data");
 }
 
-static void test_whole_member_pages() {
+static void test_whole_member_pages(size_t width, unsigned count) {
     for (bool left : {false, true}) {
         auto database = memory();
         std::deque<std::string> expected;
-        for (unsigned i = 0; i < 600; ++i) {
-            std::string value(64 + i % 2, static_cast<char>(i));
+        for (unsigned i = 0; i < count; ++i) {
+            std::string value(width + (width == 64 ? i % 2 : 0),
+                static_cast<char>(i));
             value[0] = '\0'; value[1] = static_cast<char>(i >> 8);
             require(operation(database, "whole", [&](list_store& list) {
                 return list.push({value}, left);
@@ -707,8 +709,47 @@ static void test_whole_member_pages() {
                 }
                 previous = id; id = page.next;
             }
-            return previous == root.tail && members == 600;
+            return previous == root.tail && members == count;
         }) == db::batch_status::ok, "whole members fragmented at page end");
+        for (unsigned i = 0; i < count; ++i) {
+            require(operation(database, "whole", [&](list_store& list) {
+                std::string value;
+                return list.pop_one(!left, value) &&
+                    value == (left ? expected.back() : expected.front());
+            }), "whole member pop");
+            if (left) expected.pop_back();
+            else expected.pop_front();
+        }
+        require(contents(database, "whole").empty(), "whole member list not empty");
+    }
+}
+
+static void test_fragment_page_fill() {
+    using codec = list_page_codec;
+    for (bool left : {false, true}) {
+        auto database = memory();
+        // The first value leaves room for only one byte and its fragment header.
+        std::vector<std::string> values{std::string(codec::max_fragment_bytes -
+            codec::fragment_header_bytes - 1, 'x')};
+        for (char byte = 'a'; byte <= 'f'; ++byte)
+            values.emplace_back(codec::max_fragment_bytes + 1, byte);
+        require(operation(database, "split", [&](list_store& list) {
+            return list.push(values, left);
+        }), "fragment fill push");
+        require(database->largest == codec::max_page_bytes - 1,
+            "split fragment must leave space for the string terminator");
+        if (left) std::reverse(values.begin(), values.end());
+        require(contents(database, "split") == values, "fragment fill order");
+
+        const std::string exact(2 * codec::max_fragment_bytes - 1, 'z');
+        const auto previous_writes = database->writes;
+        require(operation(database, "exact", [&](list_store& list) {
+            return list.push({exact}, left);
+        }), "exact fragment fill push");
+        require(database->writes - previous_writes == 2 &&
+            database->largest == codec::max_page_bytes &&
+            contents(database, "exact") == std::vector<std::string>{exact},
+            "exact fit must not allocate another page");
     }
 }
 
@@ -760,7 +801,11 @@ int main() {
     test_small_push_packing(3, 511);
     test_small_push_packing(16, 1023);
     test_small_push_packing(128);
-    test_whole_member_pages();
+    test_whole_member_pages(64, 600);
+    for (size_t width : {size_t(4097), size_t(5400), list_page_codec::wide_member_bytes,
+            size_t(8192), size_t(list_page_codec::max_fragment_bytes)})
+        test_whole_member_pages(width, 32);
+    test_fragment_page_fill();
     test_whole_member_growth_rollback();
     test_medium_push_packing();
     test_medium_page_growth_rollback();

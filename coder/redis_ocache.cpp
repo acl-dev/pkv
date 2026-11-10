@@ -8,6 +8,11 @@
 
 namespace pkv {
 
+namespace {
+constexpr size_t medium_payload_min = 4 * 1024;
+constexpr size_t medium_payload_budget = 256 * 1024;
+}
+
 #if 1
 #define EMPTY(x) ((x).size() == 0)
 #else
@@ -53,6 +58,7 @@ redis_ocache::~redis_ocache() {
 void redis_ocache::trim_idle(size_t retained) noexcept {
     if (observed_generation_ != generation_) {
         observed_generation_ = generation_;
+        idle_storage_released_ = false;
         return;
     }
 #ifdef USE_VECTOR
@@ -61,9 +67,75 @@ void redis_ocache::trim_idle(size_t retained) noexcept {
         cache_.pop_back();
         object->destroy();
     }
+    if (!idle_storage_released_)
+        for (auto* object : cache_) object->release_idle_storage();
 #else
     while (pos_ > retained) cache_[--pos_]->destroy();
+    if (!idle_storage_released_)
+        for (size_t i = 0; i < pos_; ++i) cache_[i]->release_idle_storage();
 #endif
+    if (!idle_storage_released_) {
+        for (auto& buffer : bulk_buffers_) std::string().swap(buffer);
+        retained_payload_bytes_ = 0;
+    }
+    idle_storage_released_ = true;
+}
+
+redis_object* redis_ocache::take_cached(redis_object* object) noexcept {
+    if (retained_payload_bytes_) {
+        const auto capacity = object->buf_.capacity();
+        if (capacity >= medium_payload_min)
+            retained_payload_bytes_ -= capacity + 1;
+    }
+    return object;
+}
+
+void redis_ocache::retain_payload(redis_object& object) noexcept {
+    const auto capacity = object.buf_.capacity();
+    if (capacity < medium_payload_min) return;
+    // Bound returned objects' medium payloads across all request and reply
+    // batches. Large parsed payloads use the separate pool in reset().
+    const auto bytes = capacity + 1;
+    if (bytes > medium_payload_budget - retained_payload_bytes_) {
+        std::string().swap(object.buf_);
+    } else {
+        retained_payload_bytes_ += bytes;
+        idle_storage_released_ = false;
+    }
+}
+
+bool redis_ocache::reuse_bulk(std::string& value, size_t wanted) {
+    if (wanted < bulk_min || wanted > bulk_max) return false;
+    std::string* best = nullptr;
+    for (auto& buffer : bulk_buffers_) {
+        const auto capacity = buffer.capacity();
+        if (capacity >= wanted && capacity - wanted <= wanted / 8 &&
+            (!best || capacity < best->capacity())) best = &buffer;
+    }
+    if (!best) return false;
+
+    best->assign(value.data(), value.size());
+    value.swap(*best);
+    std::string().swap(*best);
+    return true;
+}
+
+void redis_ocache::recycle_bulk(std::string& value) noexcept {
+    const auto size = value.size();
+    if (size >= bulk_min && size <= bulk_max && value.capacity() - size <= size / 8) {
+        auto* slot = &bulk_buffers_[next_bulk_buffer_];
+        for (auto& buffer : bulk_buffers_) {
+            if (buffer.capacity() < bulk_min) {
+                slot = &buffer;
+                break;
+            }
+        }
+        if (slot->capacity() >= bulk_min)
+            next_bulk_buffer_ = (next_bulk_buffer_ + 1) % bulk_buffers_.size();
+        value.clear();
+        value.swap(*slot);
+    }
+    std::string().swap(value);
 }
 
 redis_object *redis_ocache::get() {
@@ -73,11 +145,11 @@ redis_object *redis_ocache::get() {
     } else {
         auto obj = cache_.back();
         cache_.pop_back();
-        return obj;
+        return take_cached(obj);
     }
 #else
     if (LIKELY(pos_ > 0)) {
-        return cache_[--pos_];
+        return take_cached(cache_[--pos_]);
     } else {
         return new redis_object(*this);
     }
@@ -88,8 +160,10 @@ void redis_ocache::put(redis_object* obj) {
 #ifdef USE_VECTOR
     if (cache_.size() < max_) {
         obj->reset();
-        if (cache_.size() < max_) cache_.push_back(obj);
-        else obj->destroy();
+        if (cache_.size() < max_) {
+            retain_payload(*obj);
+            cache_.push_back(obj);
+        } else obj->destroy();
     } else {
         obj->destroy();
     }
@@ -97,8 +171,10 @@ void redis_ocache::put(redis_object* obj) {
     if (LIKELY(pos_ < max_)) {
         assert(obj);
         obj->reset();
-        if (pos_ < max_) cache_[pos_++] = obj;
-        else obj->destroy();
+        if (pos_ < max_) {
+            retain_payload(*obj);
+            cache_[pos_++] = obj;
+        } else obj->destroy();
     } else {
         obj->destroy();
     }

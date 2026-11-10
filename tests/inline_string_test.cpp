@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "coder/string_page.h"
 #include "dao/paged_string.h"
+#include "dao/json/json_key.h"
 #include "dao/json/json_string.h"
 #include "db/mdb/mdb.h"
 #include "db/mdb/mdb_tbb.h"
@@ -44,6 +45,31 @@ static void basic(shared_db database) {
     std::string out("stale");
     require(database->read_inline_string("missing", out) == status::missing &&
         out.empty(), "missing inline output");
+    const auto inline_capacity = std::string().capacity();
+    if (inline_capacity >= 7 && inline_capacity <= string_page_codec::inline_bytes) {
+        for (auto size = inline_capacity - 6; size <= inline_capacity - 4; ++size) {
+            const std::string value(size, '\0');
+            std::string bytes;
+            require(data.set(database, "short", value) &&
+                database->get("short", bytes) &&
+                string_page_codec::compact_inline(bytes) &&
+                bytes.size() == size + 4 && data.get(database, "short", out) &&
+                out == value, "compact String root boundary");
+        }
+        const std::string value(inline_capacity - 4, 's');
+        const int64_t deadline = 4102444800123LL;
+        dao::json_key keys;
+        std::string bytes;
+        string_root_header header;
+        require(database->set("short", encoded(value)) &&
+            data.get(database, "short", out) && out == value &&
+            data.set(database, "short", value) &&
+            keys.set_expiry(database, "short", deadline, 0) &&
+            database->get("short", bytes) &&
+            string_page_codec::decode_header(bytes, header) == string_page_status::ok &&
+            header.expires_at_ms == deadline && data.get(database, "short", out) &&
+            out == value, "compact String TTL transition");
+    }
     for (size_t size : {size_t(0), size_t(64), size_t(1024)}) {
         const std::string value(size, '\0');
         require(data.set(database, "key", value), "inline seed");
@@ -183,7 +209,36 @@ template<class Backend> static void run() {
     basic(database); fallbacks(database);
     concurrent(database);
 }
+class inline_read_hook : public mdb {
+public:
+    inline_read_hook() : mdb(4) {}
+    unsigned calls = 0;
+protected:
+    inline_status dbread_inline(const std::string&, std::string& out,
+        size_t, size_t) override {
+        ++calls; out = "hook"; return inline_status::found;
+    }
+};
+
+static void exact_native_reads() {
+    auto database = db::create_mdb(16);
+    require(database->open(""), "exact native open");
+    basic(database); fallbacks(database); concurrent(database);
+#ifdef HAS_TBB
+    auto parallel = db::create_mdb_tbb(16);
+    require(parallel->open(""), "exact oneTBB open");
+    basic(parallel); fallbacks(parallel); concurrent(parallel);
+#endif
+    auto hooked = std::make_shared<inline_read_hook>();
+    require(hooked->open(""), "inline hook open");
+    std::string out;
+    require(hooked->read_inline_string("key", out) == status::found &&
+        out == "hook" && hooked->calls == 1,
+        "hashed read bypassed subclass hook");
+}
+
 int main() {
+    exact_native_reads();
     run<mdb>();
 #ifdef HAS_TBB
     run<mdb_tbb>();

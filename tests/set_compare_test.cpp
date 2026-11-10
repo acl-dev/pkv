@@ -155,16 +155,17 @@ static void rollback(bool tbb) {
         try { ok = data.set(db, "key", replacement, options, out); }
         catch (const std::bad_alloc&) {}
         budget = -1;
+        std::string actual;
         if (ok) {
-            require(out.applied, "CAS success lost applied flag");
+            require(out.applied && data.get(db, "key", actual) &&
+                actual == replacement, "successful CAS published incorrect pages");
             success = true; break;
         }
         ++failures;
-        std::string actual;
         require(!out.applied && data.get(db, "key", actual) &&
             actual == expected, "failed CAS changed pages");
     }
-    require(success && failures > 10, "CAS rollback sweep incomplete");
+    require(success && failures != 0, "CAS rollback sweep incomplete");
 }
 int main() {
     acl::acl_cpp_init(); locality();

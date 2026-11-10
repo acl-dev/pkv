@@ -34,6 +34,8 @@ struct map_blob {
     uint64_t length = 0;
     uint64_t head = 0;
     std::string inline_value;
+    // A score key can keep its prefix inline and borrow the member's chain.
+    bool shares_fragments() const { return head && !inline_value.empty(); }
 };
 
 // One AVL node per field/member. Small payloads stay inline; large keys and
@@ -56,7 +58,8 @@ struct map_node_view {
     struct blob {
         uint64_t length = 0, head = 0;
         const char* data = nullptr;
-        size_t inline_size() const { return head ? 0 : size_t(length); }
+        bool shared = false;
+        size_t inline_size() const { return head ? (shared ? 8 : 0) : size_t(length); }
     };
     uint64_t id = 0;
     uint8_t bucket = 0;
@@ -108,12 +111,14 @@ public:
     static map_page_status decode_group(const std::string&,
         const map_root&, unsigned tag, map_group& out);
     static map_page_status encode_node(const map_node&, std::string& out);
+    static map_page_status encode_set_reference(const map_node&, std::string& out);
     static map_page_status encode_packed_node(const map_node&, std::string& out,
-        bool hashed_bucket = false);
-    // Identical bytes and failure guarantee; a disposable staging buffer may
-    // retain at most 128 bytes of existing capacity for compact node layouts.
+        bool hashed_bucket = false, bool compact_zset = false,
+        bool compact_set_leaf = false);
+    // The scratch encoder may retain up to 128 bytes of staging capacity.
+    // Compact ZSet point writes can use short leaves or fragment references.
     static map_page_status encode_packed_node_scratch(const map_node&,
-        std::string& out, bool hashed_bucket = false);
+        std::string& out, bool hashed_bucket = false, bool compact_zset = false);
     static map_page_status decode_node(const std::string&, map_node& out);
     // Full structural validation, without allocating/copying payloads.
     // Invalid input leaves out unchanged. The view must not outlive input.
@@ -137,7 +142,8 @@ public:
         map_fragment_view& out);
 private:
     static map_page_status encode_packed_node_impl(const map_node&,
-        std::string& out, bool hashed_bucket, bool reuse_capacity);
+        std::string& out, bool hashed_bucket, bool reuse_capacity,
+        bool compact_zset, bool compact_set_leaf);
 };
 
 } // namespace pkv

@@ -59,7 +59,10 @@ inline std::string encode(const std::map<std::string, std::string>& fields,
 
 class view {
 public:
-    explicit view(const std::string& bytes)
+    explicit view(const std::string& bytes) : view(bytes, true) {}
+
+protected:
+    view(const std::string& bytes, bool validate)
         : bytes_(bytes), count_(bytes.size() > 4 ? byte(bytes[4]) & 63 : 0),
           width_(bytes.size() > 4 && (byte(bytes[4]) & wide_offsets_flag) ? 2 : 1),
           offsets_(bytes.size() > 4 && (byte(bytes[4]) & deadline_flag) ? 13 : 5),
@@ -67,6 +70,10 @@ public:
         check(matches(bytes) && count_ && count_ <= max_fields &&
             start_ < bytes.size() && bytes.size() - start_ <=
                 (width_ == 1 ? narrow_payload : payload_limit));
+        if (validate) validate_fields();
+    }
+
+    void validate_fields() {
         if (validate_fixed_pairs()) {
             fixed_pairs_ = true;
             return;
@@ -80,6 +87,7 @@ public:
         }
     }
 
+public:
     unsigned count() const { return count_; }
     int64_t deadline() const {
         if (offsets_ == 5) return -1;
@@ -139,8 +147,9 @@ public:
         return true;
     }
 
+    // An identical result can leave out untouched when requested by the caller.
     bool put(member_view field, member_view value, std::string& out,
-        bool& added) const {
+        bool& added, bool* identical = nullptr) const {
         if (field.size() > 254 || value.size() > 254) return false;
         member_view old;
         unsigned index;
@@ -148,13 +157,17 @@ public:
         if (!found && count_ == max_fields) return false;
 
         const bool owned = &out == &bytes_;
-        if (owned && found && old.size() == value.size()) {
-            // Only the transaction's owned root is mutable here. Lengths,
-            // offsets and ordering stay valid; memmove also permits borrowed
-            // input from another value in that same working copy.
-            if (value.size()) std::memmove(&out[0] +
-                (old.data() - bytes_.data()), value.data(), value.size());
+        if (identical) *identical = false;
+        if (found && old.size() == value.size()) {
             added = false;
+            if (identical && old.compare(value) == 0) {
+                *identical = true;
+                return true;
+            }
+            const auto offset = old.data() - bytes_.data();
+            // A borrowed page needs an owned copy before editing its value.
+            if (!owned) out = bytes_;
+            if (value.size()) std::memmove(&out[0] + offset, value.data(), value.size());
             return true;
         }
 

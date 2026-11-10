@@ -7,6 +7,9 @@
 #include "dao/paged_list.h"
 #include "coder/json_record_codec.h"
 #include "db/mdb/mdb.h"
+#ifdef HAS_TBB
+#include "db/mdb/mdb_tbb.h"
+#endif
 #include "common/rank_sampling.h"
 #include <cstdlib>
 #include <iostream>
@@ -459,6 +462,20 @@ static void test_rank_sampler() {
     for (unsigned i = 0; i < 4000; ++i) ++hits[repeated.next()];
     for (auto count : hits) require(count > 800 && count < 1200,
         "rank sampler distribution");
+
+    for (const uint64_t size : {uint64_t(8), uint64_t(1) << 48}) {
+        std::array<uint64_t, 8> ranks;
+        size_t count = 0;
+        allocation_budget = 0;
+        const bool ok = visit_sampled_ranks(size, ranks.size(), false,
+            [&](uint64_t rank) { ranks[count++] = rank; return true; });
+        allocation_budget = -1;
+        require(ok && count == ranks.size(), "small rank sample count");
+        std::sort(ranks.begin(), ranks.end());
+        require(ranks.back() < size &&
+            std::adjacent_find(ranks.begin(), ranks.end()) == ranks.end(),
+            "small rank sample allocated or returned an invalid rank");
+    }
 }
 
 static void test_compact_owned_update() {
@@ -564,7 +581,100 @@ static void test_compact_owned_transaction(bool tbb) {
         "owned scoped commit changed metadata or sibling");
 }
 
+template <class Backend>
+class yielding_hash_db : public Backend {
+public:
+    yielding_hash_db() : Backend(8) {}
+    size_t root_yields = 0, page_yields = 0;
+protected:
+    db::lookup_status dblookup(const std::string& key, std::string& out) override {
+        ++root_yields; acl::fiber::yield();
+        return Backend::dblookup(key, out);
+    }
+    bool dbget(const std::string& key, std::string& out) override {
+        ++root_yields; acl::fiber::yield();
+        return Backend::dbget(key, out);
+    }
+    db::lookup_status dblookup_bounded_root(const std::string& key,
+        std::string& out) override {
+        ++root_yields; acl::fiber::yield();
+        return Backend::dblookup_bounded_root(key, out);
+    }
+    bool dbbind_page_reader(const std::string&, db::page_reader&) override {
+        return false;
+    }
+    db::lookup_status dbinspect_page(const std::string& owner, uint64_t id,
+        std::string& scratch, db::page_inspection& inspection) override {
+        ++page_yields; acl::fiber::yield();
+        return Backend::dbinspect_page(owner, id, scratch, inspection);
+    }
+};
+
+template <class Backend>
+static void test_hash_callback_suspension() {
+    auto native = std::make_shared<yielding_hash_db<Backend>>();
+    shared_db database = native;
+    require(database->open(""), "yielding Hash database");
+    for (unsigned owner = 0; owner < 8; ++owner) go[&, owner] {
+        dao::paged_hash hash;
+        dao::json_key keys;
+        for (unsigned count : {3U, 63U, 129U}) {
+            const auto key = "yield:" + std::to_string(owner) + ":" + std::to_string(count);
+            fields expected;
+            for (unsigned i = 0; i < count; ++i)
+                expected.emplace("f" + std::to_string(1000 + i),
+                    std::string(3, static_cast<char>('a' + owner)));
+            require(hash.hmset(database, key, expected) == static_cast<int>(count) &&
+                keys.set_expiry(database, key, deadline, 0), "yielding Hash seed/TTL");
+            if (count == 63) {
+                const std::string a = "new-a", b = "new-b", value(3, 'z');
+                require(hash.hmset_pair(database, key, {&a, &value}, {&b, &value}) == 2,
+                    "yielding Hash promotion callback");
+                expected[a] = expected[b] = value;
+            }
+            const auto first = expected.begin()->first, last = expected.rbegin()->first;
+            for (unsigned round = 0; round < 8; ++round) {
+                std::string value;
+                require(hash.hget(database, key, first, value) &&
+                    value == expected.at(first), "Hash read callback crossed fibers");
+                const std::string next{static_cast<char>(owner), '\0', static_cast<char>(round)};
+                bool added;
+                require(hash.hset(database, key, first, next, added) && !added,
+                    "Hash write callback crossed fibers");
+                expected[first] = next;
+                fields result;
+                require(hash.hmget(database, key, {first, last}, result) &&
+                    result == fields{{first, next}, {last, expected.at(last)}},
+                    "Hash multi-read callback crossed fibers");
+                require(hash.hset(database, key, "take", next, added) && added,
+                    "yielding Hash temporary field");
+                dao::hash_field_values removed;
+                require(hash.hgetdel(database, key, [](std::vector<std::string>& names) {
+                    names = {"take", "take"}; return true;
+                }, removed) && removed.size() == 2 && removed[0].found &&
+                    removed[0].value == next && !removed[1].found,
+                    "Hash remove callback crossed fibers");
+                dao::hash::sample_values samples;
+                require(hash.sample(database, key, 2, true, samples) && samples.size() == 2,
+                    "yielding Hash sample");
+                for (const auto& field : samples)
+                    require(expected.at(field.first) == field.second,
+                        "Hash sample callback crossed fibers");
+                require(hash.hgetall(database, key) && hash.get_fields() == expected,
+                    "Hash enumeration callback crossed fibers");
+            }
+            long long expires;
+            require(keys.expiry_time(database, key, expires) && expires == deadline,
+                "yielding Hash lost TTL");
+        }
+    };
+    acl::fiber::schedule();
+    require(native->root_yields > 0 && native->page_yields > 0,
+        "Hash callback suspension hooks were not exercised");
+}
+
 int main() {
+    acl::acl_cpp_init();
     test_compact_owned_update();
     test_compact_owned_transaction(false);
 #ifdef HAS_TBB
@@ -746,5 +856,9 @@ int main() {
 #endif
     test_sample_locality();
     test_sample_migration_rollback();
+    test_hash_callback_suspension<mdb>();
+#ifdef HAS_TBB
+    test_hash_callback_suspension<mdb_tbb>();
+#endif
     std::cout << "paged Hash DAO and metadata tests passed\n";
 }

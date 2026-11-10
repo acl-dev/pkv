@@ -133,6 +133,8 @@ bool map_store::rebuild_bucket(std::vector<map_node>& nodes, size_t first,
 
 bool map_store::build_tree(const bulk_member* members, size_t count,
     uint64_t& tree, uint32_t& height, map_node& node) {
+    const bool compact_leaf = kind_ == map_kind::set &&
+        transaction_.database_.supports_compact_set_leaves();
     return build_tree_from(0, count, tree, height, node,
         [&](size_t index, map_node& current) {
             const auto& member = members[index];
@@ -140,7 +142,7 @@ bool map_store::build_tree(const bulk_member* members, size_t count,
             return store_bulk_blob(*member.key, map_page_codec::key_inline_bytes,
                 current.key) && (!member.value || store_bulk_blob(*member.value,
                     map_page_codec::value_inline_bytes, current.value));
-        });
+        }, compact_leaf);
 }
 
 bool map_store::build_set(const set_member_at& member_at, size_t count,
@@ -195,19 +197,28 @@ bool map_store::build_ordered(std::vector<bulk_member>& ordered) {
         [](const bulk_member& a, const bulk_member& b) {
             return *a.key == *b.key;
         }), ordered.end());
-    if (kind_ == map_kind::hash) {
-        for (const auto& field : ordered) {
-            if (field.key->size() > map_page_codec::max_payload_bytes ||
-                field.value->size() > map_page_codec::max_payload_bytes)
-                return fail(status::too_large);
-        }
+    const bool grouped = adaptive_ && ordered.size() >=
+        (kind_ == map_kind::hash ? hash_partition_size : set_partition_size);
+    constexpr auto fragment_capacity = map_page_codec::max_page_bytes -
+        map_page_codec::fragment_header_bytes;
+    const auto fragments = [](size_t size, size_t inline_limit) {
+        return size > inline_limit ? 1 + (size - 1) / fragment_capacity : 0;
+    };
+    size_t pages = ordered.size() + (grouped ? 17 : 0);
+    for (const auto& field : ordered) {
+        const auto key = field.key->size();
+        const auto value = field.value ? field.value->size() : 0;
+        if (key > map_page_codec::max_payload_bytes || value > map_page_codec::max_payload_bytes)
+            return fail(status::too_large);
+        const auto extra = fragments(key, map_page_codec::key_inline_bytes) +
+            fragments(value, map_page_codec::value_inline_bytes);
+        if (extra > SIZE_MAX - pages) return fail(status::too_large);
+        pages += extra;
     }
 
     if (!transaction_.reset_pages(owner_)) return fail(status::storage);
     root_.elements = ordered.size();
-    const bool grouped = adaptive_ && ordered.size() >=
-        (kind_ == map_kind::hash ? hash_partition_size : set_partition_size);
-    transaction_.reserve_sorted_pages(entry_, ordered.size() + (grouped ? 17 : 0));
+    transaction_.reserve_sorted_pages(entry_, pages);
     // The recursive build writes one node at a time, so it needs one payload buffer.
     map_node node;
     if (!grouped) {
@@ -216,7 +227,6 @@ bool map_store::build_ordered(std::vector<bulk_member>& ordered) {
             return false;
     } else {
         root_.bucketed = true; root_.grouped = true;
-        if (!allocate(root_.tree)) return false;
         auto& index = index_.acquire();
         index.directory.reset(new map_directory);
         size_t first = 0;
@@ -237,6 +247,7 @@ bool map_store::build_ordered(std::vector<bulk_member>& ordered) {
 }
 
 bool map_store::partition() {
+    if (has_packed_hash()) return true;
     if (error_ != status::ok) return false;
     if (embedded_) return fail(status::wrong_kind);
     if (root_.bucketed || !root_.elements) return true;

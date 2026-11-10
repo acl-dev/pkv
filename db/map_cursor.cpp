@@ -1,8 +1,10 @@
+#include "packed_hash_store.h"
 #include "map_store.h"
 
 namespace pkv {
 
 bool map_store::rank(const std::string& key, uint64_t& rank, bool& found) {
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) { return store.rank(key,rank,found); });
     if (root_.bucketed) return bucket_rank(key, rank, found);
     return rank_in_tree(key, rank, found, false);
 }
@@ -49,6 +51,7 @@ bool map_store::rank_in_tree(const std::string& key, uint64_t& rank, bool& found
 
 bool map_store::select(uint64_t rank, std::string& key, bool& found,
     std::string* value) {
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) { return store.select(rank,key,found,value); });
     found = false;
     if (root_.bucketed) return bucket_select(rank, key, found, value);
     if (error_ != status::ok) return false;
@@ -152,6 +155,12 @@ bool map_store::cursor::next(map_node& node, bool& present) {
 }
 
 bool map_store::visit(const visitor& callback, bool with_values) {
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) {
+        packed_hash_store::field_list fields;
+        if (!store.all(fields,with_values)) return false;
+        for (const auto& item : fields) if (!callback(item.first,item.second)) break;
+        return true;
+    });
     if (error_ != status::ok) return false;
     if (root_.bucketed) return bucket_visit(callback, with_values);
     cursor reader(*this);
@@ -205,6 +214,15 @@ bool map_store::visit_set_subtree(uint64_t id, uint32_t height, uint64_t element
 
 bool map_store::visit_all(const owning_visitor& callback, bool with_values,
     const key_filter* filter) {
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) {
+        packed_hash_store::field_list fields;
+        if (!store.all(fields,with_values)) return false;
+        for (auto& item : fields) {
+            if (filter && !(*filter)(item.first)) continue;
+            if (!callback(std::move(item.first),std::move(item.second))) return false;
+        }
+        return true;
+    });
     if (error_ != status::ok) return false;
     if (root_.bucketed) {
         if (!read_directory()) return false;
@@ -279,6 +297,7 @@ bool map_store::visit_set_bucket(unsigned index, const member_visitor& callback)
 }
 
 bool map_store::scan(const scan_options& options, scan_page& out) {
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) { return store.scan(options,out); });
     if (error_ != status::ok) return false;
     if (lexical_) return fail(status::invalid);
     if (!options.count) return fail(status::invalid);

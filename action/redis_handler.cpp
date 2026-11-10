@@ -3,6 +3,8 @@
 //
 
 #include "stdafx.h"
+#include "coder/list_page.h"
+#include "coder/string_page.h"
 #include "coder/redis_object.h"
 #include "coder/redis_coder.h"
 #include "db/db_cursor.h"
@@ -69,14 +71,48 @@ redis_handler::~redis_handler() {
     input_.reset();
 }
 
-static const std::string* pipeline_page_key(const redis_object& object) {
+static const std::string* pipeline_page_key(const redis_object& object,
+    size_t& group_limit, const redis_object* next = nullptr) {
     const auto* name = object.argument(0);
     if (!name || name->empty()) return nullptr;
     const auto prefix = name->front();
+    if (name->size() == 3 && ((prefix == 'G' || prefix == 'g') ||
+            (prefix == 'S' || prefix == 's')) &&
+        !strcasecmp(name->c_str() + 1, "ET")) {
+        const auto* key = object.argument(1);
+        if (!key) return nullptr;
+        if (next) {
+            const auto* adjacent = next->argument(1);
+            if (!adjacent || *key != *adjacent) return nullptr;
+        }
+        if (prefix == 'G' || prefix == 'g')
+            return object.size() == 2 ? key : nullptr;
+        const auto* value = object.size() == 3 ? object.argument(2) : nullptr;
+        return value && value->size() <= string_page_codec::inline_bytes ?
+            key : nullptr;
+    }
     if (prefix == 'Z' || prefix == 'z') {
         const auto length = name->size();
         const auto argc = object.size();
         const auto* suffix = name->c_str() + 1;
+        if (length == 11 && argc >= 2 && argc <= 4 &&
+            !strcasecmp(suffix, "RANDMEMBER")) {
+            const auto* key = object.argument(1);
+            if (!key) return nullptr;
+            if (next) {
+                const auto* adjacent = next->argument(1);
+                if (!adjacent || *key != *adjacent) return nullptr;
+            }
+            long long count = 1;
+            if (argc > 2) {
+                const auto* argument = object.argument(2);
+                if (!argument || argument->size() > 2 ||
+                    !parse_redis_integer(*argument, count) || count < -8 || count > 8)
+                    return nullptr;
+            }
+            group_limit = std::min<size_t>(group_limit, 32);
+            return key;
+        }
         if (argc == 4 && ((length == 4 && !strcasecmp(suffix, "ADD")) ||
             (length == 7 && !strcasecmp(suffix, "INCRBY")))) {
             const auto* score = object.argument(2);
@@ -147,7 +183,9 @@ static const std::string* pipeline_page_key(const redis_object& object) {
              (length == 7 && !strcasecmp(suffix, "EXISTS")) ||
              (length == 7 && !strcasecmp(suffix, "STRLEN"))) :
             (length == 9 && !strcasecmp(suffix, "ISMEMBER")));
-        const bool multiple = argc >= 3 && argc <= 8 && (hash ?
+        const auto max_batch = hash ? static_cast<size_t>(db::page_lock_scope::max_hash_batch) :
+            static_cast<size_t>(db::page_lock_scope::max_membership_batch);
+        const bool multiple = argc >= 3 && argc <= max_batch + 2 && (hash ?
             (length == 5 && !strcasecmp(suffix, "MGET")) :
             (length == 10 && !strcasecmp(suffix, "MISMEMBER")));
         if (single || multiple) {
@@ -156,6 +194,18 @@ static const std::string* pipeline_page_key(const redis_object& object) {
                 if (!member || member->size() > 1024) return nullptr;
             }
             return object.argument(1);
+        }
+        if (hash && argc == 4 && length == 4 && !strcasecmp(suffix, "SET")) {
+            const auto* key = object.argument(1);
+            if (!key) return nullptr;
+            if (next) {
+                const auto* adjacent = next->argument(1);
+                if (!adjacent || *key != *adjacent) return nullptr;
+            }
+            const auto* field = object.argument(2);
+            const auto* value = object.argument(3);
+            if (field && field->size() <= 254 && value && value->size() <= 254)
+                return key;
         }
         if (hash && argc == 4 &&
             ((length == 7 && !strcasecmp(suffix, "INCRBY")) ||
@@ -230,9 +280,34 @@ static const std::string* pipeline_page_key(const redis_object& object) {
     if (name->size() == 5 && object.size() == 3 &&
         !strcasecmp(name->c_str() + 1, "PUSH")) {
         const auto* value = object.argument(2);
-        if (value && value->size() <= 1024) return object.argument(1);
+        if (value && value->size() <= list_page_codec::wide_member_bytes)
+            return object.argument(1);
     }
     return nullptr;
+}
+
+// The group already guarantees the same key. Only count the leading run
+// of single-member pushes with the same direction and argument width.
+static size_t wide_list_push_end(const std::vector<redis_object*>& objects,
+    size_t begin, size_t end) {
+    const auto& first = *objects[begin];
+    if (first.size() != 3) return begin;
+    const auto* value = first.argument(2);
+    if (!value || value->size() < list_page_edit::reserve_min_width ||
+        value->size() > list_page_edit::reserve_max_width) return begin;
+    const auto* name = first.argument(0);
+    if (!name || name->size() != 5 || (strcasecmp(name->c_str(), "RPUSH") &&
+        strcasecmp(name->c_str(), "LPUSH"))) return begin;
+    auto current = begin + 1;
+    for (; current < end; ++current) {
+        const auto& next = *objects[current];
+        if (next.size() != 3) break;
+        const auto* next_name = next.argument(0);
+        const auto* next_value = next.argument(2);
+        if (!next_name || *next_name != *name ||
+            !next_value || next_value->size() != value->size()) break;
+    }
+    return current;
 }
 
 bool redis_handler::handle() {
@@ -305,14 +380,14 @@ bool redis_handler::handle() {
             if (!send_pending()) return false;
             pending_payload = 0;
         }
-        constexpr size_t group_limit = 64;
+        size_t group_limit = 64;
         const auto* key = group_pages && !transaction_.active() &&
-            index + 1 < objs.size() ? pipeline_page_key(*objs[index]) :
+            index + 1 < objs.size() ? pipeline_page_key(*objs[index], group_limit, objs[index + 1]) :
             nullptr;
         size_t end = index + 1;
         while (key && end < objs.size() && end - index < group_limit) {
-            const auto* next = pipeline_page_key(*objs[end]);
-            if (!next || *next != *key) break;
+            const auto* next = pipeline_page_key(*objs[end], group_limit);
+            if (!next || *next != *key || end - index >= group_limit) break;
             ++end;
         }
         if (end == index + 1) {
@@ -326,7 +401,9 @@ bool redis_handler::handle() {
             ~reset_scope() { pointer = nullptr; }
         } reset{page_pipeline_scope_};
         page_pipeline_scope_ = &scope;
+        const auto push_end = wide_list_push_end(objs, index, end);
         do {
+            if (index < push_end) scope.set_pending_list_pushes(push_end - index - 1);
             if (!process(objs[index++])) return false;
         } while (index < end && !quit_ &&
             pending_payload < pipeline_reply_budget &&

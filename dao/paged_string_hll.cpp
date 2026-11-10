@@ -1,6 +1,7 @@
 #include "stdafx.h"
 #include "paged_string.h"
 #include "common/redis_hll.h"
+#include <algorithm>
 
 namespace pkv {
 namespace dao {
@@ -69,10 +70,37 @@ bool paged_string::pfcount_one(shared_db& db, const std::string& key,
     }
     const auto ok = run(db, key, [&](string_store& store) {
         if (!store.exists()) return true;
+        const auto length = store.metadata().length;
+        if (length < hll::header_size) {
+            read_status_ = read_status::invalid_hll; return false;
+        }
+        struct header_read {
+            uint64_t length;
+            uint64_t& cardinality;
+            bool valid;
+            bool cached;
+        } header{length, cardinality, false, false};
+        const auto inspect = [](void* context, const std::string& bytes) {
+            auto& result = *static_cast<header_read*>(context);
+            result.valid = hll::header(bytes, result.length);
+            if (result.valid)
+                result.cached = hll::cached(bytes, result.cardinality);
+        };
+        // Inspect the first chunk under the transaction's key lock. Native
+        // backends can lend these bytes without copying the register page.
+        const auto first_size = static_cast<size_t>(
+            std::min(length, uint64_t(string_page_codec::page_bytes)));
         std::string value;
-        if (!hll_value(store, value, false)) return false;
-        if (hll::cached(value, cardinality)) return true;
-        if (!hll_value(store, value, true)) return false;
+        if (!store.inspect_chunk(0, first_size, value, inspect, &header))
+            return stored(store);
+        if (!header.valid) {
+            read_status_ = read_status::invalid_hll; return false;
+        }
+        if (header.cached) return true;
+        if (length > hll::maximum_size) {
+            read_status_ = read_status::corrupt_hll; return false;
+        }
+        if (!store.read(value)) return stored(store);
         if (!hll::count_encoded(value, cardinality)) {
             read_status_ = read_status::corrupt_hll; return false;
         }

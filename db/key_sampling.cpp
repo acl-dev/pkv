@@ -27,21 +27,23 @@ db::scan_status db::sample_key(std::string& out, bool& found) {
     out.clear(); found = false;
     execution_guard snapshot(true);
     try {
-        uint64_t count = 0;
-        const auto status = dbkey_count(count);
-        if (status == count_status::unsupported)
-            return scan_status::unsupported;
-        if (status != count_status::ok) return scan_status::error;
-        if (!count) return scan_status::ok;
-        const auto rank = std::uniform_int_distribution<uint64_t>(0,
-            count - 1)(set_sampling_engine());
-        const auto selected = dbkey_at_rank(rank, out, found);
-        if (selected == scan_status::ok && found) return selected;
-        out.clear(); found = false;
-        return selected == scan_status::ok ? scan_status::error : selected;
+        const auto status = dbsample_key(out, found);
+        if (status == scan_status::ok) return status;
+        out.clear(); found = false; return status;
     } catch (const std::bad_alloc&) {
         out.clear(); found = false; return scan_status::error;
     }
+}
+db::scan_status db::dbsample_key(std::string& out, bool& found) {
+    uint64_t count = 0;
+    const auto status = dbkey_count(count);
+    if (status == count_status::unsupported) return scan_status::unsupported;
+    if (status != count_status::ok) return scan_status::error;
+    if (!count) return scan_status::ok;
+    const auto rank = std::uniform_int_distribution<uint64_t>(0,
+        count - 1)(set_sampling_engine());
+    const auto selected = dbkey_at_rank(rank, out, found);
+    return selected == scan_status::ok && !found ? scan_status::error : selected;
 }
 db::scan_status db::sample_live_key(std::string& out, bool& found) {
     out.clear(); found = false;

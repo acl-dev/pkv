@@ -35,17 +35,19 @@ bool zset_store::clone_to(zset_store& destination, bool& copied) {
     if (destination.error_ != status::ok) {
         transaction_.abort(); return false;
     }
+    destination.use_crc_member_buckets(root_.crc_member_buckets);
     destination.root_.last_id = root_.last_id;
     destination.members_->root_ = members_->root_;
     destination.scores_->root_ = scores_->root_;
     map_store::clone_state state;
     state.limit = root_.elements;
+    state.track_shared_fragments = true;
     if (!members_->clone_node(members_->root_.tree, *destination.members_,
         state, 0) || state.elements != root_.elements) {
         return failed();
     }
-    // Share only scalar visited IDs between trees, detecting page aliases
-    // across both indexes without keeping their entire member payloads.
+    // Keep the member fragment owners available for the score tree to verify
+    // borrowed chains. All other page IDs must remain disjoint.
     state.previous = map_blob(); state.bucket = 0; state.elements = 0;
     if (!scores_->clone_node(scores_->root_.tree, *destination.scores_,
         state, 0) || state.elements != root_.elements) {

@@ -104,8 +104,8 @@ service pkv
 #	当 fiber_dispatch_addr 开启后，下面参数控制本服务进程发给前端 master_dispatch 的服务标识信息
 #	fiber_dispatch_type = default
 
-#	线程的堆栈空间大小，单位为字节
-	fiber_stack_size = 256000
+#	客户端协程的栈大小，单位为字节
+	fiber_stack_size = 128000
 #	允许访问 udserver 的客户端IP地址范围
 #	fiber_access_allow = 127.0.0.1:255.255.255.255, 127.0.0.1:127.0.0.1
 	fiber_access_allow = all

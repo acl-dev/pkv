@@ -1,3 +1,4 @@
+#include "packed_hash_store.h"
 #include "coder/compact_hash.h"
 #include "coder/compact_set.h"
 #include "map_store.h"
@@ -7,6 +8,7 @@
 #include <climits>
 #include <cstring>
 #include <limits>
+#include <zlib.h>
 
 namespace pkv {
 
@@ -37,8 +39,19 @@ uint64_t map_store::last_id() const {
     return sequence_ ? *sequence_ : root_.last_id;
 }
 
+uint32_t map_store::update_crc_bucket(uint32_t crc, const char* data, size_t size) {
+    return static_cast<uint32_t>(::crc32(crc, reinterpret_cast<const Bytef*>(data),
+        static_cast<uInt>(size)));
+}
+
+unsigned map_store::bucket(const char* data, size_t size) const {
+    if (lexical_) return 0;
+    return uses_crc_bucket(size) ? update_crc_bucket(0, data, size) & 255 :
+        static_cast<unsigned>(scan_bucket(data, size));
+}
+
 unsigned map_store::bucket(const std::string& key) const {
-    return lexical_ ? 0 : static_cast<unsigned>(scan_bucket(key));
+    return bucket(key.data(), key.size());
 }
 
 bool map_store::reuse_node_keys(const std::string& key) const {
@@ -73,6 +86,7 @@ bool map_store::open_live(long long now) {
 }
 
 bool map_store::open_impl(bool expire, long long now) {
+    packed_metadata_valid_ = false;
     if (!entry_) return fail(status::invalid);
     if (embedded_) {
         if (root_.bucketed || (root_.kind != map_kind::hash &&
@@ -86,10 +100,21 @@ bool map_store::open_impl(bool expire, long long now) {
     if ((!entry_->found && entry_->action != db::update_action::write) ||
         entry_->action == db::update_action::erase) {
         root_ = map_root(); root_.kind = kind_;
+        hash_created_ = kind_ == map_kind::hash;
         return true;
     }
     if (entry_->value.compare(0, 3, "PMR") != 0)
         return fail(status::not_paged);
+    if (packed_hash::matches(entry_->value)) {
+        if (!refresh_packed_hash()) return false;
+        if (expire && root_.expires_at_ms >= 0 && root_.expires_at_ms <= (now < 0 ? unix_time_ms() : now)) {
+            if (!transaction_.reset_pages(owner_)) return fail(status::storage);
+            entry_->action = db::update_action::erase; entry_->clear_pages = false;
+            root_ = map_root(); root_.kind = kind_; hash_created_ = kind_ == map_kind::hash;
+            return true;
+        }
+        return kind_ == map_kind::hash || fail(status::wrong_kind);
+    }
     if (compact_set::matches(entry_->value)) {
         try {
             const compact_set::view packed(entry_->value);
@@ -165,6 +190,8 @@ bool map_store::open_impl(bool expire, long long now) {
 }
 
 void map_store::initialize(int64_t expires_at_ms) {
+    packed_metadata_valid_ = false;
+    hash_created_ = kind_ == map_kind::hash;
     if (!entry_) { fail(status::invalid); return; }
     if (embedded_ && expires_at_ms != -1) { fail(status::invalid); return; }
     if (expires_at_ms < -1) { fail(status::invalid); return; }
@@ -249,6 +276,8 @@ bool map_store::validate_node(uint64_t id, const Node& node, const char* key,
         node.id != id || node.left > limit ||
         node.right > limit || node.key.head > limit ||
         node.value.head > limit || node.elements > root_.elements ||
+        (node.key.head && key_size &&
+            (!lexical_ || !embedded_ || bound_bucket_ != 256)) ||
         (!lexical_ && node.key.length > map_page_codec::max_payload_bytes) ||
         node.value.length > map_page_codec::max_payload_bytes ||
         (kind_ == map_kind::set && node.value.length != 0) ||
@@ -260,14 +289,19 @@ bool map_store::validate_node(uint64_t id, const Node& node, const char* key,
 }
 
 bool map_store::write(const map_node& node) {
+    const bool compact_reference = writes_compact_set_reference(node);
+    const bool compact_zset = writes_compact_zset_node(node);
+    const auto encode = [&](std::string& out) {
+        return decoded(compact_reference ? map_page_codec::encode_set_reference(node, out) :
+            map_page_codec::encode_packed_node_scratch(node, out, !lexical_, compact_zset));
+    };
     if (transaction_.wide_flat_enabled_) {
         if (auto* bytes = transaction_.staged_flat_write(node.id))
-            return decoded(map_page_codec::encode_packed_node_scratch(node, *bytes, !lexical_));
+            return encode(*bytes);
     }
     detail::node_write_workspace workspace;
     auto& bytes = workspace.buffer();
-    if (!decoded(map_page_codec::encode_packed_node_scratch(node, bytes, !lexical_)))
-        return false;
+    if (!encode(bytes)) return false;
     return transaction_.put_bound(entry_, node.id, std::move(bytes)) ||
         fail(status::storage);
 }
@@ -332,6 +366,39 @@ bool map_store::stats(uint64_t id, uint32_t& height, uint64_t& count,
     if (!value.valid) return fail(status::invalid);
     height = value.height; count = value.count;
     return true;
+}
+
+bool map_store::load_score_rank_node(uint64_t id, uint64_t first_rank,
+    score_rank_node& node) {
+    if (!id) return true;
+    struct read_job {
+        map_store& store;
+        uint64_t id;
+        uint64_t first_rank;
+        score_rank_node& node;
+        map_page_status result;
+    } job{*this, id, first_rank, node, map_page_status::invalid};
+    const auto decode = [](void* raw, const std::string& bytes) {
+        auto& job = *static_cast<read_job*>(raw);
+        map_node_view view;
+        job.result = map_page_codec::decode_node_view_scratch(bytes, view);
+        if (job.result != map_page_status::ok) return;
+        if (!job.store.validate_node(job.id, view, view.key.data, view.key.inline_size())) {
+            job.result = map_page_status::invalid;
+            return;
+        }
+        auto& node = job.node;
+        node.summary = {view.height, view.elements};
+        // An unvisited child contributes only its validated subtree summary.
+        if (job.first_rank >= view.elements) return;
+        node.left = view.left;
+        node.right = view.right;
+        node.fragmented = view.key.head != 0;
+        node.has_value = view.value.length != 0;
+        node.key_size = view.key.inline_size();
+        std::memcpy(node.key.data(), view.key.data, node.key_size);
+    };
+    return inspect(id, node_bytes_.buffer(), decode, &job) && decoded(job.result);
 }
 
 bool map_store::describe(const map_node& node, uint32_t& height,
@@ -440,9 +507,10 @@ bool map_store::find_inline(const std::string& key, unsigned key_bucket,
         inline_edit* edit;
         unsigned bucket;
         uint64_t id;
+        bool compare_key;
         probe node;
         map_page_status status;
-    } job{*this, key, result, match, replacement, edit, key_bucket, 0, {},
+    } job{*this, key, result, match, replacement, edit, key_bucket, 0, false, {},
         map_page_status::invalid};
     const auto decode = [](void* raw, const std::string& bytes) {
         auto& task = *static_cast<search*>(raw);
@@ -455,8 +523,9 @@ bool map_store::find_inline(const std::string& key, unsigned key_bucket,
             return;
         }
         auto& node = task.node;
-        node.left = view.left; node.right = view.right;
         node.count = view.elements; node.height = view.height;
+        if (!task.compare_key) return;
+        node.left = view.left; node.right = view.right;
         node.fragmented = view.bucket == task.bucket && view.key.head;
         if (node.fragmented) return;
         if (view.bucket != task.bucket) {
@@ -534,16 +603,30 @@ bool map_store::find_inline(const std::string& key, unsigned key_bucket,
             }
         }
     };
-    auto read_probe = [&](uint64_t id, probe& node) {
-        if (!id) { node = probe(); return true; }
+    db::page_reader* native = nullptr;
+    auto read_probe = [&](uint64_t id, bool compare_key) {
         job.id = id;
-        if (!inspect(id, node_bytes_.buffer(), decode, &job) ||
-            !decoded(job.status)) return false;
-        node = job.node;
-        return true;
+        job.compare_key = compare_key;
+        if (!native)
+            return inspect(id, node_bytes_.buffer(), decode, &job) &&
+                decoded(job.status);
+        // The parent decoder has already checked this nonzero child ID.
+        const auto result = native->inspect(id, decode, &job);
+        if (result == db::lookup_status::found) return decoded(job.status);
+        if (result == db::lookup_status::error) {
+            transaction_.storage_error_ = true;
+            return fail(status::storage);
+        }
+        return fail(status::invalid);
     };
-    probe current;
-    if (!read_probe(root_.tree, current)) return false;
+    if (!root_.tree) return true;
+    if (!read_probe(root_.tree, true)) return false;
+    // The root read bound the reader under the transaction's owner lock.
+    // The remaining probes do not stage changes or switch owners.
+    if (transaction_.reader_supported_ && transaction_.reader_owner_ == entry_ &&
+        !transaction_.has_changes())
+        native = &transaction_.reader_;
+    auto current = job.node;
     uint64_t limit = root_.elements;
     uint32_t height = map_page_codec::max_height + 1;
     bool root = true;
@@ -553,9 +636,12 @@ bool map_store::find_inline(const std::string& key, unsigned key_bucket,
         probe next;
         node_summary left, right;
         auto read_child = [&](uint64_t id, bool selected, node_summary& out) {
-            if (!selected) return stats(id, out.height, out.elements);
-            if (!read_probe(id, next)) return false;
-            out = node_summary(next.height, next.count);
+            if (!id) return true;
+            // An unselected child still gets the full node validation. Only
+            // the selected child needs a key comparison and path state.
+            if (!read_probe(id, selected)) return false;
+            out = node_summary(job.node.height, job.node.count);
+            if (selected) next = job.node;
             return true;
         };
         if (!read_child(current.left, current.order > 0, left) ||
@@ -618,16 +704,20 @@ bool map_store::update_inline(const std::string& key, const std::string& value,
 }
 
 bool map_store::find(const std::string& key, map_node& node, bool& found) {
+    return find_in_bucket(key, bucket(key), node, found);
+}
+
+bool map_store::find_in_bucket(const std::string& key, unsigned bucket,
+    map_node& node, bool& found) {
     found = false;
     const auto* scope = transaction_.scope_;
-    const auto bucket = this->bucket(key);
-    // ZSet member values contain only a score. The view traversal avoids
-    // copying the intervening keys even in a large member index.
+    // Set nodes have empty values and ZSet member values contain only a
+    // score. The view traversal avoids copying keys even in large trees.
     constexpr uint64_t inline_search_limit = 16;
     const bool zset_members = embedded_ && !lexical_ && bound_bucket_ == 256;
     const auto key_limit = zset_members ? map_page_codec::zset_key_inline_bytes :
         map_page_codec::key_inline_bytes;
-    if ((root_.elements <= inline_search_limit || zset_members) &&
+    if ((root_.elements <= inline_search_limit || zset_members || kind_ == map_kind::set) &&
         key.size() <= key_limit &&
         !(scope && scope->cache_nodes_)) {
         bool fallback = false;
@@ -741,6 +831,16 @@ bool map_store::find_many_path(uint64_t id, uint64_t limit, uint32_t height,
         node.elements = view.elements;
         node.key.head = view.key.head;
         node.key.length = view.key.length;
+        if (view.key.shared) {
+            try {
+                node.key.inline_value.assign(view.key.data, size);
+            } catch (const std::bad_alloc&) {
+                task.status = map_page_status::out_of_memory;
+                return;
+            }
+        } else {
+            node.key.inline_value.clear();
+        }
         if (!view.key.head) {
             split_lookup_requests(task.middle, task.last, task.matched,
                 [&](const lookup_request& item, int& comparison) {
@@ -820,6 +920,13 @@ bool map_store::get_bounded(const std::string& key, uint64_t limit,
     exceeded = false;
     found = false;
     if (error_ != status::ok) return false;
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) {
+        if (limit >= packed_hash::max_item_bytes) return store.get(key,value,found);
+        uint64_t bytes;
+        if (!store.length(key,bytes,found) || !found) return store.error() == status::ok;
+        if (bytes > limit) { value.clear(); exceeded = true; return true; }
+        return store.get(key,value,found);
+    });
     if (root_.bucketed) {
         auto apply = [&](map_store& child) {
             return child.get_bounded(key, limit, value, found, exceeded);
@@ -874,6 +981,7 @@ bool map_store::probe_hash_field(const std::string& field, std::string& value,
 }
 
 bool map_store::length(const std::string& key, uint64_t& bytes, bool& found) {
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) { return store.length(key,bytes,found); });
     found = false; bytes = 0;
     if (error_ != status::ok) return false;
     if (root_.bucketed) {
@@ -973,31 +1081,98 @@ bool map_store::hash_fields(const std::string* const* fields, size_t count,
     return true;
 }
 
-bool map_store::set_membership(const std::string* const* members, size_t count,
+// Keep the batch workspace out of single lookups and Pipeline cache hits.
+#if defined(__GNUC__)
+__attribute__((noinline))
+#endif
+bool map_store::find_set_members(const std::string* const* members, size_t count,
     unsigned& found) {
+    lookup_request requests[db::page_lock_scope::max_membership_batch];
+    for (size_t i = 0; i < count; ++i) requests[i] = {members[i], i, 0};
+    const auto matched = [](void* context, size_t index, const map_blob&) {
+        *static_cast<unsigned*>(context) |= 1U << index;
+        return true;
+    };
+    return find_many(requests, requests + count, matched, &found);
+}
+
+#if defined(__GNUC__)
+__attribute__((noinline))
+#endif
+bool map_store::find_grouped_set_members(const std::string* const* members,
+    size_t count, unsigned& found) {
+    if (!read_directory(false)) return false;
+    uint8_t buckets[db::page_lock_scope::max_membership_batch];
+    unsigned positions[16] = {};
+    unsigned groups = 0;
+    for (size_t i = 0; i < count; ++i) {
+        const auto index = bucket(*members[i]);
+        buckets[i] = static_cast<uint8_t>(index);
+        positions[index / 16] |= 1U << i;
+        groups |= 1U << (index / 16);
+    }
+    // Keep one decoded child directory at a time and return bits in input order.
+    for (; groups; groups &= groups - 1) {
+        auto remaining = positions[__builtin_ctz(groups)];
+        for (; remaining; remaining &= remaining - 1) {
+            const auto i = __builtin_ctz(remaining);
+            bool present;
+            const auto& key = *members[i];
+            const auto index = buckets[i];
+            auto probe = [&](map_store& child) {
+                detail::node_key_workspace node(child.reuse_node_keys(key));
+                return child.find_in_bucket(key, index, node, present);
+            };
+            if (!bucket_run(index, std::ref(probe), false)) return false;
+            if (present) found |= 1U << i;
+        }
+    }
+    return true;
+}
+
+bool map_store::set_membership(const std::string* const* members, size_t count,
+    unsigned& found, bool cache) {
+    static_assert(db::page_lock_scope::max_membership_batch <=
+        std::numeric_limits<unsigned>::digits, "membership mask fits");
     found = 0;
     if (kind_ != map_kind::set || count > db::page_lock_scope::max_membership_batch)
         return fail(status::invalid);
-    auto* scope = transaction_.scope_;
+    auto* scope = cache ? transaction_.scope_ : nullptr;
     if (scope && (entry_->action != db::update_action::keep ||
         entry_->clear_pages || transaction_.failed_ ||
         transaction_.has_changes())) scope = nullptr;
-    if (scope && count && scope->membership_size_ == count &&
-        std::equal(members, members + count, scope->membership_args_,
+    auto* saved = scope ? (count <= db::page_lock_scope::inline_membership_batch ?
+        scope->membership_args_ : scope->membership_extra_args_.get()) : nullptr;
+    if (saved && count && scope->membership_size_ == count &&
+        std::equal(members, members + count, saved,
             [](const std::string* a, const std::string* b) { return *a == *b; })) {
         found = scope->membership_mask_;
         return true;
     }
-    for (size_t i = 0; i < count; ++i) {
-        uint64_t bytes;
-        bool present;
-        if (!length(*members[i], bytes, present)) return false;
-        if (present) found |= 1U << i;
+    if (count >= 4 && !root_.bucketed) {
+        // Sorted requests share the decoded ancestors and sibling summaries.
+        if (!find_set_members(members, count, found)) return false;
+    } else if (count >= 2 && root_.grouped) {
+        if (!find_grouped_set_members(members, count, found)) return false;
+    } else {
+        for (size_t i = 0; i < count; ++i) {
+            uint64_t bytes;
+            bool present;
+            if (!length(*members[i], bytes, present)) return false;
+            if (present) found |= 1U << i;
+        }
     }
     if (scope && count) {
-        std::copy_n(members, count, scope->membership_args_);
-        scope->membership_mask_ = found;
-        scope->membership_size_ = count;
+        if (!saved) {
+            scope->membership_extra_args_.reset(new (std::nothrow)
+                const std::string*[db::page_lock_scope::max_membership_batch]);
+            saved = scope->membership_extra_args_.get();
+        }
+        if (saved) {
+            std::copy_n(members, count, saved);
+            scope->membership_mask_ = found;
+            scope->membership_size_ = count;
+        }
     }
     return true;
 }
@@ -1024,6 +1199,14 @@ bool map_store::put(const std::string& key, const std::string& value,
 bool map_store::transform_hash_field(const std::string& key,
     uint64_t old_limit, const hash_transform& fn) {
     if (kind_ != map_kind::hash) return fail(status::invalid);
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) {
+        std::string previous, next; bool found;
+        if (!store.get(key,previous,found)) return false;
+        const bool exceeded = found && previous.size() > old_limit;
+        if (exceeded) previous.clear();
+        if (!fn(found ? &previous : nullptr,exceeded,next)) return false;
+        bool added; return store.put(key,next,false,added);
+    });
     struct state {
         map_store& store;
         uint64_t old_limit;
@@ -1044,9 +1227,17 @@ bool map_store::transform_hash_field(const std::string& key,
 }
 
 bool map_store::put_checked(const std::string& key, const std::string& value,
-    bool only_missing, bool& added, const value_gate* gate) {
+    bool only_missing, bool& added, const value_gate* gate,
+    uint64_t* key_head, uint64_t shared_key_head) {
     added = false;
     if (error_ != status::ok) return false;
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) {
+        return store.put(key,value,only_missing,added);
+    });
+    if (!embedded_ && !root_.elements && entry_ && entry_->action == db::update_action::erase) {
+        initialize(); entry_->value.clear();
+        if (error_ != status::ok) return false;
+    }
     const auto limit = lexical_ ? map_page_codec::max_blob_bytes :
         map_page_codec::max_payload_bytes;
     if (key.size() > limit || value.size() >
@@ -1062,11 +1253,13 @@ bool map_store::put_checked(const std::string& key, const std::string& value,
         if (!ok) added = false;
         return ok;
     }
-    return put_in_tree(key, value, key_bucket, only_missing, added, gate);
+    return put_in_tree(key, value, key_bucket, only_missing, added, gate,
+        key_head, shared_key_head);
 }
 
 bool map_store::put_in_tree(const std::string& key, const std::string& value,
-    unsigned key_bucket, bool only_missing, bool& added, const value_gate* gate) {
+    unsigned key_bucket, bool only_missing, bool& added, const value_gate* gate,
+    uint64_t* key_head, uint64_t shared_key_head) {
     if ((root_.elements == 0) != (root_.tree == 0))
         return fail(status::invalid);
     auto* scope = transaction_.scope_;
@@ -1107,6 +1300,7 @@ bool map_store::put_in_tree(const std::string& key, const std::string& value,
         entry_->action = db::update_action::write;
     }
     node_children children(reuse_node_keys(key));
+    children.shared_key_head = shared_key_head;
     node_summary updated;
     if (!insert(root_.tree, key, value, only_missing, added,
         key_bucket, 0, children, updated, gate)) {
@@ -1114,6 +1308,7 @@ bool map_store::put_in_tree(const std::string& key, const std::string& value,
         return fail(error_ == status::ok ? status::invalid : error_);
     }
     if (set_scope) set_scope->set_member_present_ = !added;
+    if (key_head) *key_head = children.key_head;
     const uint64_t partition_size = kind_ == map_kind::hash ?
         hash_partition_size : set_partition_size;
     if (adaptive_ && !embedded_ && added &&
@@ -1126,7 +1321,12 @@ bool map_store::put_in_tree(const std::string& key, const std::string& value,
 }
 
 bool map_store::erase(const std::string& key, bool& removed) {
-    return erase_value(key, removed, nullptr);
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) { return store.erase(key,removed); });
+    const auto before = root_.elements;
+    const bool ok = erase_value(key,removed,nullptr);
+    if (ok && removed && root_.elements && ((before > 63 && root_.elements <= 63) ||
+        !(root_.elements & (root_.elements - 1)))) hash_shrank_ = true;
+    return ok;
 }
 
 bool map_store::insert_grouped_set(const set_member_at& member_at, size_t count,
@@ -1198,13 +1398,19 @@ bool map_store::erase_set(const set_member_at& member_at, size_t count,
 
 bool map_store::take(const std::string& key, std::string& value, bool& found) {
     value.clear();
-    if (erase_value(key, found, &value)) return true;
-    value.clear(); found = false;
-    return false;
+    const auto before = root_.elements;
+    const bool ok = has_packed_hash() ? with_packed([&](packed_hash_store& store) {
+        return store.take(key,value,found);
+    }) : erase_value(key,found,&value);
+    if (!ok) { value.clear(); found = false; return false; }
+    if (found && root_.elements && ((before > 63 && root_.elements <= 63) ||
+        !(root_.elements & (root_.elements - 1)))) hash_shrank_ = true;
+    return true;
 }
 
 bool map_store::erase_value(const std::string& key, bool& removed,
-    std::string* value, const value_gate* gate, unsigned key_bucket) {
+    std::string* value, const value_gate* gate, unsigned key_bucket,
+    map_blob* deferred_key) {
     removed = false;
     if (error_ != status::ok) return false;
     if (root_.bucketed) {
@@ -1218,6 +1424,7 @@ bool map_store::erase_value(const std::string& key, bool& removed,
     if ((root_.elements == 0) != (root_.tree == 0))
         return fail(status::invalid);
     node_children children(reuse_node_keys(key));
+    children.deferred_key = deferred_key;
     node_summary updated;
     if (!remove(root_.tree, key, removed,
         key_bucket == 256 ? bucket(key) : key_bucket, 0, children, updated,
@@ -1230,6 +1437,7 @@ bool map_store::erase_value(const std::string& key, bool& removed,
 }
 
 bool map_store::set_expiry(int64_t expires_at_ms) {
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) { return store.set_expiry(expires_at_ms); });
     if (error_ != status::ok) return false;
     if (embedded_ && expires_at_ms != -1) return fail(status::invalid);
     if (expires_at_ms < -1) return fail(status::invalid);
@@ -1240,6 +1448,7 @@ bool map_store::set_expiry(int64_t expires_at_ms) {
 }
 
 bool map_store::clear() {
+    if (has_packed_hash()) return with_packed([&](packed_hash_store& store) { return store.clear(); });
     if (error_ != status::ok) return false;
     if (embedded_) {
         // erase has already reclaimed the final node and its blobs. Dropping
@@ -1330,6 +1539,7 @@ bool map_store::pack_set_root(bool& packed) {
 
 bool map_store::finish(bool pack_set) {
     if (error_ != status::ok) return false;
+    if (has_packed_hash()) { dirty_ = false; return true; }
     if (embedded_) {
         root_.last_id = last_id(); *embedded_ = root_;
         dirty_ = false; return true;

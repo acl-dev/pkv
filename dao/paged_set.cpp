@@ -238,33 +238,48 @@ bool paged_set::membership(shared_db& db, const std::string& key,
     auto tree = [&](map_store& store) {
         return store.set_membership(members, count, found);
     };
-    return run_callback(db, key, tree, false, [&](db::batch_entry&, const compact_set::view* packed) {
+    auto compact = [&](db::batch_entry&, const compact_set::view* packed) {
         found = 0;
         if (!packed) return true;
         for (size_t i = 0; i < count; ++i)
             if (packed->contains(*members[i])) found |= 1U << i;
         return true;
-    });
+    };
+    return run_callback(db, key, std::ref(tree), false, std::ref(compact));
 }
 
 bool paged_set::membership(shared_db& db, const std::string& key,
     const std::vector<std::string>& members, std::vector<long long>& out) {
+    return membership(db, key, [&](size_t i) -> const std::string& {
+        return members[i];
+    }, members.size(), out);
+}
+
+bool paged_set::membership(shared_db& db, const std::string& key,
+    const map_store::set_member_at& member_at, size_t count,
+    std::vector<long long>& out) {
     out.clear();
     auto tree = [&](map_store& store) {
-        for (const auto& member : members) {
-            bool found;
-            if (!contains(store, member, found)) return false;
-            out.push_back(found ? 1 : 0);
+        out.reserve(count);
+        constexpr size_t limit = db::page_lock_scope::max_membership_batch;
+        const std::string* members[limit];
+        for (size_t offset = 0; offset < count;) {
+            const auto size = std::min(limit, count - offset);
+            for (size_t i = 0; i < size; ++i) members[i] = &member_at(offset + i);
+            unsigned found;
+            if (!store.set_membership(members, size, found, false)) return false;
+            for (size_t i = 0; i < size; ++i) out.push_back((found >> i) & 1U);
+            offset += size;
         }
         return true;
     };
-    const bool ok = run_callback(db, key, tree, false,
-        [&](db::batch_entry&, const compact_set::view* packed) {
-            out.reserve(members.size());
-            for (const auto& member : members)
-                out.push_back(packed && packed->contains(member) ? 1 : 0);
-            return true;
-        });
+    auto compact = [&](db::batch_entry&, const compact_set::view* packed) {
+        out.reserve(count);
+        for (size_t i = 0; i < count; ++i)
+            out.push_back(packed && packed->contains(member_at(i)) ? 1 : 0);
+        return true;
+    };
+    const bool ok = run_callback(db, key, std::ref(tree), false, std::ref(compact));
     if (!ok) out.clear();
     return ok;
 }

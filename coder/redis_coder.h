@@ -28,6 +28,7 @@ public:
     }
 
     void clear();
+    void trim_idle_input() noexcept;
     redis_input_memory memory() const;
 
     NODISCARD redis_ocache& get_cache() const {

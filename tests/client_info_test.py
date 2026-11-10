@@ -268,21 +268,72 @@ def adaptive_receive_buffer(port):
     target, admin = Client(port), Client(port)
     try:
         identity = target.call('CLIENT', 'ID')
-        before = int(observe(admin, identity)[b'tot-mem'])
+
+        def transport_memory():
+            info = observe(admin, identity)
+            return int(info[b'tot-mem']) - int(info[b'qbuf-free'])
+
+        before = transport_memory()
         values = [b'\0' * 35999 + bytes([i]) for i in range(32)]
         target.socket.sendall(b''.join(
             target.encode(('HSET', 'info-adaptive', 'field', value))
             for value in values))
         assert [target.read() for _ in values] == [1] + [0] * (len(values) - 1)
-        grown = int(observe(admin, identity)[b'tot-mem'])
-        assert abs(grown - before - 56 * 1024) < 1024, (before, grown)
+        deadline = time.monotonic() + 2
+        while True:
+            grown = transport_memory()
+            if abs(grown - before - 63 * 1024) < 1024:
+                break
+            assert time.monotonic() < deadline, (before, grown)
+            time.sleep(.005)
         for _ in range(4):
             assert target.call('PING') == b'PONG'
-        shrunk = int(observe(admin, identity)[b'tot-mem'])
-        # Reply and parser caches can retain small buffers independently.
-        assert abs(shrunk - before) < 1024, (before, grown, shrunk)
+        shrunk = transport_memory()
+        # The initial 1 KiB buffer grows to 64 KiB, then shrinks to 8 KiB.
+        assert abs(shrunk - before - 7 * 1024) < 1024, (before, grown, shrunk)
         assert target.call('HGET', 'info-adaptive', 'field') == values[-1]
         assert target.call('DEL', 'info-adaptive') == 1
+    finally:
+        target.close()
+        admin.close()
+
+
+def adaptive_receive_burst(port):
+    target, admin = Client(port), Client(port)
+    try:
+        identity = target.call('CLIENT', 'ID')
+        before = observe(admin, identity)
+        key = 'info-adaptive-burst'
+        values = [bytes([i]) * (128 * 1024) for i in range(32)]
+        wire = b''.join(target.encode(('SET', key, value)) for value in values)
+        target.socket.sendall(wire)
+        assert [target.read() for _ in values] == [b'OK'] * len(values)
+
+        # Leave the socket idle without polling it through CLIENT LIST.
+        time.sleep(2.6)
+        idle = observe(admin, identity)
+        assert int(idle[b'tot-mem']) <= int(before[b'tot-mem']) + 1024, idle
+        assert int(idle[b'tot-net-in']) - int(before[b'tot-net-in']) == len(wire)
+        assert admin.call('GET', key) == values[-1]
+
+        payload = b'\x00\xff' * 65536
+        prefix = target.encode(('SET', key, payload))
+        tail = 32768
+        target.socket.sendall(wire + prefix[:-tail])
+        assert [target.read() for _ in values] == [b'OK'] * len(values)
+        deadline = time.monotonic() + 3
+        while True:
+            partial = observe(admin, identity)
+            if (int(partial[b'qbuf']) >= len(payload) - tail and
+                int(partial[b'tot-mem']) - int(partial[b'qbuf']) -
+                    int(partial[b'qbuf-free']) <= int(before[b'tot-mem']) + 2048):
+                break
+            assert time.monotonic() < deadline, partial
+            time.sleep(.02)
+        target.socket.sendall(prefix[-tail:] + target.encode(('PING',)))
+        assert target.read() == b'OK' and target.read() == b'PONG'
+        assert admin.call('GET', key) == payload
+        assert admin.call('DEL', key) == 1
     finally:
         target.close()
         admin.close()
@@ -324,6 +375,7 @@ def main():
             cli(args.redis, target)
         fragmented(port)
         adaptive_receive_buffer(port)
+        adaptive_receive_burst(port)
         churn(port)
         backpressure(port)
     protected(args.pkv, args.redis)

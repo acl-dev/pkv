@@ -3,6 +3,8 @@
 import argparse
 from pathlib import Path
 import subprocess
+import time
+from contextlib import ExitStack
 
 from integration_test import server
 from resp3_client import RespClient, Reply, canonical, mapping
@@ -401,6 +403,61 @@ def identical_hash_write(port, reference):
             writer.close()
 
 
+def string_pipeline(port, protocol):
+    key = b'string-pipeline\0'
+    with ExitStack() as clients:
+        reader, writer = RespClient(port), RespClient(port)
+        clients.callback(reader.close)
+        clients.callback(writer.close)
+        for c in (reader, writer):
+            assert c.call('HELLO', protocol).kind == (b'%' if protocol == 3 else b'*')
+        ok = Reply(b'+', b'OK')
+        missing = Reply(b'_', None) if protocol == 3 else Reply(b'$', None)
+        nil_exec = Reply(b'_', None) if protocol == 3 else Reply(b'*', None)
+
+        def batch(commands):
+            writer.socket.sendall(b''.join(writer.encode(args) for args in commands))
+            return [writer.read() for _ in commands]
+
+        commands = [('GET', key)] * 2
+        expected = [missing] * 2
+        for i in range(38):
+            value = b'\0\xff' + bytes([i])
+            commands.extend([('SET', key, value), ('gEt', key)])
+            expected.extend([ok, Reply(b'$', value)])
+        assert batch(commands) == expected
+
+        large = b'L' * 8193
+        assert reader.call('SET', key, large) == ok
+        assert reader.call('PEXPIREAT', key, 4102444800123) == Reply(b':', 1)
+        assert batch([('GET', key)] * 5 + [('SET', key, b'a'), ('GET', key)]) == (
+            [Reply(b'$', large)] * 5 + [ok, Reply(b'$', b'a')])
+        assert reader.call('PTTL', key) == Reply(b':', -1)
+        assert reader.call('SET', key, 'expired', 'PX', 30) == ok
+        time.sleep(0.05)
+        assert batch([('GET', key)] * 2 + [('SET', key, b'a'), ('GET', key)]) == [
+            missing, missing, ok, Reply(b'$', b'a')]
+        assert reader.call('PTTL', key) == Reply(b':', -1)
+        assert reader.call('DEL', key) == Reply(b':', 1)
+        assert reader.call('HSET', key, 'field', 'value') == Reply(b':', 1)
+        replies = batch([('GET', key)] * 2 + [('SET', key, b'a'), ('GET', key)])
+        assert all(r.kind == b'-' and r.value.startswith(b'WRONGTYPE') for r in replies[:2])
+        assert replies[2:] == [ok, Reply(b'$', b'a')]
+
+        def watch_exec():
+            assert reader.call('MULTI') == ok
+            assert reader.call('GET', key) == Reply(b'+', b'QUEUED')
+            return reader.call('EXEC')
+
+        assert reader.call('WATCH', key) == ok
+        assert batch([('GET', key)] * 64) == [Reply(b'$', b'a')] * 64
+        assert watch_exec() == Reply(b'*', [Reply(b'$', b'a')])
+        assert reader.call('WATCH', key) == ok
+        assert batch([('SET', key, b'a'), ('GET', key)] * 32) == [ok, Reply(b'$', b'a')] * 32
+        assert watch_exec() == nil_exec
+        assert reader.call('DEL', key) == Reply(b':', 1)
+
+
 def topology(binary):
     with server(binary, cluster=True) as port:
         c = RespClient(port)
@@ -446,6 +503,9 @@ def main():
         negotiation(port, ref)
         pipelines(port, ref)
         identical_hash_write(port, ref)
+        for selected in (port, ref):
+            for protocol in (2, 3):
+                string_pipeline(selected, protocol)
         watched(port, ref)
         cli(args.redis, ref, b'redis')
         cli(args.redis, port, b'pkv')
