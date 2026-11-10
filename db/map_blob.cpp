@@ -106,28 +106,28 @@ bool map_store::compare(const map_blob& key, const std::string& input,
         map_page_status status = map_page_status::invalid;
     } job{input, key.length - prefix, last_id(), prefix, key.head};
     const auto consume = [](void* raw, const std::string& bytes) {
-        auto& job = *static_cast<comparison*>(raw);
+        auto& task = *static_cast<comparison*>(raw);
         map_fragment_view page;
-        job.status = map_page_codec::decode_fragment_view(bytes, page);
-        if (job.status != map_page_status::ok) return;
-        if (!valid_link(page, job.id, job.offset, job.length, job.last_id)) {
-            job.status = map_page_status::invalid;
+        task.status = map_page_codec::decode_fragment_view(bytes, page);
+        if (task.status != map_page_status::ok) return;
+        if (!valid_link(page, task.id, task.offset, task.length, task.last_id)) {
+            task.status = map_page_status::invalid;
             return;
         }
-        const auto offset = static_cast<size_t>(job.offset) + job.prefix;
-        if (offset >= job.input.size()) {
-            job.order = 1;
+        const auto offset = static_cast<size_t>(task.offset) + task.prefix;
+        if (offset >= task.input.size()) {
+            task.order = 1;
             return;
         }
-        const auto length = std::min(page.size, job.input.size() - offset);
-        job.order = std::memcmp(page.data, job.input.data() + offset, length);
-        if (!job.order) {
-            if (page.next && offset + length == job.input.size()) job.order = 1;
-            else if (length < page.size) job.order = 1;
-            else if (!page.next && offset + length < job.input.size()) job.order = -1;
+        const auto length = std::min(page.size, task.input.size() - offset);
+        task.order = std::memcmp(page.data, task.input.data() + offset, length);
+        if (!task.order) {
+            if (page.next && offset + length == task.input.size()) task.order = 1;
+            else if (length < page.size) task.order = 1;
+            else if (!page.next && offset + length < task.input.size()) task.order = -1;
         }
-        job.offset += page.size;
-        job.id = page.next;
+        task.offset += page.size;
+        task.id = page.next;
     };
     std::string scratch;
     if (!inspect(job.id, scratch, consume, &job) || !decoded(job.status)) return false;
@@ -211,15 +211,15 @@ bool map_store::read_blob(const map_blob& blob, std::string& out, bool take) {
             map_page_status result;
         } job{blob, value, last_id(), map_page_status::invalid};
         const auto consume = [](void* raw, const std::string& bytes) {
-            auto& job = *static_cast<read_job*>(raw);
+            auto& task = *static_cast<read_job*>(raw);
             map_fragment_view page;
-            job.result = map_page_codec::decode_fragment_view(bytes, page);
-            if (job.result != map_page_status::ok) return;
-            if (!valid_link(page, job.blob.head, 0, job.blob.length, job.last)) {
-                job.result = map_page_status::invalid;
+            task.result = map_page_codec::decode_fragment_view(bytes, page);
+            if (task.result != map_page_status::ok) return;
+            if (!valid_link(page, task.blob.head, 0, task.blob.length, task.last)) {
+                task.result = map_page_status::invalid;
                 return;
             }
-            if (!page.next) job.value.assign(page.data, page.size);
+            if (!page.next) task.value.assign(page.data, page.size);
         };
         std::string scratch;
         if (!inspect(blob.head, scratch, consume, &job) || !decoded(job.result))
@@ -239,18 +239,18 @@ bool map_store::read_blob(const map_blob& blob, std::string& out, bool take) {
         map_page_status result = map_page_status::invalid;
     } job{value, blob.length - blob.inline_value.size(), last_id(), blob.head};
     const auto consume = [](void* raw, const std::string& bytes) {
-        auto& job = *static_cast<read_job*>(raw);
+        auto& task = *static_cast<read_job*>(raw);
         map_fragment_view page;
-        job.result = map_page_codec::decode_fragment_view(bytes, page);
-        if (job.result != map_page_status::ok) return;
-        if (!valid_link(page, job.id, job.offset, job.length, job.last)) {
-            job.result = map_page_status::invalid;
+        task.result = map_page_codec::decode_fragment_view(bytes, page);
+        if (task.result != map_page_status::ok) return;
+        if (!valid_link(page, task.id, task.offset, task.length, task.last)) {
+            task.result = map_page_status::invalid;
             return;
         }
-        if (job.value.empty() && page.next) job.value.reserve(static_cast<size_t>(job.length));
-        job.value.append(page.data, page.size);
-        job.offset += page.size;
-        job.id = page.next;
+        if (task.value.empty() && page.next) task.value.reserve(static_cast<size_t>(task.length));
+        task.value.append(page.data, page.size);
+        task.offset += page.size;
+        task.id = page.next;
     };
     std::string scratch;
     while (job.id) {
@@ -272,10 +272,10 @@ bool map_store::update_fragments(const map_blob& blob, const std::string* replac
         map_page_status status;
     } fragment{};
     const auto decode = [](void* raw, const std::string& bytes) {
-        auto& fragment = *static_cast<inspection*>(raw);
-        fragment.status = map_page_codec::decode_fragment_view(bytes, fragment.page);
+        auto& task = *static_cast<inspection*>(raw);
+        task.status = map_page_codec::decode_fragment_view(bytes, task.page);
         // Only the header and payload length survive the borrowed view.
-        fragment.page.data = nullptr;
+        task.page.data = nullptr;
     };
     std::string scratch;
     const auto limit = last_id();

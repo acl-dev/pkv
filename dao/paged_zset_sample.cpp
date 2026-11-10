@@ -67,12 +67,12 @@ bool paged_zset::sample(shared_db& db, const std::string& key, long long count,
                     used = 0;
                     return true;
                 };
-                const bool ok = visit_sampled_ranks(size, wanted, repeat, [&](uint64_t rank) {
+                const bool sampled = visit_sampled_ranks(size, wanted, repeat, [&](uint64_t rank) {
                     if (fallback) return select(rank);
                     ranks[used++] = rank;
                     return used < ranks.size() || flush();
                 });
-                return ok && (!used || flush());
+                return sampled && (!used || flush());
             }, [&] {
                 return store.visit([&](const std::string& member, double score) {
                     out.values.push_back({member, score});

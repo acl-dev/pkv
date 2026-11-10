@@ -123,16 +123,16 @@ bool json_key::rename(shared_db& db, const std::string& source,
     }
 }
 
-bool json_key::del(shared_db& db, const std::string& key) {
+bool json_key::del(shared_db& db, const std::string& name) {
     long long removed;
-    return del_one(db, key, removed) && removed != 0;
+    return del_one(db, name, removed) && removed != 0;
 }
 
-bool json_key::del_one(shared_db& db, const std::string& key, long long& removed) {
+bool json_key::del_one(shared_db& db, const std::string& name, long long& removed) {
     removed = 0;
     bool valid = true;
     reset();
-    const bool ok = db->update(key, [&](bool found, std::string& bytes) {
+    const bool ok = db->update(name, [&](bool found, std::string& bytes) {
         if (!found) return db::update_action::keep;
         record_header header;
         bool native;
@@ -184,7 +184,7 @@ bool json_key::exists(shared_db& db, const std::vector<std::string>& keys, long 
             alive.emplace(entry.key, found);
         }
         // EXISTS counts duplicate arguments separately.
-        for (const auto& key : keys) count += alive.at(key);
+        for (const auto& name : keys) count += alive.at(name);
         return true;
     });
     if (status == db::batch_status::error) read_status_ = read_status::storage_error;
@@ -193,8 +193,8 @@ bool json_key::exists(shared_db& db, const std::vector<std::string>& keys, long 
     return status == db::batch_status::ok;
 }
 
-bool json_key::type(shared_db& db, const std::string& key, std::string& out) {
-    if (!read(db, key)) return false;
+bool json_key::type(shared_db& db, const std::string& name, std::string& out) {
+    if (!read(db, name)) return false;
     switch (view_->header().kind) {
     case value_kind::string: out = "string"; break;
     case value_kind::hash: out = "hash"; break;
@@ -206,13 +206,13 @@ bool json_key::type(shared_db& db, const std::string& key, std::string& out) {
     return true;
 }
 
-bool json_key::expire(shared_db& db, const std::string& key, long long seconds) {
+bool json_key::expire(shared_db& db, const std::string& name, long long seconds) {
     const long long now = unix_time_ms();
     if (seconds > (LLONG_MAX - now) / 1000 || seconds < LLONG_MIN / 1000) {
         read_status_ = read_status::storage_error;
         return false;
     }
-    return set_expiry(db, key, seconds <= 0 ? 0 : now + seconds * 1000, 0);
+    return set_expiry(db, name, seconds <= 0 ? 0 : now + seconds * 1000, 0);
 }
 
 bool json_key::encode_expiry(shared_db& db, std::string& bytes,
@@ -337,23 +337,23 @@ bool json_key::encode_expiry(shared_db& db, std::string& bytes,
     return true;
 }
 
-bool json_key::expiry_time(shared_db& db, const std::string& key, long long& ms) {
-    if (!read(db, key)) return false;
+bool json_key::expiry_time(shared_db& db, const std::string& name, long long& ms) {
+    if (!read(db, name)) return false;
     ms = view_->header().expires_at_ms;
     return true;
 }
 
-bool json_key::pttl(shared_db& db, const std::string& key, long long& ms) {
-    if (!read(db, key)) return false;
+bool json_key::pttl(shared_db& db, const std::string& name, long long& ms) {
+    if (!read(db, name)) return false;
     const auto deadline = view_->header().expires_at_ms;
     ms = deadline < 0 ? -1 : deadline - unix_time_ms();
     if (deadline >= 0 && ms < 0) ms = 0;
     return true;
 }
 
-bool json_key::ttl(shared_db& db, const std::string& key, long long& seconds) {
+bool json_key::ttl(shared_db& db, const std::string& name, long long& seconds) {
     long long ms;
-    if (!pttl(db, key, ms)) return false;
+    if (!pttl(db, name, ms)) return false;
     seconds = ms < 0 ? ms : ms / 1000 + (ms % 1000 >= 500);
     return true;
 }

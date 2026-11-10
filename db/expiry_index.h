@@ -38,7 +38,7 @@ private:
         // -1 proves empty; all stored deadlines are nonnegative.
         std::atomic<int64_t> first{-1};
     };
-    struct bucket {
+    struct expiry_bucket {
         mutable std::mutex mutex;
         std::vector<entry*> keys;
         heap deadlines;
@@ -49,15 +49,15 @@ private:
         void rehash_keys(size_t capacity);
         void erase_slot(size_t slot) noexcept;
     };
-    std::array<bucket, stripe_count> buckets_;
+    std::array<expiry_bucket, stripe_count> buckets_;
     std::array<hint, stripe_count> hints_;
     std::atomic<bool> dirty_{false};
     std::atomic<size_t> cursor_{0};
     static size_t home_slot(size_t hash, size_t mask) noexcept {
         return (hash / stripe_count) & mask;
     }
-    hint& cached(bucket& value);
-    void publish_first(bucket& value, bool exact);
+    hint& cached(expiry_bucket& value);
+    void publish_first(expiry_bucket& value, bool exact);
     static void fix_heap(heap& deadlines, size_t position);
     static bool collect_due(const heap& deadlines, size_t position,
         int64_t now, size_t limit, std::vector<std::string>& out);

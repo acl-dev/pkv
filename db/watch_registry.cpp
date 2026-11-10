@@ -16,7 +16,7 @@ bool watch_subscription::valid(long long now) const {
         (state_->deadline < 0 || now < state_->deadline);
 }
 
-watch_registry::bucket& watch_registry::stripe(const std::string& key) {
+watch_registry::watch_bucket& watch_registry::stripe(const std::string& key) {
     return buckets_[std::hash<std::string>()(key) % buckets_.size()];
 }
 

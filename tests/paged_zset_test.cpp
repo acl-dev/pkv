@@ -729,7 +729,7 @@ static void test_extended_compact_codec() {
     for (unsigned count : {63U, 64U, 127U, 128U}) {
         std::vector<entry> values;
         for (unsigned i = 0; i < count; ++i) {
-            char member[8];
+            char member[16];
             std::snprintf(member, sizeof member, "%03u", i);
             values.emplace_back(member, 0);
         }

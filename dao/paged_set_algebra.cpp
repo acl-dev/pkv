@@ -7,7 +7,7 @@ namespace pkv {
 namespace dao {
 
 bool paged_set::accept(stores& sources, const std::string& first,
-    const std::string& member, set_operation operation, bool& accepted) {
+    const std::string& member, set_operation mode, bool& accepted) {
     accepted = true;
     for (auto& item : sources) {
         if (item.first == first) continue;
@@ -16,8 +16,8 @@ bool paged_set::accept(stores& sources, const std::string& first,
             read_status_ = map_read_status(item.second->error());
             return false;
         }
-        if ((operation == set_operation::intersect && !found) ||
-            (operation == set_operation::difference && found)) {
+        if ((mode == set_operation::intersect && !found) ||
+            (mode == set_operation::difference && found)) {
             accepted = false; break;
         }
     }
@@ -30,7 +30,7 @@ static bool comparable_grouped_sets(const map_store& left, const map_store& righ
 }
 
 bool paged_set::compare_grouped_sets(map_store& left, map_store& right,
-    set_operation operation, const std::function<void(const std::string&)>& emit) {
+    set_operation mode, const std::function<void(const std::string&)>& emit) {
     std::vector<std::string> members;
     constexpr size_t bucket_limit = 256;
     constexpr size_t bytes_limit = 128 * 1024;
@@ -78,7 +78,7 @@ bool paged_set::compare_grouped_sets(map_store& left, map_store& right,
                 while (next != members.cend() && *next < member) ++next;
                 found = next != members.cend() && *next == member;
             }
-            if (found == (operation == set_operation::intersect)) emit(member);
+            if (found == (mode == set_operation::intersect)) emit(member);
             return true;
         };
         if (!left.visit_set_bucket(bucket, std::cref(compare))) {
@@ -138,7 +138,7 @@ static bool compact_algebra(page_transaction& tx,
 }
 
 bool paged_set::algebra(shared_db& db,
-    const std::vector<std::string>& keys, set_operation operation,
+    const std::vector<std::string>& keys, set_operation mode,
     const std::string* destination, std::set<std::string>& out) {
     reset(); out.clear();
     if (keys.empty()) {
@@ -188,7 +188,7 @@ bool paged_set::algebra(shared_db& db,
         };
         bool packed_inputs;
         try {
-            packed_inputs = compact_algebra(tx, keys, operation, out);
+            packed_inputs = compact_algebra(tx, keys, mode, out);
         } catch (const std::runtime_error&) {
             read_status_ = read_status::invalid_record;
             return false;
@@ -197,7 +197,7 @@ bool paged_set::algebra(shared_db& db,
         stores values;
         if (!sources(db, tx, keys, values)) return false;
         auto candidate = values.find(keys.front());
-        if (operation == set_operation::intersect) {
+        if (mode == set_operation::intersect) {
             candidate = std::min_element(values.begin(), values.end(),
                 [](const stores::value_type& a, const stores::value_type& b) {
                 return a.second->metadata().elements <
@@ -207,8 +207,8 @@ bool paged_set::algebra(shared_db& db,
         bool probe_failed = false;
         const auto collect = [&](const std::string& member) {
             bool accepted = true;
-            if (operation != set_operation::unite && !accept(values,
-                candidate->first, member, operation, accepted)) {
+            if (mode != set_operation::unite && !accept(values,
+                candidate->first, member, mode, accepted)) {
                 probe_failed = true;
                 return false;
             }
@@ -222,9 +222,9 @@ bool paged_set::algebra(shared_db& db,
         };
         // SDIFF with a repeated first input is always empty, but all input
         // types were validated above before this short circuit.
-        const bool repeated = operation == set_operation::difference &&
+        const bool repeated = mode == set_operation::difference &&
             std::count(keys.begin(), keys.end(), keys.front()) > 1;
-        if (operation == set_operation::unite) {
+        if (mode == set_operation::unite) {
             for (auto& item : values) {
                 if (!scan(*item.second)) return false;
             }
@@ -236,7 +236,7 @@ bool paged_set::algebra(shared_db& db,
                 auto& right = *other->second;
                 if (comparable_grouped_sets(left, right)) {
                     const auto emit = [&](const std::string& member) { out.insert(member); };
-                    if (!compare_grouped_sets(left, right, operation, std::cref(emit)))
+                    if (!compare_grouped_sets(left, right, mode, std::cref(emit)))
                         return false;
                 } else if (!scan(left)) return false;
             } else if (!scan(*candidate->second)) return false;

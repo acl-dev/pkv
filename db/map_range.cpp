@@ -179,10 +179,10 @@ bool map_store::select_score_paths(const score_rank_node& node, uint64_t base,
     if (node.summary.height != height || node.summary.elements != count ||
         balance < -1 || balance > 1)
         return fail(status::invalid);
-    const auto before = [](const score_rank_node& left, const score_rank_node& right) {
-        const auto size = std::min(left.key_size, right.key_size);
-        const int order = std::memcmp(left.key.data(), right.key.data(), size);
-        return order < 0 || (!order && left.key_size < right.key_size);
+    const auto before = [](const score_rank_node& a, const score_rank_node& b) {
+        const auto size = std::min(a.key_size, b.key_size);
+        const int order = std::memcmp(a.key.data(), b.key.data(), size);
+        return order < 0 || (!order && a.key_size < b.key_size);
     };
     if ((lower && !before(*lower, node)) || (upper && !before(node, *upper)))
         return fail(status::invalid);

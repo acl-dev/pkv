@@ -408,11 +408,11 @@ private:
         if (!fill(first + middle, node) || !allocate(node.id)) return false;
         // Only ordered appends can encode directly into the final page.
         if (auto* bytes = transaction_.append_sorted_page(entry_, node.id)) {
-            const auto status = writes_compact_set_reference(node) ?
+            const auto encoded = writes_compact_set_reference(node) ?
                 map_page_codec::encode_set_reference(node, *bytes) :
                 map_page_codec::encode_packed_node(node, *bytes, !lexical_,
                     writes_compact_zset_node(node), compact_set_leaf);
-            if (!decoded(status)) return false;
+            if (!decoded(encoded)) return false;
         } else if (!write(node)) return false;
         tree = node.id; height = node.height;
         return true;
@@ -474,8 +474,8 @@ private:
     struct value_gate {
         using check = bool (*)(void*, const map_blob&, bool&);
         using transform = bool (*)(void*, const map_blob*, std::string&);
-        value_gate(check inspect, void* context, transform make = nullptr)
-            : inspect(inspect), context(context), make(make) {}
+        value_gate(check check_value, void* state, transform build = nullptr)
+            : inspect(check_value), context(state), make(build) {}
         check inspect;
         void* context;
         transform make;

@@ -5,11 +5,11 @@
 namespace pkv {
 namespace dao {
 
-bool paged_string::bitop(shared_db& db, bitmap_operation operation,
+bool paged_string::bitop(shared_db& db, bitmap_operation mode,
     const std::vector<std::string>& sources, const std::string& destination,
     long long& length) {
     reset(); length = 0;
-    if (!valid_bitop(operation, sources.size())) {
+    if (!valid_bitop(mode, sources.size())) {
         read_status_ = read_status::invalid_record; return false;
     }
     auto locked = sources;
@@ -45,7 +45,7 @@ bool paged_string::bitop(shared_db& db, bitmap_operation operation,
             return true;
         }
         string_store target(tx, destination);
-        const bool uses_state = bitop_uses_state(operation);
+        const bool uses_state = bitop_uses_state(mode);
         std::string state, input;
         const auto produce = [&](uint64_t offset, size_t count,
             std::string& out) {
@@ -56,12 +56,12 @@ bool paged_string::bitop(shared_db& db, bitmap_operation operation,
             }
             out.resize(count, '\0');
             for (size_t i = 1; i < inputs.size(); ++i) {
-                if (!inputs[i]->fold(offset, count, operation, &out[0],
+                if (!inputs[i]->fold(offset, count, mode, &out[0],
                     mask, input)) {
                     read_status_ = inputs[i]->error(); return false;
                 }
             }
-            bitop_finish(operation, &out[0], mask, count);
+            bitop_finish(mode, &out[0], mask, count);
             return true;
         };
         if (!target.replace_chunks(size, produce)) {

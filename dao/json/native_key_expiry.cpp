@@ -17,19 +17,19 @@ bool expiry_matches(long long previous, long long deadline,
 }
 } // namespace
 
-bool json_key::set_expiry(shared_db& db, const std::string& key,
+bool json_key::set_expiry(shared_db& db, const std::string& name,
     long long deadline, unsigned conditions) {
-    return update_expiry(db, key, deadline, conditions, false);
+    return update_expiry(db, name, deadline, conditions, false);
 }
-bool json_key::persist(shared_db& db, const std::string& key) {
-    return update_expiry(db, key, -1, 0, true);
+bool json_key::persist(shared_db& db, const std::string& name) {
+    return update_expiry(db, name, -1, 0, true);
 }
 
-bool json_key::update_expiry(shared_db& db, const std::string& key,
+bool json_key::update_expiry(shared_db& db, const std::string& name,
     long long deadline, unsigned conditions, bool persist, bool native) {
     bool changed = false, valid = true, migrate = false;
     reset();
-    const bool ok = db->update_root(key,
+    const bool ok = db->update_root(name,
         [&](bool found, std::string& bytes, bool& preserve_pages) {
         if (!found) return db::update_action::keep;
         record_header header;
@@ -57,21 +57,21 @@ bool json_key::update_expiry(shared_db& db, const std::string& key,
     if (!ok || !valid) return false;
     if (!migrate) return changed;
     bool unsupported = false;
-    if (migrate_expiry(db, key, deadline, conditions, persist, changed,
+    if (migrate_expiry(db, name, deadline, conditions, persist, changed,
         unsupported)) return changed;
     // Nonpage engines and observers retain their legacy-compatible path.
     // Unsupported transactions commit nothing, so retry the current value.
     if (unsupported)
-        return update_expiry(db, key, deadline, conditions, persist, false);
+        return update_expiry(db, name, deadline, conditions, persist, false);
     return false;
 }
 
-bool json_key::migrate_expiry(shared_db& db, const std::string& key,
+bool json_key::migrate_expiry(shared_db& db, const std::string& name,
     long long deadline, unsigned conditions, bool persist, bool& changed,
     bool& unsupported) {
     changed = false; unsupported = false;
-    const auto result = db->transact_pages({key}, [&](page_transaction& tx) {
-        auto& root = *tx.roots().find(key);
+    const auto result = db->transact_pages({name}, [&](page_transaction& tx) {
+        auto& root = *tx.roots().find(name);
         if (!root.found) return true;
         // Recheck under the new lock: another actor may replace the key
         // between the metadata probe and this transaction.
@@ -88,7 +88,7 @@ bool json_key::migrate_expiry(shared_db& db, const std::string& key,
             changed = true; return true;
         }
         if (!native_root && !view_->paged_payload()) {
-            if (!import_native(*view_, tx, key, read_status_) ||
+            if (!import_native(*view_, tx, name, read_status_) ||
                 !decode_metadata(db, root.value, header, native_root)) return false;
         }
         bool preserve = false;

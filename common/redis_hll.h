@@ -31,8 +31,8 @@ bool count_encoded(const std::string& value, uint64_t& result);
 struct run {
     size_t length, bytes;
     uint8_t value;
-    run(size_t length = 0, size_t bytes = 0, uint8_t value = 0)
-        : length(length), bytes(bytes), value(value) {}
+    run(size_t count = 0, size_t width = 0, uint8_t register_value = 0)
+        : length(count), bytes(width), value(register_value) {}
 };
 inline bool decode_run(const std::string& value, size_t offset, run& out) {
     if (offset >= value.size()) return false;

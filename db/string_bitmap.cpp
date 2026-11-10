@@ -22,16 +22,16 @@ bool string_store::getbit(uint64_t offset, long long& bit) {
         } selected(string_page_codec::page_size(root_, index),
             static_cast<size_t>(byte % string_page_codec::page_bytes));
         const auto inspect = [](void* raw, const std::string& bytes) {
-            auto& selected = *static_cast<read_byte*>(raw);
-            if (bytes.size() != selected.page_size) return;
-            selected.value = static_cast<unsigned char>(bytes[selected.offset]);
-            selected.valid = true;
+            auto& task = *static_cast<read_byte*>(raw);
+            if (bytes.size() != task.page_size) return;
+            task.value = static_cast<unsigned char>(bytes[task.offset]);
+            task.valid = true;
         };
         std::string scratch;
-        const auto status = transaction_.inspect_bound(entry_, index + 1,
+        const auto lookup = transaction_.inspect_bound(entry_, index + 1,
             scratch, inspect, &selected);
-        if (status != db::lookup_status::found || !selected.valid)
-            return fail(status == db::lookup_status::error ?
+        if (lookup != db::lookup_status::found || !selected.valid)
+            return fail(lookup == db::lookup_status::error ?
                 string_store::status::storage : string_store::status::invalid);
         value = selected.value;
     }

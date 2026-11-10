@@ -198,13 +198,13 @@ bool paged_zset::finish(source_map& sources) {
 }
 
 bool paged_zset::algebra(shared_db& db,
-    const std::vector<std::string>& keys, zset_operation operation,
+    const std::vector<std::string>& keys, zset_operation mode,
     const std::string* destination, bool cardinality_only,
     const zset_options_parser& configure, std::vector<zset_member>& out,
     long long& cardinality) {
     reset(); out.clear(); cardinality = 0;
     if (keys.empty() || (cardinality_only &&
-        (destination || operation != zset_operation::intersect))) {
+        (destination || mode != zset_operation::intersect))) {
         read_status_ = read_status::invalid_integer; return false;
     }
     auto locked = keys;
@@ -234,7 +234,7 @@ bool paged_zset::algebra(shared_db& db,
         }
         for (size_t i = 0; i < keys.size(); ++i)
             inputs[i] = {snapshots.at(keys[i]).get(), options.weights[i]};
-        if (operation != zset_operation::difference)
+        if (mode != zset_operation::difference)
             std::qsort(inputs, keys.size(), sizeof(input),
                 [](const void* a, const void* b) {
                 const auto first = static_cast<const input*>(a)->source->size;
@@ -251,12 +251,12 @@ bool paged_zset::algebra(shared_db& db,
         };
         std::map<std::string, double> values;
         bool valid = true;
-        if (operation == zset_operation::unite) {
+        if (mode == zset_operation::unite) {
             for (size_t i = 0; i < keys.size(); ++i) {
-                const auto& input = inputs[i];
-                if (!input.source->visit([&](const std::string& member,
+                const auto& operand = inputs[i];
+                if (!operand.source->visit([&](const std::string& member,
                     double score) {
-                    double weighted = score * input.weight;
+                    double weighted = score * operand.weight;
                     if (std::isnan(weighted)) weighted = 0;
                     auto inserted = values.emplace(member, weighted);
                     if (!inserted.second) inserted.first->second =
@@ -274,7 +274,7 @@ bool paged_zset::algebra(shared_db& db,
         } else if (inputs[0].source->size) {
             if (!inputs[0].source->visit([&](const std::string& member,
                 double score) {
-                double total = operation == zset_operation::difference ?
+                double total = mode == zset_operation::difference ?
                     score : score * inputs[0].weight;
                 if (std::isnan(total)) total = 0;
                 for (size_t i = 1; i < keys.size(); ++i) {
@@ -284,7 +284,7 @@ bool paged_zset::algebra(shared_db& db,
                     if (!inputs[i].source->get(member, other)) {
                         valid = false; return false;
                     }
-                    if (operation == zset_operation::difference) {
+                    if (mode == zset_operation::difference) {
                         if (other.found) return true;
                     } else {
                         if (!other.found) return true;

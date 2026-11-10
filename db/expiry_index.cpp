@@ -8,7 +8,7 @@ namespace {
 constexpr size_t initial_key_slots = 4;
 }
 
-size_t expiry_index::bucket::find_slot(size_t hash, const std::string& key) const {
+size_t expiry_index::expiry_bucket::find_slot(size_t hash, const std::string& key) const {
     if (keys.empty()) return 0;
     const auto mask = keys.size() - 1;
     auto slot = home_slot(hash, mask);
@@ -19,7 +19,7 @@ size_t expiry_index::bucket::find_slot(size_t hash, const std::string& key) cons
     return slot;
 }
 
-void expiry_index::bucket::rehash_keys(size_t capacity) {
+void expiry_index::expiry_bucket::rehash_keys(size_t capacity) {
     std::vector<entry*> next(capacity);
     const auto mask = next.size() - 1;
     for (const auto& item : deadlines) {
@@ -30,7 +30,7 @@ void expiry_index::bucket::rehash_keys(size_t capacity) {
     keys.swap(next);
 }
 
-void expiry_index::bucket::erase_slot(size_t slot) noexcept {
+void expiry_index::expiry_bucket::erase_slot(size_t slot) noexcept {
     const auto mask = keys.size() - 1;
     keys[slot] = nullptr;
     for (auto next = (slot + 1) & mask; keys[next]; next = (next + 1) & mask) {
@@ -42,10 +42,10 @@ void expiry_index::bucket::erase_slot(size_t slot) noexcept {
         slot = next;
     }
 }
-expiry_index::hint& expiry_index::cached(bucket& value) {
+expiry_index::hint& expiry_index::cached(expiry_bucket& value) {
     return hints_[static_cast<size_t>(&value - buckets_.data())];
 }
-void expiry_index::publish_first(bucket& value, bool exact) {
+void expiry_index::publish_first(expiry_bucket& value, bool exact) {
     const auto first = value.deadlines.empty() ? int64_t(-1) :
         value.deadlines.front()->deadline;
     auto& first_hint = cached(value).first;

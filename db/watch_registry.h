@@ -44,13 +44,13 @@ private:
         std::shared_ptr<watch_subscription::epoch> state;
         size_t observers = 0;
     };
-    struct bucket {
+    struct watch_bucket {
         std::mutex mutex;
         std::atomic<size_t> active{0};
         std::unordered_map<std::string, entry> entries;
     };
-    std::array<bucket, 256> buckets_;
-    bucket& stripe(const std::string& key);
+    std::array<watch_bucket, 256> buckets_;
+    watch_bucket& stripe(const std::string& key);
     void release(const std::string& key,
         const std::shared_ptr<watch_subscription::epoch>& state);
 };

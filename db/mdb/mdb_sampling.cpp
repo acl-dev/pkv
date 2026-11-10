@@ -75,15 +75,15 @@ db::scan_status mdb::dbkey_at_rank(uint64_t rank, std::string& out,
     return scan_status::ok;
 }
 db::scan_status mdb::dbvisit_keys(const key_visitor& visit) {
-    for (const auto& store : stores_)
-        for (size_t i = 0; i < store->keys.size(); ++i)
-            if (!visit(store->keys[i]->first)) return scan_status::ok;
+    for (const auto& shard : stores_)
+        for (size_t i = 0; i < shard->keys.size(); ++i)
+            if (!visit(shard->keys[i]->first)) return scan_status::ok;
     return scan_status::ok;
 }
 db::scan_status mdb::dbvisit_root_records(const root_visitor& visit) {
-    for (const auto& store : stores_)
-        for (size_t i = 0; i < store->keys.size(); ++i) {
-            const auto& entry = *store->keys[i];
+    for (const auto& shard : stores_)
+        for (size_t i = 0; i < shard->keys.size(); ++i) {
+            const auto& entry = *shard->keys[i];
             if (!visit(entry.first, entry.second.value)) return scan_status::ok;
         }
     return scan_status::ok;

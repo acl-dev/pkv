@@ -391,9 +391,9 @@ bool zset_store::put_score(const std::string& member, double& score,
         std::string external;
         if (blob.head && !value.store.members_->read_blob(blob, external))
             return value.store.tree_error();
-        const auto& bytes = blob.head ? external : blob.inline_value;
+        const auto& encoded_score = blob.head ? external : blob.inline_value;
         double old;
-        if (!zset_page_codec::decode_value(bytes, old))
+        if (!zset_page_codec::decode_value(encoded_score, old))
             return value.store.fail(status::invalid);
         if (value.increment) value.score = old + value.score;
         replace = old != value.score;

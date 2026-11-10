@@ -145,13 +145,13 @@ bool list_store::splice(position begin, position end,
     return true;
 }
 
-bool list_store::replace(long long position, const std::string& value,
+bool list_store::replace(long long member_index, const std::string& value,
     bool& found) {
     found = false;
     if (error_ != status::ok) return false;
     if (value.size() > max_member_bytes) return fail(status::too_large);
     size_t index;
-    if (!list_index(static_cast<size_t>(root_.elements), position, index)) {
+    if (!list_index(static_cast<size_t>(root_.elements), member_index, index)) {
         return true;
     }
     list_page_update update;

@@ -3,6 +3,7 @@
 #include "db/database_pool.h"
 #include "db/move_domain.h"
 #include "db/move_recovery.h"
+#include <cerrno>
 #include <csignal>
 #include <stdexcept>
 
@@ -11,7 +12,7 @@ static void require(bool ok) { if (!ok) std::_Exit(2); }
 static void pause_startup() {
     std::puts("READY"); std::fflush(stdout);
     char byte;
-    (void) ::read(STDIN_FILENO, &byte, 1);
+    while (::read(STDIN_FILENO, &byte, 1) == -1 && errno == EINTR) {}
     std::_Exit(2);
 }
 static shared_db open_database(const std::string& backend,

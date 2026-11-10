@@ -67,13 +67,13 @@ bool paged_string::bitfield(shared_db& db, const std::string& key,
     std::vector<bitfield_reply>& out) {
     reset(); out.clear();
     uint64_t length = 0;
-    for (const auto& operation : operations) {
-        if (!valid_bitfield(operation)) {
+    for (const auto& field : operations) {
+        if (!valid_bitfield(field)) {
             read_status_ = read_status::invalid_record; return false;
         }
-        if (operation.command != field_command::get)
+        if (field.command != field_command::get)
             length = std::max(length,
-                (operation.offset + operation.bits + 7) / 8);
+                (field.offset + field.bits + 7) / 8);
     }
     if (readonly && length) {
         read_status_ = read_status::readonly_bitfield; return false;
@@ -86,17 +86,17 @@ bool paged_string::bitfield(shared_db& db, const std::string& key,
                 read_status_ = source.error(); return false;
             }
             out.reserve(operations.size());
-            for (const auto& operation : operations) {
+            for (const auto& field : operations) {
                 std::string bytes;
-                const auto count = field_bytes(operation);
-                if (!source.read(operation.offset / 8, count, bytes)) {
+                const auto count = field_bytes(field);
+                if (!source.read(field.offset / 8, count, bytes)) {
                     read_status_ = source.error(); return false;
                 }
                 bytes.resize(count, '\0');
                 bitfield_reply reply;
                 reply.value = field_read(bytes,
-                    static_cast<unsigned>(operation.offset % 8),
-                    operation.bits, operation.sign);
+                    static_cast<unsigned>(field.offset % 8),
+                    field.bits, field.sign);
                 out.push_back(reply);
             }
             return true;
@@ -120,9 +120,9 @@ bool paged_string::bitfield(shared_db& db, const std::string& key,
         if (length > store.metadata().length &&
             !store.write_field(length - 1, std::string(1, '\0'))) return false;
         out.reserve(operations.size());
-        for (const auto& operation : operations) {
+        for (const auto& field : operations) {
             bitfield_reply reply;
-            if (!execute_field(store, operation, reply)) return false;
+            if (!execute_field(store, field, reply)) return false;
             out.push_back(reply);
         }
         return true;

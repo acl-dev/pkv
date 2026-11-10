@@ -86,9 +86,9 @@ bool list_store::compact_range(uint64_t skip, uint64_t count, bool reverse,
         std::vector<std::string>& values;
     } job{skip, count, reverse, 0, list_page_status::invalid, page, values};
     const auto read = [](void* raw, const std::string& bytes) {
-        auto& job = *static_cast<request*>(raw);
-        job.status = list_page_codec::range_compact(bytes, job.skip, job.take,
-            job.reverse, max_member_bytes, job.members, job.page, job.values);
+        auto& task = *static_cast<request*>(raw);
+        task.status = list_page_codec::range_compact(bytes, task.skip, task.take,
+            task.reverse, max_member_bytes, task.members, task.page, task.values);
     };
     while (id) {
         if (!inspect(id, scratch, read, &job)) return false;
@@ -162,9 +162,9 @@ bool list_store::compact_index(uint64_t offset, list_page_update& result,
         list_page_status status;
     } job{result, skip, reverse, replacement, 0, list_page_status::invalid};
     const auto read = [](void* raw, const std::string& bytes) {
-        auto& job = *static_cast<request*>(raw);
-        job.status = list_page_codec::index_compact(bytes, job.skip,
-            job.reverse, max_member_bytes, job.count, job.result, job.replacement);
+        auto& task = *static_cast<request*>(raw);
+        task.status = list_page_codec::index_compact(bytes, task.skip,
+            task.reverse, max_member_bytes, task.count, task.result, task.replacement);
     };
     while (id) {
         job.skip = skip;
@@ -187,11 +187,11 @@ bool list_store::compact_index(uint64_t offset, list_page_update& result,
     return fail(status::invalid);
 }
 
-bool list_store::index(long long position, std::string& out, bool& found) {
+bool list_store::index(long long member_index, std::string& out, bool& found) {
     found = false;
     if (error_ != status::ok) return false;
     size_t offset;
-    if (!list_index(static_cast<size_t>(root_.elements), position, offset)) {
+    if (!list_index(static_cast<size_t>(root_.elements), member_index, offset)) {
         return true;
     }
     list_page_update result;

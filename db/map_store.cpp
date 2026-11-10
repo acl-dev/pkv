@@ -379,24 +379,24 @@ bool map_store::load_score_rank_node(uint64_t id, uint64_t first_rank,
         map_page_status result;
     } job{*this, id, first_rank, node, map_page_status::invalid};
     const auto decode = [](void* raw, const std::string& bytes) {
-        auto& job = *static_cast<read_job*>(raw);
+        auto& task = *static_cast<read_job*>(raw);
         map_node_view view;
-        job.result = map_page_codec::decode_node_view_scratch(bytes, view);
-        if (job.result != map_page_status::ok) return;
-        if (!job.store.validate_node(job.id, view, view.key.data, view.key.inline_size())) {
-            job.result = map_page_status::invalid;
+        task.result = map_page_codec::decode_node_view_scratch(bytes, view);
+        if (task.result != map_page_status::ok) return;
+        if (!task.store.validate_node(task.id, view, view.key.data, view.key.inline_size())) {
+            task.result = map_page_status::invalid;
             return;
         }
-        auto& node = job.node;
-        node.summary = {view.height, view.elements};
+        auto& output = task.node;
+        output.summary = {view.height, view.elements};
         // An unvisited child contributes only its validated subtree summary.
-        if (job.first_rank >= view.elements) return;
-        node.left = view.left;
-        node.right = view.right;
-        node.fragmented = view.key.head != 0;
-        node.has_value = view.value.length != 0;
-        node.key_size = view.key.inline_size();
-        std::memcpy(node.key.data(), view.key.data, node.key_size);
+        if (task.first_rank >= view.elements) return;
+        output.left = view.left;
+        output.right = view.right;
+        output.fragmented = view.key.head != 0;
+        output.has_value = view.value.length != 0;
+        output.key_size = view.key.inline_size();
+        std::memcpy(output.key.data(), view.key.data, output.key_size);
     };
     return inspect(id, node_bytes_.buffer(), decode, &job) && decoded(job.result);
 }
@@ -558,14 +558,14 @@ bool map_store::find_inline(const std::string& key, unsigned key_bucket,
                 changed.value.head = view.value.head;
                 // External values use the ordinary fragment replacement path.
                 if (view.value.head) return;
-                const auto& replacement = *task.replacement;
+                const auto& next_value = *task.replacement;
                 changed.id = 0;
-                if (view.value.length == replacement.size() &&
-                    std::memcmp(view.value.data, replacement.data(),
-                        replacement.size()) == 0) return;
+                if (view.value.length == next_value.size() &&
+                    std::memcmp(view.value.data, next_value.data(),
+                        next_value.size()) == 0) return;
                 try {
                     changed.key.inline_value.assign(task.key);
-                    changed.value.inline_value.assign(replacement);
+                    changed.value.inline_value.assign(next_value);
                     changed.id = view.id;
                     changed.bucket = view.bucket;
                     changed.bucket_derived = view.bucket_derived;
@@ -574,7 +574,7 @@ bool map_store::find_inline(const std::string& key, unsigned key_bucket,
                     changed.height = view.height;
                     changed.elements = view.elements;
                     changed.key.length = size;
-                    changed.value.length = replacement.size();
+                    changed.value.length = next_value.size();
                 } catch (const std::bad_alloc&) {
                     task.status = map_page_status::out_of_memory;
                 }
@@ -585,17 +585,17 @@ bool map_store::find_inline(const std::string& key, unsigned key_bucket,
                     view.value.inline_size());
                 task.value.head = view.value.head;
                 task.value.length = view.value.length;
-                auto* edit = task.edit;
-                if (edit && !view.value.head &&
-                    view.value.length == edit->replacement.size()) {
-                    edit->id = view.id;
-                    if (task.value.inline_value != edit->replacement) {
+                auto* page_edit = task.edit;
+                if (page_edit && !view.value.head &&
+                    view.value.length == page_edit->replacement.size()) {
+                    page_edit->id = view.id;
+                    if (task.value.inline_value != page_edit->replacement) {
                         // Preserve the validated page layout. The caller stages
                         // this copy only after checking the path and old score.
                         const auto offset = view.value.data - bytes.data();
-                        edit->bytes.assign(bytes);
-                        std::memcpy(&edit->bytes[offset], edit->replacement.data(),
-                            edit->replacement.size());
+                        page_edit->bytes.assign(bytes);
+                        std::memcpy(&page_edit->bytes[offset], page_edit->replacement.data(),
+                            page_edit->replacement.size());
                     }
                 }
             } catch (const std::bad_alloc&) {
@@ -611,9 +611,9 @@ bool map_store::find_inline(const std::string& key, unsigned key_bucket,
             return inspect(id, node_bytes_.buffer(), decode, &job) &&
                 decoded(job.status);
         // The parent decoder has already checked this nonzero child ID.
-        const auto result = native->inspect(id, decode, &job);
-        if (result == db::lookup_status::found) return decoded(job.status);
-        if (result == db::lookup_status::error) {
+        const auto lookup = native->inspect(id, decode, &job);
+        if (lookup == db::lookup_status::found) return decoded(job.status);
+        if (lookup == db::lookup_status::error) {
             transaction_.storage_error_ = true;
             return fail(status::storage);
         }
@@ -766,7 +766,7 @@ bool map_store::find_in_bucket(const std::string& key, unsigned bucket,
 }
 
 bool map_store::find_many(lookup_request* first, lookup_request* last,
-    lookup_visitor visit, void* context) {
+    lookup_visitor on_match, void* context) {
     for (auto* item = first; item != last; ++item)
         item->bucket = bucket(*item->key);
     std::sort(first, last, [](const lookup_request& a, const lookup_request& b) {
@@ -776,7 +776,7 @@ bool map_store::find_many(lookup_request* first, lookup_request* last,
     map_node node;
     node_summary result;
     return find_many_path(root_.tree, root_.elements,
-        map_page_codec::max_height + 1, first, last, visit, context, result, node);
+        map_page_codec::max_height + 1, first, last, on_match, context, result, node);
 }
 
 namespace {
@@ -799,7 +799,7 @@ bool split_lookup_requests(Request*& first, Request* last, bool& matched,
 
 bool map_store::find_many_path(uint64_t id, uint64_t limit, uint32_t height,
     lookup_request* first, lookup_request* last,
-    lookup_visitor visit, void* context, node_summary& result, map_node& node) {
+    lookup_visitor on_match, void* context, node_summary& result, map_node& node) {
     if (first == last || !id) return stats(id, result.height, result.elements);
     struct search {
         map_store& store;
@@ -823,23 +823,23 @@ bool map_store::find_many_path(uint64_t id, uint64_t limit, uint32_t height,
             task.status = map_page_status::invalid;
             return;
         }
-        auto& node = task.node;
-        node.bucket = view.bucket;
-        node.left = view.left;
-        node.right = view.right;
-        node.height = view.height;
-        node.elements = view.elements;
-        node.key.head = view.key.head;
-        node.key.length = view.key.length;
+        auto& output = task.node;
+        output.bucket = view.bucket;
+        output.left = view.left;
+        output.right = view.right;
+        output.height = view.height;
+        output.elements = view.elements;
+        output.key.head = view.key.head;
+        output.key.length = view.key.length;
         if (view.key.shared) {
             try {
-                node.key.inline_value.assign(view.key.data, size);
+                output.key.inline_value.assign(view.key.data, size);
             } catch (const std::bad_alloc&) {
                 task.status = map_page_status::out_of_memory;
                 return;
             }
         } else {
-            node.key.inline_value.clear();
+            output.key.inline_value.clear();
         }
         if (!view.key.head) {
             split_lookup_requests(task.middle, task.last, task.matched,
@@ -855,13 +855,13 @@ bool map_store::find_many_path(uint64_t id, uint64_t limit, uint32_t height,
                     return true;
                 });
         }
-        node.value.head = view.value.head;
-        node.value.length = view.value.length;
-        // The visitor runs after inspection. Own only the matched value,
+        output.value.head = view.value.head;
+        output.value.length = view.value.length;
+        // The on_match runs after inspection. Own only the matched value,
         // or a possible match when the key comparison needs fragments.
         if (!task.store.lexical_ && (task.matched || view.key.head)) {
             try {
-                node.value.inline_value.assign(view.value.data, view.value.inline_size());
+                output.value.inline_value.assign(view.value.data, view.value.inline_size());
             } catch (const std::bad_alloc&) {
                 task.status = map_page_status::out_of_memory;
             }
@@ -885,7 +885,7 @@ bool map_store::find_many_path(uint64_t id, uint64_t limit, uint32_t height,
         // The last update to the upper bound compared the first candidate.
         // Equal requests reuse that match, including fragmented keys.
         do {
-            if (!visit(context, right->index, node.value)) return false;
+            if (!on_match(context, right->index, node.value)) return false;
             ++right;
         } while (right != last && *right->key == *middle->key);
     }
@@ -898,9 +898,9 @@ bool map_store::find_many_path(uint64_t id, uint64_t limit, uint32_t height,
     // needs a separate summary read to validate the parent's metadata.
     node_summary left_summary, right_summary;
     if (!find_many_path(left, expected.elements - 1, expected.height,
-            first, middle, visit, context, left_summary, node) ||
+            first, middle, on_match, context, left_summary, node) ||
         !find_many_path(next, expected.elements - 1, expected.height,
-            right, last, visit, context, right_summary, node)) return false;
+            right, last, on_match, context, right_summary, node)) return false;
     int balance;
     if (!summarize(left_summary.height, right_summary.height,
             left_summary.elements, right_summary.elements,
@@ -1213,13 +1213,13 @@ bool map_store::transform_hash_field(const std::string& key,
         const hash_transform& fn;
     } job{*this, old_limit, fn};
     const auto transform = [](void* raw, const map_blob* old, std::string& out) {
-        auto& job = *static_cast<state*>(raw);
+        auto& task = *static_cast<state*>(raw);
         std::string value;
-        const bool exceeded = old && old->length > job.old_limit;
-        if (old && !exceeded && !job.store.read_blob(*old, value)) return false;
-        if (!job.fn(old ? &value : nullptr, exceeded, out)) return false;
+        const bool exceeded = old && old->length > task.old_limit;
+        if (old && !exceeded && !task.store.read_blob(*old, value)) return false;
+        if (!task.fn(old ? &value : nullptr, exceeded, out)) return false;
         return out.size() <= map_page_codec::max_payload_bytes ||
-            job.store.fail(status::too_large);
+            task.store.fail(status::too_large);
     };
     const value_gate gate{nullptr, &job, transform};
     bool added;

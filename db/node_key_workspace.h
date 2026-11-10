@@ -44,10 +44,10 @@ public:
     explicit node_key_workspace(bool enabled, bool borrow = true)
         : enabled_(enabled) {
         if (!enabled || !borrow) return;
-        auto& value = local();
-        if (!value.state) initialize(value);
-        if (value.state == 1 && value.count)
-            key.inline_value.swap(at(value, --value.count));
+        auto& thread_cache = local();
+        if (!thread_cache.state) initialize(thread_cache);
+        if (thread_cache.state == 1 && thread_cache.count)
+            key.inline_value.swap(at(thread_cache, --thread_cache.count));
     }
     node_key_workspace(const node_key_workspace&) = delete;
     node_key_workspace& operator=(const node_key_workspace&) = delete;

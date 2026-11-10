@@ -36,7 +36,7 @@ transaction_queue::result transaction_queue::append(
     return result::queued;
 }
 std::vector<std::vector<std::string>> transaction_queue::take() {
-    std::vector<std::vector<std::string>> result;
-    result.swap(commands_); clear(); return result;
+    std::vector<std::vector<std::string>> queued_commands;
+    queued_commands.swap(commands_); clear(); return queued_commands;
 }
 } // namespace pkv

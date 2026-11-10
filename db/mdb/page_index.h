@@ -69,14 +69,14 @@ class mdb_page_index_impl {
         ~dense_prefix() { release_values(); }
         void release_values() noexcept {
             auto* storage = values;
-            const auto count = limit;
+            const auto slots = limit;
             values = nullptr; limit = 0;
             if (!storage) return;
             std::allocator<std::string> allocator;
-            for (size_t i = count; i; --i)
+            for (size_t i = slots; i; --i)
                 std::allocator_traits<std::allocator<std::string>>::destroy(
                     allocator, storage + i - 1);
-            allocator.deallocate(storage, count);
+            allocator.deallocate(storage, slots);
         }
         // limit records the constructed slots, avoiding a second
         // array-allocation cookie and its allocator size-class rounding.
